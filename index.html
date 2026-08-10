@@ -4220,8 +4220,8 @@
         // --- Delete ---
         window.confirmDelete = (i) => { pendingDeleteIndex = i; isDeleteAll = false; modal.msg.textContent = 'この曲を削除しますか？'; openModal(); };
         window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; modal.msg.textContent = '全て削除しますか？'; openModal(); };
-        function openModal() { modal.el.classList.remove('hidden'); requestAnimationFrame(()=>modal.el.classList.add('modal-active')); }
-        function closeModal() { modal.el.classList.remove('modal-active'); setTimeout(()=>modal.el.classList.add('hidden'),200); pendingDeleteIndex=-1; isDeleteAll=false; }
+        function openModal() { if(modal.el) { modal.el.classList.remove('hidden', 'modal-enter'); modal.el.classList.add('flex'); } }
+        function closeModal() { if(modal.el) { modal.el.classList.add('hidden'); modal.el.classList.remove('flex', 'modal-active'); } pendingDeleteIndex=-1; isDeleteAll=false; }
         
         async function executeDelete() {
             const idx = pendingDeleteIndex;
@@ -4395,6 +4395,8 @@
             if (modalEl) modalEl.classList.add('hidden');
             pendingMoveIndex = -1;
             
+            activePlaylist = destPlaylistName;
+            updatePlaylistDropdown();
             showNotification(`「${track.name}」を「${destPlaylistName}」に移動しました`);
             updatePlaylistUI();
         }
