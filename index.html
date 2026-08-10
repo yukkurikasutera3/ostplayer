@@ -3594,34 +3594,42 @@
                 const cx = w / 2;
                 const cy = h / 2;
                 const normBass = (bassEnergy / 255);
-                const time = Date.now() * 0.0015;
-                const hueBase = (time * 40) % 360;
 
-                // Ambient Radial Neon Glow (without shockwave rings)
+                // Clean Theme-Matched Blue Ambient Vignette Glow (NO Rainbow color cycling)
                 const maxRadius = Math.max(w, h) * (0.35 + normBass * 0.35);
                 const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxRadius);
                 
-                grad.addColorStop(0, `hsla(${hueBase}, 90%, 65%, ${0.2 + normBass * 0.35})`);
-                grad.addColorStop(0.5, `hsla(${(hueBase + 50) % 360}, 80%, 55%, ${0.1 + normBass * 0.2})`);
+                grad.addColorStop(0, `hsla(215, 90%, 60%, ${0.12 + normBass * 0.28})`);
+                grad.addColorStop(0.5, `hsla(250, 75%, 45%, ${0.05 + normBass * 0.15})`);
                 grad.addColorStop(1, 'transparent');
 
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, w, h);
             }
 
-            // Punchy Vertical Speaker-Kick Bounce Effect for Beat Bounce Mode
+            // Precise Drum Sub-Bass Kick Transient Bounce for Beat Bounce Mode
             const mainApp = document.getElementById('main-app-container');
             if (mainApp) {
-                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && bassEnergy > 20) {
-                    const normBass = Math.pow(bassEnergy / 255, 1.4);
-                    const scale = 1 + normBass * 0.045;
-                    const translateY = -normBass * 8;
+                // Sub-bass drum kick range (bins 0..3: 20Hz ~ 120Hz)
+                let subBassEnergy = 0;
+                if (analyser) {
+                    const len = analyser.frequencyBinCount;
+                    const buf = new Uint8Array(len);
+                    analyser.getByteFrequencyData(buf);
+                    for (let i = 0; i < 4; i++) subBassEnergy += (buf[i] || 0);
+                    subBassEnergy /= 4;
+                }
+
+                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && subBassEnergy > 25) {
+                    const kickNorm = Math.pow((subBassEnergy - 25) / 230, 1.1);
+                    const scale = 1 + kickNorm * 0.055;        // 1.00 ~ 1.055 sharp drum kick
+                    const translateY = -kickNorm * 14;          // 0px ~ -14px punchy vertical kick
                     
                     mainApp.style.transform = `scale(${scale}) translateY(${translateY}px)`;
-                    mainApp.style.transition = 'transform 0.03s cubic-bezier(0.1, 0.9, 0.2, 1.0)';
+                    mainApp.style.transition = 'transform 0.02s cubic-bezier(0.0, 0.9, 0.1, 1.0)';
                 } else {
                     mainApp.style.transform = 'none';
-                    mainApp.style.transition = 'transform 0.12s ease-out';
+                    mainApp.style.transition = 'transform 0.10s ease-out';
                 }
             }
         }
