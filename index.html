@@ -797,7 +797,7 @@
     </div>
 
     <!-- 確認モーダル -->
-    <div id="confirm-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-enter transition-opacity duration-200">
+    <div id="confirm-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
         <div class="modal-content bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transition-transform duration-200">
             <h3 class="text-lg font-bold text-gray-100 mb-2">確認</h3>
             <p id="confirm-message" class="text-gray-300 mb-6">本当に削除しますか？</p>
@@ -845,7 +845,7 @@
     </div>
     
     <!-- プレイリスト移動モーダル -->
-    <div id="move-playlist-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden transition-opacity duration-200">
+    <div id="move-playlist-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
         <div class="modal-content bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transition-transform duration-200">
             <h3 class="text-lg font-bold text-gray-100 mb-4">プレイリストを移動</h3>
             <div id="playlist-options-container" class="space-y-2 max-h-[200px] overflow-y-auto mb-6">
@@ -3476,13 +3476,31 @@
                     </div>
                     <div class="flex items-center">
                         <button class="move-btn text-gray-400 hover:text-blue-400 p-1 opacity-70 hover:opacity-100 transition mr-1" title="プレイリスト間移動" onclick="event.stopPropagation(); openMoveModal(${idx})">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         </button>
                         <button class="delete-btn text-gray-400 hover:text-red-400 p-1 opacity-70 hover:opacity-100 transition" title="この曲を削除" onclick="event.stopPropagation(); confirmDelete(${idx})">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
                 `;
+
+                const moveBtn = div.querySelector('.move-btn');
+                if (moveBtn) {
+                    moveBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        openMoveModal(idx);
+                    };
+                }
+                const deleteBtn = div.querySelector('.delete-btn');
+                if (deleteBtn) {
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        confirmDelete(idx);
+                    };
+                }
+
                 ui.playlist.appendChild(div);
             });
         }
@@ -4262,10 +4280,24 @@
         }
 
         // --- Delete ---
-        window.confirmDelete = (i) => { pendingDeleteIndex = i; isDeleteAll = false; modal.msg.textContent = 'この曲を削除しますか？'; openModal(); };
-        window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; modal.msg.textContent = '全て削除しますか？'; openModal(); };
-        function openModal() { if(modal.el) { modal.el.classList.remove('hidden', 'modal-enter'); modal.el.classList.add('flex'); } }
-        function closeModal() { if(modal.el) { modal.el.classList.add('hidden'); modal.el.classList.remove('flex', 'modal-active'); } pendingDeleteIndex=-1; isDeleteAll=false; }
+        // --- Delete ---
+        window.confirmDelete = (i) => { pendingDeleteIndex = i; isDeleteAll = false; if(modal.msg) modal.msg.textContent = 'この曲を削除しますか？'; openModal(); };
+        window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; if(modal.msg) modal.msg.textContent = '全て削除しますか？'; openModal(); };
+        function openModal() {
+            if (modal && modal.el) {
+                modal.el.style.zIndex = '9999';
+                modal.el.classList.remove('hidden', 'modal-enter', 'opacity-0', 'pointer-events-none');
+                modal.el.classList.add('flex', 'modal-active');
+            }
+        }
+        function closeModal() {
+            if (modal && modal.el) {
+                modal.el.classList.add('hidden');
+                modal.el.classList.remove('flex', 'modal-active');
+            }
+            pendingDeleteIndex = -1;
+            isDeleteAll = false;
+        }
         
         async function executeDelete() {
             const idx = pendingDeleteIndex;
@@ -4370,6 +4402,10 @@
             if (!container) return;
             container.innerHTML = '';
             
+            // Header notice
+            const titleEl = document.querySelector('#move-playlist-modal h3');
+            if (titleEl) titleEl.textContent = `「${track.name}」の移動先を選択:`;
+
             // Option 1: All Tracks
             const isCurAll = (track.playlistName === 'All Tracks' || !track.playlistName);
             const allBtn = document.createElement('button');
@@ -4408,8 +4444,12 @@
             };
             container.appendChild(createBtn);
 
-            const modal = document.getElementById('move-playlist-modal');
-            if (modal) modal.classList.remove('hidden');
+            const moveModal = document.getElementById('move-playlist-modal');
+            if (moveModal) {
+                moveModal.style.zIndex = '9999';
+                moveModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                moveModal.classList.add('flex');
+            }
         };
         
         async function executeMove(destPlaylistName) {
@@ -4427,7 +4467,10 @@
             
             track.playlistName = destPlaylistName;
             const modalEl = document.getElementById('move-playlist-modal');
-            if (modalEl) modalEl.classList.add('hidden');
+            if (modalEl) {
+                modalEl.classList.add('hidden');
+                modalEl.classList.remove('flex');
+            }
             pendingMoveIndex = -1;
             
             activePlaylist = destPlaylistName;
