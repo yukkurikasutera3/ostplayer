@@ -1310,6 +1310,15 @@
             modal.cancel.addEventListener('click', closeModal);
             modal.confirm.addEventListener('click', executeDelete);
             
+            const cancelMoveBtn = document.getElementById('cancel-move-btn');
+            if (cancelMoveBtn) {
+                cancelMoveBtn.addEventListener('click', () => {
+                    const moveModal = document.getElementById('move-playlist-modal');
+                    if (moveModal) moveModal.classList.add('hidden');
+                    pendingMoveIndex = -1;
+                });
+            }
+            
             // Drag Drop
             const drop = document.getElementById('drop-zone-overlay');
             document.body.addEventListener('dragenter', (e) => { e.preventDefault(); drop.classList.remove('opacity-0', 'pointer-events-none'); });
@@ -1966,7 +1975,7 @@
                                  ui.single.seek.value = (status.currentTime / status.maxTime) * 100;
                              }
                              // End check
-                             if (status.currentTime >= status.maxTime) {
+                             if (status.maxTime > 0 && status.currentTime >= status.maxTime) {
                                  if(loopMode !== 0) { synth.playMIDI(); }
                                  else { isSinglePlaying=false; updateSingleUIState(); }
                              }
@@ -1987,7 +1996,7 @@
                                     deckUI.seek.value = (status.currentTime / status.maxTime) * 100;
                                 }
                                 // Loop for dual
-                                if(status.currentTime >= status.maxTime) synth.playMIDI();
+                                if(status.maxTime > 0 && status.currentTime >= status.maxTime) synth.playMIDI();
                             }
                         }
                     });
@@ -2004,7 +2013,7 @@
                                 if(document.activeElement !== deck.ui.seek && status.maxTime > 0) {
                                     deck.ui.seek.value = (status.currentTime / status.maxTime) * 100;
                                 }
-                                if(status.currentTime >= status.maxTime) synth.playMIDI();
+                                if(status.maxTime > 0 && status.currentTime >= status.maxTime) synth.playMIDI();
                             }
                         }
                     });
@@ -2021,7 +2030,7 @@
                              if(document.activeElement !== ui.fx.seek && status.maxTime > 0) {
                                  ui.fx.seek.value = (status.currentTime / status.maxTime) * 100;
                              }
-                             if (status.currentTime >= status.maxTime) {
+                             if (status.maxTime > 0 && status.currentTime >= status.maxTime) {
                                  if(isFxLoop) synth.playMIDI();
                                  else { isFxPlaying=false; updateFxUIState(false); }
                              }
@@ -2036,13 +2045,24 @@
 
         function seekMidi(synth, percent) {
             if(!synth) return;
-            const status = synth.getPlayStatus();
-            if(status.maxTime > 0) {
-                const targetTime = (parseFloat(percent) / 100) * status.maxTime;
-                if (typeof synth.seekTo === 'function') {
+            const pct = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+            
+            // 1. Custom SoundFont Synthesizer (SpessaSynth)
+            if (typeof synth.seekTo === 'function') {
+                const status = synth.getPlayStatus();
+                if (status && status.maxTime > 0) {
+                    const targetTime = (pct / 100) * status.maxTime;
                     synth.seekTo(targetTime);
-                } else if (typeof synth.locateMIDI === 'function') {
-                    synth.locateMIDI(targetTime);
+                }
+                return;
+            }
+            
+            // 2. Default Built-in Synthesizer (WebAudioTinySynth)
+            if (typeof synth.locateMIDI === 'function') {
+                const status = synth.getPlayStatus();
+                if (status && status.maxTick > 0) {
+                    const targetTick = Math.floor((pct / 100) * status.maxTick);
+                    synth.locateMIDI(targetTick);
                 }
             }
         }
@@ -3235,10 +3255,10 @@
                         </div>
                     </div>
                     <div class="flex items-center">
-                        <button class="move-btn text-gray-600 hover:text-blue-400 p-1 opacity-0 group-hover:opacity-100 transition mr-1" title="移動" onclick="event.stopPropagation(); openMoveModal(${idx})">
+                        <button class="move-btn text-gray-400 hover:text-blue-400 p-1 opacity-70 hover:opacity-100 transition mr-1" title="プレイリスト間移動" onclick="event.stopPropagation(); openMoveModal(${idx})">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         </button>
-                        <button class="delete-btn text-gray-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition" onclick="confirmDelete(${idx})">
+                        <button class="delete-btn text-gray-400 hover:text-red-400 p-1 opacity-70 hover:opacity-100 transition" title="この曲を削除" onclick="event.stopPropagation(); confirmDelete(${idx})">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
