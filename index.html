@@ -1,0 +1,3348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OST Player - Ultimate (Full MIDI Support)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- MIDI Synth Library (WebAudioTinySynth) -->
+    <script src="https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js"></script>
+
+    <style>
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* レンジスライダー共通 */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%; background: #60a5fa;
+            cursor: pointer; margin-top: -6px;
+            border: 2px solid #1f2937;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #374151; border-radius: 2px;
+        }
+        
+        /* Dualモード用クロスフェーダー */
+        #dual-crossfader::-webkit-slider-thumb {
+            width: 24px; height: 24px; margin-top: -10px;
+            background: #e5e7eb; border-radius: 4px; border: none;
+        }
+        #dual-crossfader::-webkit-slider-runnable-track {
+            height: 6px; background: linear-gradient(to right, #3b82f6, #4b5563, #ef4444);
+        }
+        
+        /* FX用スライダー (縦向き対応) */
+        .eq-slider {
+            -webkit-appearance: slider-vertical;
+            width: 8px; height: 100px;
+            background: transparent;
+        }
+        .vertical-range-wrap {
+            position: relative; width: 30px; height: 100px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .vertical-range {
+            transform: rotate(-90deg); width: 100px; height: 30px;
+        }
+        .vertical-range::-webkit-slider-thumb { background: #a78bfa; }
+        
+        /* エフェクトつまみ用カラー */
+        .fx-slider-dist::-webkit-slider-thumb { background: #f87171; } /* Red */
+        .fx-slider-echo::-webkit-slider-thumb { background: #34d399; } /* Emerald */
+        .fx-slider-trem::-webkit-slider-thumb { background: #fbbf24; } /* Amber */
+        .fx-slider-spd::-webkit-slider-thumb { background: #22d3ee; } /* Cyan */
+
+        /* スイッチトグル */
+        .toggle-checkbox:checked { right: 0; border-color: #60a5fa; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #60a5fa; }
+
+        .visualizer-container {
+            position: relative; width: 100%; height: 80px;
+            background: #111827; border-radius: 0.5rem;
+            overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        /* モーダル */
+        .modal-enter { opacity: 0; pointer-events: none; }
+        .modal-enter .modal-content { transform: scale(0.95); }
+        .modal-active { opacity: 1; pointer-events: auto; }
+        .modal-active .modal-content { transform: scale(1); }
+        
+        /* デッキ選択時のスタイル */
+        .deck-selected {
+            box-shadow: 0 0 0 2px #3b82f6, 0 0 15px rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6 !important;
+            background-color: rgba(31, 41, 55, 0.8) !important;
+        }
+        .hidden-mode { display: none !important; }
+        
+        .decks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            overflow-y: auto;
+        }
+        
+        /* Help用スタイル */
+        .help-section { margin-bottom: 1.5rem; }
+        .help-heading { font-weight: bold; color: #60a5fa; border-bottom: 1px solid #374151; padding-bottom: 0.25rem; margin-bottom: 0.5rem; }
+        .help-subheading { font-weight: bold; color: #9ca3af; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+        .help-text { font-size: 0.875rem; color: #d1d5db; line-height: 1.5; }
+        .key-badge { display: inline-block; padding: 0.1rem 0.4rem; background: #374151; border-radius: 0.25rem; font-family: monospace; font-size: 0.75rem; margin: 0 0.1rem; border: 1px solid #4b5563; }
+        
+        /* ダウンロードボタンのアニメーション */
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(167, 139, 250, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
+        }
+        .downloading {
+            animation: pulse-ring 1.5s infinite;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .midi-led {
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <div class="w-full max-w-6xl bg-gray-800 rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-700 h-[850px] md:h-[750px] relative z-10">
+        
+        <!-- 左側: プレイヤーエリア -->
+        <div class="w-full md:w-8/12 p-5 flex flex-col bg-gray-800 z-10 relative border-r border-gray-700">
+            
+            <!-- モード切替ヘッダー -->
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-700 shrink-0">
+                <div class="flex items-center space-x-3 w-full">
+                    <span class="text-xs font-bold uppercase tracking-wider text-gray-400 shrink-0">Mode</span>
+                    
+                    <!-- 5段階スイッチ (再生モード用) -->
+                    <div class="relative flex-1 bg-gray-900 rounded-full p-1 flex items-center border border-gray-600 select-none max-w-lg">
+                        <div id="mode-indicator" class="w-1/5 h-6 bg-blue-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out absolute left-1 pointer-events-none"></div>
+                        <button onclick="setPlayerMode('single')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Single</button>
+                        <button onclick="setPlayerMode('dual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Dual</button>
+                        <button onclick="setPlayerMode('multi')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Multi</button>
+                        <button onclick="setPlayerMode('fx')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">FX</button>
+                        <button onclick="setPlayerMode('visual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Visual</button>
+                    </div>
+
+                    <!-- 独立したHelpボタン -->
+                    <button id="help-mode-btn" onclick="setPlayerMode('help')" class="ml-1 px-3 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
+                        Help
+                    </button>
+                </div>
+                <!-- ビジュアライザー (Small) - 幅調整 -->
+                <div id="header-visualizer-container" class="visualizer-container h-12 w-24 border border-gray-700 bg-black shrink-0 ml-2">
+                    <canvas id="visualizer"></canvas>
+                </div>
+            </div>
+
+            <!-- === SINGLE PLAYER VIEW === -->
+            <div id="single-view" class="flex-1 flex flex-col justify-between">
+                <div class="text-center py-6 flex-1 flex flex-col justify-center" id="single-artwork-area">
+                    <div class="w-40 h-40 mx-auto bg-gray-700 rounded-full flex items-center justify-center mb-6 shadow-xl border-4 border-gray-600 animate-[spin_10s_linear_infinite] play-spin paused" id="single-artwork">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                    </div>
+                    <h2 id="single-title" class="text-2xl font-bold truncate text-white mb-2 px-4">No Track Selected</h2>
+                    <p id="single-status" class="text-sm text-gray-400">リストから曲を選択してください</p>
+                </div>
+
+                <!-- MIDI Mixer Panel (Collapsible) -->
+                <div id="midi-mixer-panel" class="hidden bg-gray-900/95 border border-yellow-600/30 rounded-xl p-4 mt-2 max-h-[340px] overflow-y-auto mb-4">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-800">
+                        <h4 class="text-xs font-bold text-yellow-500 uppercase tracking-widest flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1.5"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                            MIDI Channel Mixer
+                        </h4>
+                        <button id="close-midi-mixer-btn" class="text-gray-500 hover:text-white text-xs">✕ 閉じる</button>
+                    </div>
+                    <div id="midi-channels-container">
+                        <!-- JSで16チャンネル分生成 -->
+                    </div>
+                </div>
+
+                <div class="mb-6 px-4">
+                    <div class="flex justify-between text-xs text-gray-400 mb-2 font-mono">
+                        <span id="single-current">0:00</span>
+                        <span id="single-duration">0:00</span>
+                    </div>
+                    <!-- step="0.01" を追加して滑らかに -->
+                    <input type="range" id="single-seek" value="0" min="0" max="100" step="0.01" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="flex justify-center items-center space-x-8 mb-8">
+                    <button id="single-prev" class="text-gray-400 hover:text-white transition transform hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                    </button>
+                    
+                    <button id="single-play" class="bg-blue-600 hover:bg-blue-500 text-white rounded-full p-5 shadow-lg transition transform hover:scale-105">
+                        <svg id="single-play-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg id="single-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </button>
+
+                    <button id="single-next" class="text-gray-400 hover:text-white transition transform hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                    </button>
+                </div>
+
+                <div class="bg-gray-700/30 p-4 rounded-xl">
+                    <div class="flex items-center space-x-4 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        <input type="range" id="single-vol" min="0" max="1" step="0.01" value="0.3" class="w-full h-1 bg-gray-600 rounded">
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-4">
+                            <button id="loop-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1" title="ループ切り替え (オフ -> 全曲 -> 1曲)">
+                                <svg id="loop-icon-all" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                <svg id="loop-icon-one" class="hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path><text x="8.5" y="16.5" font-size="8" font-weight="bold" fill="currentColor">1</text></svg>
+                                <span id="loop-text">Loop</span>
+                            </button>
+                            <button id="shuffle-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                                <span>Shuffle</span>
+                            </button>
+                            <button id="single-midi-mixer-btn" class="hidden text-yellow-500 hover:text-yellow-400 transition flex items-center text-xs space-x-1 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10" title="MIDIミキサー">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                                <span>MIDI Mixer</span>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center space-x-2 bg-gray-800 rounded-full px-3 py-1">
+                             <input type="checkbox" id="single-crossfade-toggle" class="cursor-pointer">
+                             <span class="text-xs text-gray-400">Auto X-Fade</span>
+                             <input type="range" id="single-crossfade-slider" min="1" max="12" value="5" class="w-16 h-1 ml-2" disabled>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- === DUAL PLAYER VIEW === -->
+            <div id="dual-view" class="flex-1 flex flex-col hidden-mode min-h-0">
+                <div class="flex flex-1 space-x-4 mb-4 overflow-hidden">
+                    <!-- Deck A -->
+                    <div id="dual-deck-a" class="flex-1 bg-gray-900/50 rounded-lg p-3 border border-gray-700 flex flex-col justify-between cursor-pointer deck-selected" onclick="selectDualDeck(0)">
+                        <div class="text-blue-400 font-bold text-xs uppercase tracking-wider mb-2">Deck A</div>
+                        <div class="text-center mb-2 overflow-hidden flex-1 flex flex-col justify-center">
+                            <h3 id="dual-title-a" class="text-base font-bold truncate text-white mb-1">No Track</h3>
+                            <p id="dual-time-a" class="text-xs text-blue-300 font-mono">0:00 / 0:00</p>
+                        </div>
+                        <div class="space-y-3">
+                            <input type="range" id="dual-seek-a" value="0" min="0" max="100" step="0.01" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-center items-center space-x-4">
+                                <button id="dual-play-a" class="bg-blue-600 hover:bg-blue-500 text-white rounded-full p-2 shadow-lg transition transform hover:scale-105">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                </button>
+                                <button id="dual-stop-a" class="text-gray-400 hover:text-white p-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] text-gray-500">Vol</span>
+                                <input type="range" id="dual-vol-a" min="0" max="1" step="0.01" value="0.3" class="w-full h-1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deck B -->
+                    <div id="dual-deck-b" class="flex-1 bg-gray-900/50 rounded-lg p-3 border border-gray-700 flex flex-col justify-between cursor-pointer" onclick="selectDualDeck(1)">
+                        <div class="text-red-400 font-bold text-xs uppercase tracking-wider mb-2 text-right">Deck B</div>
+                        <div class="text-center mb-2 overflow-hidden flex-1 flex flex-col justify-center">
+                            <h3 id="dual-title-b" class="text-base font-bold truncate text-white mb-1">No Track</h3>
+                            <p id="dual-time-b" class="text-xs text-red-300 font-mono">0:00 / 0:00</p>
+                        </div>
+                        <div class="space-y-3">
+                            <input type="range" id="dual-seek-b" value="0" min="0" max="100" step="0.01" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-center items-center space-x-4">
+                                <button id="dual-play-b" class="bg-red-600 hover:bg-red-500 text-white rounded-full p-2 shadow-lg transition transform hover:scale-105">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                </button>
+                                <button id="dual-stop-b" class="text-gray-400 hover:text-white p-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] text-gray-500">Vol</span>
+                                <input type="range" id="dual-vol-b" min="0" max="1" step="0.01" value="0.3" class="w-full h-1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center space-x-3 mb-4">
+                     <button id="dual-play-both" class="flex-1 bg-green-800/80 hover:bg-green-700 text-green-100 py-2 rounded-lg shadow text-xs font-bold border border-green-700 flex justify-center items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Play Both
+                     </button>
+                     <button id="dual-stop-both" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-lg shadow text-xs font-bold border border-gray-600 flex justify-center items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg> Stop Both
+                     </button>
+                </div>
+
+                <div class="bg-gray-700/30 p-4 rounded-lg text-center border border-gray-700">
+                    <div class="flex justify-between text-[10px] text-gray-400 mb-1 px-2 font-bold tracking-widest uppercase">
+                        <span>Deck A</span>
+                        <span>Mix</span>
+                        <span>Deck B</span>
+                    </div>
+                    <input type="range" id="dual-crossfader" min="0" max="100" value="50" class="w-full cursor-pointer">
+                </div>
+                
+                <div class="mt-4 text-center text-xs text-gray-500">
+                    デッキをクリックして選択 → リストから曲をクリックしてロード
+                </div>
+            </div>
+
+            <!-- === MULTI PLAYER VIEW === -->
+            <div id="multi-view" class="flex-1 flex flex-col hidden-mode min-h-0">
+                <div id="decks-container" class="decks-grid flex-1 mb-4 pr-1">
+                    <!-- デッキはJSでここに生成される -->
+                </div>
+                <div class="flex items-center space-x-2 shrink-0 bg-gray-900/50 p-3 rounded-xl border border-gray-700">
+                     <button id="multi-add-deck" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg transition border border-gray-600 flex flex-col items-center justify-center min-w-[60px]" title="デッキを追加">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <span class="text-[10px] mt-1">Add Deck</span>
+                     </button>
+                     <div class="h-8 w-px bg-gray-700 mx-2"></div>
+                     <button id="multi-play-all" class="flex-1 bg-green-800/80 hover:bg-green-700 text-green-100 py-2 rounded-lg shadow text-sm font-bold border border-green-700 flex justify-center items-center h-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Play All
+                     </button>
+                     <button id="multi-stop-all" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-lg shadow text-sm font-bold border border-gray-600 flex justify-center items-center h-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg> Stop All
+                     </button>
+                </div>
+                <div class="mt-2 text-center text-xs text-gray-500">
+                    デッキをクリックして選択 → リストから曲をクリックしてロード
+                </div>
+            </div>
+
+            <!-- === FX VIEW === -->
+            <div id="fx-view" class="flex-1 flex flex-col justify-between hidden-mode">
+                <!-- Simple Player Clone -->
+                <div class="text-center py-2">
+                    <h2 id="fx-title" class="text-lg font-bold truncate text-purple-400 px-4">No Track Selected</h2>
+                    <p id="fx-status" class="text-xs text-gray-400">Equalizer & Effects</p>
+                </div>
+                
+                <!-- Music Control -->
+                <div class="bg-gray-800/50 p-2 rounded-lg mb-2 flex items-center space-x-3 border border-gray-700">
+                    <button id="fx-play" class="text-purple-400 hover:text-purple-300 p-2 rounded-full border border-purple-500/50 hover:bg-purple-500/20 transition">
+                        <svg id="fx-play-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg id="fx-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </button>
+                    
+                    <div class="flex items-center space-x-1 w-24">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        <input type="range" id="fx-vol" min="0" max="1" step="0.01" value="0.5" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                    </div>
+
+                    <div class="flex-1">
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                            <span id="fx-current">0:00</span>
+                            <span id="fx-duration">0:00</span>
+                        </div>
+                        <input type="range" id="fx-seek" value="0" min="0" max="100" step="0.01" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                    </div>
+                    <button id="fx-loop-btn" class="text-gray-500 hover:text-purple-400 transition" title="ループ">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                    </button>
+                    <!-- Export Button -->
+                    <button id="fx-download-btn" class="text-gray-400 hover:text-white p-2 rounded-full border border-gray-600 hover:bg-gray-700 transition" title="WAVで書き出し">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                </div>
+
+                <div class="bg-gray-800/80 p-4 rounded-xl border border-purple-900/50 flex-1 flex flex-col overflow-y-auto">
+                    <!-- EQ & Effects Controls -->
+                    <div class="mb-4 bg-gray-900/50 p-2 rounded-lg">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Equalizer</div>
+                            <select id="fx-preset" class="bg-gray-800 text-xs text-purple-300 border border-purple-900/50 rounded px-2 py-1 focus:outline-none focus:border-purple-500">
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-end px-1 h-28">
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-60" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">60Hz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-250" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">250Hz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-1k" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">1kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-4k" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">4kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-12k" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">12kHz</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-purple-300 font-bold uppercase">Bass</span>
+                                <span id="bass-val" class="text-[10px] text-gray-500">0dB</span>
+                            </div>
+                            <input type="range" id="fx-bass" min="0" max="20" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                        </div>
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-blue-300 font-bold uppercase">Reverb</span>
+                                <span id="reverb-val" class="text-[10px] text-gray-500">0%</span>
+                            </div>
+                            <input type="range" id="fx-reverb" min="0" max="1" step="0.05" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                        </div>
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-red-300 font-bold uppercase">Distort</span>
+                                <span id="dist-val" class="text-[10px] text-gray-500">0</span>
+                            </div>
+                            <input type="range" id="fx-dist" min="0" max="100" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-dist">
+                        </div>
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-emerald-300 font-bold uppercase">Echo</span>
+                                <span id="echo-val" class="text-[10px] text-gray-500">0</span>
+                            </div>
+                            <input type="range" id="fx-echo" min="0" max="0.8" step="0.05" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-echo">
+                        </div>
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-amber-300 font-bold uppercase">Tremolo</span>
+                                <span id="trem-val" class="text-[10px] text-gray-500">0</span>
+                            </div>
+                            <input type="range" id="fx-trem" min="0" max="1" step="0.05" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-trem">
+                        </div>
+                        <div class="bg-gray-900/50 rounded-lg p-2">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-[10px] text-cyan-300 font-bold uppercase">Speed</span>
+                                <span id="spd-val" class="text-[10px] text-gray-500">1.0</span>
+                            </div>
+                            <input type="range" id="fx-spd" min="0.5" max="2.0" step="0.05" value="1.0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-spd">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- === VISUAL PLAYER VIEW === -->
+            <div id="visual-view" class="flex-1 flex flex-col hidden-mode relative overflow-hidden bg-black rounded-lg border border-gray-700">
+                <canvas id="main-visualizer" class="absolute inset-0 w-full h-full"></canvas>
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900/90 to-transparent p-4 flex flex-col space-y-4">
+                    <div class="flex justify-center items-center space-x-2">
+                        <h2 id="visual-title" class="text-xl font-bold truncate text-white drop-shadow-md">No Track Selected</h2>
+                    </div>
+                    <div class="flex justify-center space-x-4">
+                        <button id="visual-prev" class="text-white hover:text-blue-400 drop-shadow-md"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg></button>
+                        <button id="visual-play" class="text-white hover:text-blue-400 drop-shadow-md"><svg id="visual-play-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg><svg id="visual-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg></button>
+                        <button id="visual-next" class="text-white hover:text-blue-400 drop-shadow-md"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg></button>
+                    </div>
+                    <div class="flex justify-center space-x-2">
+                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-full border border-gray-600" data-type="spectrum">Spectrum</button>
+                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-full border border-gray-600" data-type="wave">Wave</button>
+                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-full border border-gray-600" data-type="circle">Circle</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- === HELP VIEW === -->
+            <div id="help-view" class="flex-1 flex flex-col hidden-mode p-4 overflow-y-auto bg-gray-800/80 rounded-lg">
+                <h2 class="text-xl font-bold text-white mb-4">OST Player Help</h2>
+                <div class="help-section">
+                    <h3 class="help-heading">基本操作</h3>
+                    <p class="help-text">音楽ファイルをウィンドウにドラッグ＆ドロップしてライブラリに追加します。再生したいモードを選んでから、リストの曲をクリックしてください。</p>
+                </div>
+                <div class="help-section">
+                    <h3 class="help-heading">MIDI再生 (Full Support)</h3>
+                    <p class="help-text">すべてのモード（Single, Dual, Multi, FX, Visual）でMIDIファイル（.mid）を再生できます。高性能な内蔵シンセサイザーにより、ダウンロード待ち時間なしで即座に再生されます。DualやMultiで他の曲とミックスすることも可能です。</p>
+                </div>
+                <div class="help-section">
+                    <h3 class="help-heading">各モードの仕様</h3>
+                    <h4 class="help-subheading">Single Mode</h4>
+                    <p class="help-text">最もシンプルなプレイヤーです。オートクロスフェードやループ再生、MIDI再生に対応しています。</p>
+                    <h4 class="help-subheading">Dual Mode</h4>
+                    <p class="help-text">2つのデッキ（A/B）を使ってDJのように曲をミックスできます。MIDIファイルもクロスフェードできます。</p>
+                    <h4 class="help-subheading">Multi Mode</h4>
+                    <p class="help-text">デッキを好きなだけ追加して、複数の曲を同時に重ねて再生できます。</p>
+                    <h4 class="help-subheading">FX Mode</h4>
+                    <p class="help-text">イコライザー、リバーブ、重低音強化などのエフェクトをかけて再生できます。MIDIファイルにもエフェクトが適用されます。</p>
+                    <h4 class="help-subheading">Visual Mode</h4>
+                    <p class="help-text">音楽を視覚的に楽しむモードです。</p>
+                </div>
+                <div class="help-section">
+                    <h3 class="help-heading">ショートカットキー</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <div><span class="key-badge">Space</span> : 再生 / 一時停止 (全モード)</div>
+                        <div><span class="key-badge">1</span> 〜 <span class="key-badge">6</span> : モード切替 (Single, Dual, Multi, FX, Visual, Help)</div>
+                        <div><span class="key-badge">←</span> / <span class="key-badge">→</span> : 前 / 次の曲 (Single, Visual, FX)</div>
+                        <div><span class="key-badge">↑</span> / <span class="key-badge">↓</span> : 音量の上下 (アクティブなプレイヤー)</div>
+                        <div><span class="key-badge">[</span> / <span class="key-badge">]</span> : クロスフェーダー調節 (Dualモード)</div>
+                        <div><span class="key-badge">M</span> : 全体消音 (ミュート) の切り替え</div>
+                    </div>
+                </div>
+                <div class="help-section">
+                    <h3 class="help-heading">データ保存</h3>
+                    <p class="help-text">追加した曲はブラウザ内のデータベースに保存されます。</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-center text-xs text-gray-500">
+                <span>※ ファイルやフォルダをドラッグ&ドロップして追加</span>
+                <div class="flex items-center space-x-2">
+                    <!-- Record Session Button -->
+                    <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="セッションを録音する">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
+                        <span id="record-text">Rec Session</span>
+                    </button>
+                    <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi" class="hidden">
+                    <button id="add-files-btn" class="text-blue-400 hover:text-blue-300 border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition">
+                        + ファイルを追加
+                    </button>
+                    
+                    <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
+                    <button id="add-folder-btn" class="text-blue-400 hover:text-blue-300 border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition">
+                        + フォルダを追加
+                    </button>
+                    
+                    <input type="file" id="sf2-input" accept=".sf2,.sf3" class="hidden">
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側: プレイリスト (共通) -->
+        <div class="w-full md:w-4/12 bg-gray-900 flex flex-col h-full overflow-hidden">
+            <div class="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center select-none">
+                <h3 class="font-bold text-gray-300 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    Library <span id="track-count" class="ml-2 text-xs text-gray-500">(0)</span>
+                </h3>
+                <div class="flex items-center space-x-2">
+                    <button id="import-sf2-btn" class="text-xs text-yellow-500 hover:text-yellow-400 hover:underline">SF2読込</button>
+                    <span class="text-gray-600 text-xs">|</span>
+                    <button id="clear-playlist-btn" class="text-xs text-red-400 hover:text-red-300 hover:underline">全消去</button>
+                </div>
+            </div>
+            <!-- Playlists Section -->
+            <div class="px-4 py-2 border-b border-gray-800 bg-gray-950 flex items-center justify-between space-x-2 shrink-0 select-none">
+                <select id="playlist-select" class="bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 flex-1 cursor-pointer">
+                    <option value="All Tracks">All Tracks</option>
+                </select>
+                <button id="add-playlist-btn" class="text-[10px] text-blue-400 hover:text-blue-300 border border-blue-400/30 px-2 py-1 rounded bg-blue-400/5 hover:bg-blue-400/10 transition shrink-0" title="新しいプレイリストを作成">
+                    + 作成
+                </button>
+                <button id="delete-playlist-btn" class="text-[10px] text-red-400 hover:text-red-300 border border-red-400/30 px-2 py-1 rounded bg-red-400/5 hover:bg-red-400/10 transition shrink-0 hidden" title="現在のプレイリストを削除">
+                    削除
+                </button>
+            </div>
+            <div id="playlist" class="flex-1 overflow-y-auto p-2 space-y-1">
+                <!-- リストはJSで生成 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 確認モーダル -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal-enter transition-opacity duration-200">
+        <div class="modal-content bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transition-transform duration-200">
+            <h3 class="text-lg font-bold text-gray-100 mb-2">確認</h3>
+            <p id="confirm-message" class="text-gray-300 mb-6">本当に削除しますか？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-delete-btn" class="px-4 py-2 rounded text-gray-300 hover:text-white hover:bg-gray-700 transition">キャンセル</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded shadow transition">削除する</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recording Result Modal -->
+    <div id="recording-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden transition-opacity duration-200">
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl flex flex-col space-y-4">
+            <h3 class="text-lg font-bold text-red-400 flex items-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2"></span>
+                録音セッション完了
+            </h3>
+            <p class="text-sm text-gray-300">
+                ライブミックスセッションの録音が完了しました。プレビューで確認し、お好みの形式で保存してください。
+            </p>
+            
+            <!-- Audio Preview -->
+            <audio id="recording-preview" class="w-full" controls></audio>
+            
+            <!-- Export Options -->
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button id="download-webm-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg text-xs border border-gray-600 transition flex items-center justify-center space-x-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>WebMで保存</span>
+                </button>
+                <button id="download-wav-btn" class="bg-red-800/80 hover:bg-red-700 text-red-100 font-bold py-2 rounded-lg text-xs border border-red-700 transition flex items-center justify-center space-x-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>WAVに変換</span>
+                </button>
+            </div>
+            
+            <div id="recording-export-status" class="text-[10px] text-gray-400 text-center hidden">
+                WAVへのデコード＆変換中...
+            </div>
+            
+            <div class="border-t border-gray-700 pt-3 flex justify-end">
+                <button id="close-recording-modal" class="px-4 py-1.5 rounded text-xs text-gray-400 hover:text-white bg-gray-900 hover:bg-gray-700 transition">閉じる</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- プレイリスト移動モーダル -->
+    <div id="move-playlist-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden transition-opacity duration-200">
+        <div class="modal-content bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transition-transform duration-200">
+            <h3 class="text-lg font-bold text-gray-100 mb-4">プレイリストを移動</h3>
+            <div id="playlist-options-container" class="space-y-2 max-h-[200px] overflow-y-auto mb-6">
+                <!-- JSでプレイリスト一覧を表示 -->
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-move-btn" class="px-4 py-2 rounded text-gray-300 hover:text-white hover:bg-gray-700 transition">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ドロップオーバーレイ -->
+    <div id="drop-zone-overlay" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+         <span class="text-3xl text-blue-400 font-bold border-4 border-blue-400 p-8 rounded-xl border-dashed">ファイルをドロップして追加</span>
+    </div>
+
+    <script>
+        // IndexedDB
+        let db;
+        const DB_NAME = 'OSTPlayerDB';
+        const DB_VERSION = 2;
+        const STORE_NAME = 'tracks';
+
+        // SoundFont / SpessaSynth State
+        let activeSoundFontBuffer = null;
+        let isSpessaSynthLoaded = false;
+        let spessaSynthInstance = null;
+
+        // 状態管理
+        let currentMode = 'single'; // 'single', 'dual', 'multi', 'fx', 'visual', 'help'
+        let playlist = [];
+        let visualType = 'spectrum'; // 'spectrum', 'wave', 'circle'
+        
+        let customPlaylists = JSON.parse(localStorage.getItem('customPlaylists') || '[]');
+        let activePlaylist = 'All Tracks';
+        let pendingMoveIndex = -1;
+        
+        // Single Mode State
+        let singleTrackIndex = -1;
+        let isSinglePlaying = false;
+        let loopMode = 0; 
+        let isShuffling = false;
+        let isAutoCrossfade = false;
+        let autoCrossfadeDur = 5;
+        let isAutoCrossfading = false;
+        let currentSinglePlayerIndex = 0; 
+        
+        // Dual Mode State
+        let dualTracks = [null, null];
+        let activeDualDeckIndex = 0;
+
+        // Multi Mode State
+        let decks = []; 
+        let activeMultiDeckIndex = 0; 
+        let deckCounter = 0;
+
+        // FX Mode State
+        let fxTrackIndex = -1;
+        let isFxPlaying = false;
+        let isFxLoop = false;
+        
+        // --- MIDI Variables (Expanded) ---
+        // 各デッキ/モードごとに独立したシンセを持つ
+        const midiPlayers = {
+            main: null,  // Single, Visual, FX用 (共有)
+            dualA: null, // Dual Deck A用
+            dualB: null  // Dual Deck B用
+            // Multiモードは各deckオブジェクト内に持たせる
+        };
+        let midiMuted = Array(16).fill(false);
+        let midiSoloed = Array(16).fill(false);
+        let midiVolumes = Array(16).fill(100);
+        
+        // Recording State
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordInterval = null;
+        let recordDuration = 0;
+        let isRecording = false;
+        let recDestNode = null;
+        let activeRecordingUrl = null;
+        let currentWebmBlob = null;
+        // let midiTimer = null; // Removed in favor of loop
+        // ----------------------
+
+        // Audio System
+        let audioContext;
+        let analyser;
+        let masterGainNode;
+        let isMuted = false;
+        // players[0], players[1] for Single, Dual, FX, Visual
+        let players = [new Audio(), new Audio()];
+        let singleGainNodes = [null, null];
+        let singleSources = [null, null];
+        
+        // FX Nodes
+        let eqNodes = []; // 5 bands
+        let bassNode = null;
+        let distNode = null; // Distortion
+        let tremoloNode = null; // Gain for Tremolo
+        let tremoloOsc = null; // LFO
+        let delayNode = null; // Echo
+        let delayGainNode = null; // Echo level
+        let reverbNode = null;
+        let dryGainNode = null;
+        let wetGainNode = null;
+        
+        let tremoloDepthNode = null;
+        
+        // FX Presets
+        const fxPresets = {
+            flat: { name: "Flat", eq: [0,0,0,0,0], bass: 0, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            bass: { name: "Bass Boost", eq: [8,5,0,0,0], bass: 15, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            rock: { name: "Rock", eq: [4,2,-2,3,4], bass: 6, dist: 15, echo: 0, trem: 0, reverb: 0.1, spd: 1.0 },
+            pop: { name: "Pop", eq: [0,3,5,3,0], bass: 2, dist: 0, echo: 0, trem: 0, reverb: 0.05, spd: 1.0 },
+            jazz: { name: "Jazz", eq: [4,2,0,2,-2], bass: 4, dist: 0, echo: 0, trem: 0.1, reverb: 0.2, spd: 1.0 },
+            classic: { name: "Classic", eq: [3,2,0,2,3], bass: 3, dist: 0, echo: 0, trem: 0, reverb: 0.4, spd: 1.0 },
+            radio: { name: "Old Radio", eq: [-12,-5,8,-5,-12], bass: 0, dist: 25, echo: 0, trem: 0.4, reverb: 0, spd: 1.0 },
+            nightcore: { name: "Nightcore", eq: [-2,0,4,6,4], bass: 4, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.3 },
+            slowed: { name: "Slowed+Reverb", eq: [6,4,0,-2,-4], bass: 8, dist: 0, echo: 0.1, trem: 0, reverb: 0.5, spd: 0.85 },
+            psychedelic: { name: "Psychedelic", eq: [0,0,0,0,0], bass: 0, dist: 5, echo: 0.4, trem: 0.6, reverb: 0.3, spd: 1.0 },
+            telephone: { name: "Telephone", eq: [-20,-10,10,-10,-20], bass: 0, dist: 40, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            arena: { name: "Arena", eq: [4,2,0,2,4], bass: 8, dist: 0, echo: 0.3, trem: 0, reverb: 0.7, spd: 1.0 }
+        };
+
+        // UI References
+        const ui = {
+            modeIndicator: document.getElementById('mode-indicator'),
+            helpBtn: document.getElementById('help-mode-btn'),
+            singleView: document.getElementById('single-view'),
+            dualView: document.getElementById('dual-view'),
+            multiView: document.getElementById('multi-view'),
+            fxView: document.getElementById('fx-view'),
+            visualView: document.getElementById('visual-view'),
+            helpView: document.getElementById('help-view'),
+            headerVisualizer: document.getElementById('header-visualizer-container'),
+            decksContainer: document.getElementById('decks-container'),
+            
+            // Single UI
+            single: {
+                title: document.getElementById('single-title'),
+                status: document.getElementById('single-status'),
+                time: document.getElementById('single-current'),
+                dur: document.getElementById('single-duration'),
+                seek: document.getElementById('single-seek'),
+                play: document.getElementById('single-play'),
+                prev: document.getElementById('single-prev'),
+                next: document.getElementById('single-next'),
+                vol: document.getElementById('single-vol'),
+                playIcon: document.getElementById('single-play-icon'),
+                pauseIcon: document.getElementById('single-pause-icon'),
+                artwork: document.getElementById('single-artwork'),
+                loopBtn: document.getElementById('loop-btn'),
+                loopIconAll: document.getElementById('loop-icon-all'),
+                loopIconOne: document.getElementById('loop-icon-one'),
+                loopText: document.getElementById('loop-text'),
+                shuffle: document.getElementById('shuffle-btn'),
+                xfadeCheck: document.getElementById('single-crossfade-toggle'),
+                xfadeSlider: document.getElementById('single-crossfade-slider')
+            },
+
+            // Dual UI
+            dual: {
+                deckA: {
+                    el: document.getElementById('dual-deck-a'),
+                    title: document.getElementById('dual-title-a'),
+                    time: document.getElementById('dual-time-a'),
+                    seek: document.getElementById('dual-seek-a'),
+                    play: document.getElementById('dual-play-a'),
+                    stop: document.getElementById('dual-stop-a'),
+                    vol: document.getElementById('dual-vol-a')
+                },
+                deckB: {
+                    el: document.getElementById('dual-deck-b'),
+                    title: document.getElementById('dual-title-b'),
+                    time: document.getElementById('dual-time-b'),
+                    seek: document.getElementById('dual-seek-b'),
+                    play: document.getElementById('dual-play-b'),
+                    stop: document.getElementById('dual-stop-b'),
+                    vol: document.getElementById('dual-vol-b')
+                },
+                playBoth: document.getElementById('dual-play-both'),
+                stopBoth: document.getElementById('dual-stop-both'),
+                crossfader: document.getElementById('dual-crossfader')
+            },
+
+            // Multi UI Globals
+            multi: {
+                addDeck: document.getElementById('multi-add-deck'),
+                playAll: document.getElementById('multi-play-all'),
+                stopAll: document.getElementById('multi-stop-all')
+            },
+
+            // FX UI
+            fx: {
+                title: document.getElementById('fx-title'),
+                status: document.getElementById('fx-status'),
+                time: document.getElementById('fx-current'),
+                dur: document.getElementById('fx-duration'),
+                seek: document.getElementById('fx-seek'),
+                play: document.getElementById('fx-play'),
+                playIcon: document.getElementById('fx-play-icon'),
+                pauseIcon: document.getElementById('fx-pause-icon'),
+                loopBtn: document.getElementById('fx-loop-btn'),
+                preset: document.getElementById('fx-preset'),
+                vol: document.getElementById('fx-vol'),
+                exportBtn: document.getElementById('fx-download-btn'),
+                eq: [
+                    document.getElementById('eq-60'), document.getElementById('eq-250'),
+                    document.getElementById('eq-1k'), document.getElementById('eq-4k'), document.getElementById('eq-12k')
+                ],
+                bass: document.getElementById('fx-bass'), bassVal: document.getElementById('bass-val'),
+                dist: document.getElementById('fx-dist'), distVal: document.getElementById('dist-val'),
+                echo: document.getElementById('fx-echo'), echoVal: document.getElementById('echo-val'),
+                trem: document.getElementById('fx-trem'), tremVal: document.getElementById('trem-val'),
+                reverb: document.getElementById('fx-reverb'), reverbVal: document.getElementById('reverb-val'),
+                spd: document.getElementById('fx-spd'), spdVal: document.getElementById('spd-val')
+            },
+
+            // Visual UI
+            visual: {
+                title: document.getElementById('visual-title'),
+                play: document.getElementById('visual-play'),
+                prev: document.getElementById('visual-prev'),
+                next: document.getElementById('visual-next'),
+                playIcon: document.getElementById('visual-play-icon'),
+                pauseIcon: document.getElementById('visual-pause-icon'),
+                canvas: document.getElementById('main-visualizer'),
+                typeBtns: document.querySelectorAll('.visual-type-btn')
+            },
+
+            // Common
+            playlist: document.getElementById('playlist'),
+            trackCount: document.getElementById('track-count'),
+            fileInput: document.getElementById('file-input'),
+            addFilesBtn: document.getElementById('add-files-btn'),
+            folderInput: document.getElementById('folder-input'),
+            addFolderBtn: document.getElementById('add-folder-btn'),
+            sf2Input: document.getElementById('sf2-input'),
+            importSf2Btn: document.getElementById('import-sf2-btn'),
+            clearBtn: document.getElementById('clear-playlist-btn'),
+            canvas: document.getElementById('visualizer')
+        };
+        
+        // Modal
+        let pendingDeleteIndex = -1;
+        let isDeleteAll = false;
+        const modal = {
+            el: document.getElementById('confirm-modal'),
+            msg: document.getElementById('confirm-message'),
+            cancel: document.getElementById('cancel-delete-btn'),
+            confirm: document.getElementById('confirm-delete-btn')
+        };
+
+        // --- Initialization ---
+        window.addEventListener('load', async () => {
+            setupEvents();
+            initPresets();
+            updatePlaylistDropdown();
+            try {
+                await openDB();
+                await loadTracksFromDB();
+                await loadActiveSoundFont();
+                initMultiDecks();
+                // Timerの開始(Global Loop)
+                startMidiGlobalLoop();
+            } catch (err) { console.error(err); }
+        });
+
+        function setupEvents() {
+            // Mode Switch (Direct Selection)
+            window.setPlayerMode = (mode) => {
+                if (currentMode === mode) return;
+                stopAllAudio();
+                currentMode = mode;
+                
+                // Audio Graph Rebuild
+                if (audioContext) {
+                    if (mode === 'fx') {
+                         connectAudioGraph();
+                         applyFxPreset(ui.fx.preset.value);
+                    } else {
+                         connectAudioGraph();
+                    }
+                }
+                
+                updateModeUI();
+                updatePlaylistUI();
+            };
+
+            // Single Events
+            ui.single.play.addEventListener('click', toggleSinglePlay);
+            ui.single.prev.addEventListener('click', () => changeSingleTrack(-1));
+            ui.single.next.addEventListener('click', () => changeSingleTrack(1));
+            ui.single.seek.addEventListener('input', seekSingle);
+            ui.single.vol.addEventListener('input', updateSingleVolume);
+            ui.single.loopBtn.addEventListener('click', toggleLoop);
+            ui.single.shuffle.addEventListener('click', toggleShuffle);
+            ui.single.xfadeCheck.addEventListener('change', (e) => {
+                isAutoCrossfade = e.target.checked;
+                ui.single.xfadeSlider.disabled = !isAutoCrossfade;
+            });
+            ui.single.xfadeSlider.addEventListener('input', (e) => autoCrossfadeDur = parseInt(e.target.value));
+
+            // Dual Events
+            ui.dual.deckA.play.addEventListener('click', (e) => { e.stopPropagation(); toggleDualPlay(0); });
+            ui.dual.deckA.stop.addEventListener('click', (e) => { e.stopPropagation(); stopDualDeck(0); });
+            ui.dual.deckA.seek.addEventListener('input', (e) => { e.stopPropagation(); seekDual(0); });
+            ui.dual.deckA.seek.addEventListener('click', (e) => e.stopPropagation());
+            ui.dual.deckA.vol.addEventListener('input', (e) => { e.stopPropagation(); updateDualVolume(); });
+            ui.dual.deckA.vol.addEventListener('click', (e) => e.stopPropagation());
+            
+            ui.dual.deckB.play.addEventListener('click', (e) => { e.stopPropagation(); toggleDualPlay(1); });
+            ui.dual.deckB.stop.addEventListener('click', (e) => { e.stopPropagation(); stopDualDeck(1); });
+            ui.dual.deckB.seek.addEventListener('input', (e) => { e.stopPropagation(); seekDual(1); });
+            ui.dual.deckB.seek.addEventListener('click', (e) => e.stopPropagation());
+            ui.dual.deckB.vol.addEventListener('input', (e) => { e.stopPropagation(); updateDualVolume(); });
+            ui.dual.deckB.vol.addEventListener('click', (e) => e.stopPropagation());
+            
+            ui.dual.playBoth.addEventListener('click', playBothDual);
+            ui.dual.stopBoth.addEventListener('click', stopBothDual);
+            ui.dual.crossfader.addEventListener('input', updateDualVolume);
+            ui.dual.crossfader.addEventListener('dblclick', () => { ui.dual.crossfader.value = 50; updateDualVolume(); });
+
+            // Multi Global Events
+            ui.multi.addDeck.addEventListener('click', () => createDeck());
+            ui.multi.playAll.addEventListener('click', playAllDecks);
+            ui.multi.stopAll.addEventListener('click', stopAllDecks);
+
+            // FX Events
+            ui.fx.play.addEventListener('click', toggleFxPlay);
+            ui.fx.seek.addEventListener('input', seekFx);
+            ui.fx.loopBtn.addEventListener('click', () => {
+                isFxLoop = !isFxLoop;
+                ui.fx.loopBtn.classList.toggle('text-purple-400');
+                ui.fx.loopBtn.classList.toggle('text-gray-500');
+            });
+            ui.fx.preset.addEventListener('change', (e) => applyFxPreset(e.target.value));
+            ui.fx.vol.addEventListener('input', updateFxVolume);
+            ui.fx.exportBtn.addEventListener('click', exportFxTrack); 
+            
+            ui.fx.eq.forEach((slider, i) => {
+                slider.addEventListener('input', (e) => { updateEq(i, e.target.value); ui.fx.preset.value = 'custom'; });
+            });
+            ui.fx.bass.addEventListener('input', (e) => { updateBass(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.dist.addEventListener('input', (e) => { updateDist(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.echo.addEventListener('input', (e) => { updateEcho(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.trem.addEventListener('input', (e) => { updateTrem(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.reverb.addEventListener('input', (e) => { updateReverb(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.spd.addEventListener('input', (e) => { updateSpeed(e.target.value); ui.fx.preset.value = 'custom'; });
+            ui.fx.spd.addEventListener('dblclick', () => { ui.fx.spd.value = 1.0; updateSpeed(1.0); ui.fx.preset.value = 'custom'; });
+
+            // Visual Events
+            ui.visual.play.addEventListener('click', toggleSinglePlay); 
+            ui.visual.prev.addEventListener('click', () => changeSingleTrack(-1));
+            ui.visual.next.addEventListener('click', () => changeSingleTrack(1));
+            ui.visual.typeBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    visualType = e.target.dataset.type;
+                    ui.visual.typeBtns.forEach(b => b.classList.remove('bg-blue-600'));
+                    e.target.classList.add('bg-blue-600');
+                });
+            });
+
+            // Common Events
+            ui.addFilesBtn.addEventListener('click', () => ui.fileInput.click());
+            ui.fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.fileInput.value = ''; });
+            ui.addFolderBtn.addEventListener('click', () => ui.folderInput.click());
+            ui.folderInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.folderInput.value = ''; });
+            ui.importSf2Btn.addEventListener('click', () => ui.sf2Input.click());
+            ui.sf2Input.addEventListener('change', async (e) => {
+                const files = e.target.files;
+                if (!files || files.length < 1) return;
+                const file = files[0];
+                try {
+                    showNotification("SoundFontを保存中...");
+                    const t = db.transaction(['soundfonts'], 'readwrite');
+                    await new Promise((resolve, reject) => {
+                        const r = t.objectStore('soundfonts').put({ id: 'active-sf2', blob: file });
+                        r.onsuccess = resolve; r.onerror = reject;
+                    });
+                    
+                    activeSoundFontBuffer = await file.arrayBuffer();
+                    showNotification("SoundFontを適用中...");
+                    await initSpessaSynth(activeSoundFontBuffer);
+                    showNotification("カスタムSoundFontを適用しました！");
+                } catch(err) {
+                    console.error(err);
+                    showNotification("SoundFontのロードに失敗しました");
+                }
+                ui.sf2Input.value = '';
+            });
+            ui.clearBtn.addEventListener('click', confirmClearAll);
+            modal.cancel.addEventListener('click', closeModal);
+            modal.confirm.addEventListener('click', executeDelete);
+            
+            // Drag Drop
+            const drop = document.getElementById('drop-zone-overlay');
+            document.body.addEventListener('dragenter', (e) => { e.preventDefault(); drop.classList.remove('opacity-0', 'pointer-events-none'); });
+            document.body.addEventListener('dragover', (e) => e.preventDefault());
+            drop.addEventListener('dragleave', () => drop.classList.add('opacity-0', 'pointer-events-none'));
+            drop.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                drop.classList.add('opacity-0', 'pointer-events-none');
+                
+                const items = e.dataTransfer.items;
+                if (!items) {
+                    handleFiles(e.dataTransfer.files);
+                    return;
+                }
+                
+                const filesList = [];
+                const queue = [];
+                
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind === 'file') {
+                        const entry = item.webkitGetAsEntry();
+                        if (entry) {
+                            queue.push(traverseEntry(entry, filesList));
+                        }
+                    }
+                }
+                
+                await Promise.all(queue);
+                if (filesList.length > 0) {
+                    handleFiles(filesList);
+                }
+            });
+
+            // Keyboard Shortcuts
+            window.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+                
+                let key = e.key;
+                
+                // 1-6 keys for mode shifting
+                if (['1', '2', '3', '4', '5', '6'].includes(key)) {
+                    e.preventDefault();
+                    const modes = ['single', 'dual', 'multi', 'fx', 'visual', 'help'];
+                    const mode = modes[parseInt(key) - 1];
+                    setPlayerMode(mode);
+                    showNotification(`モード: ${mode.toUpperCase()}`);
+                    return;
+                }
+                
+                switch (key) {
+                    case ' ':
+                        e.preventDefault();
+                        if (currentMode === 'single' || currentMode === 'visual') {
+                            toggleSinglePlay();
+                        } else if (currentMode === 'fx') {
+                            toggleFxPlay();
+                        } else if (currentMode === 'dual') {
+                            toggleDualPlay(activeDualDeckIndex);
+                        } else if (currentMode === 'multi') {
+                            if (decks[activeMultiDeckIndex]) {
+                                toggleDeckPlay(decks[activeMultiDeckIndex]);
+                            }
+                        }
+                        break;
+                        
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        if (currentMode === 'single' || currentMode === 'visual') {
+                            changeSingleTrack(-1);
+                        } else if (currentMode === 'fx') {
+                            if (playlist.length > 0) {
+                                let newIdx = fxTrackIndex - 1;
+                                if (newIdx < 0) newIdx = playlist.length - 1;
+                                loadFxTrack(newIdx);
+                            }
+                        }
+                        break;
+                        
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        if (currentMode === 'single' || currentMode === 'visual') {
+                            changeSingleTrack(1);
+                        } else if (currentMode === 'fx') {
+                            if (playlist.length > 0) {
+                                let newIdx = fxTrackIndex + 1;
+                                if (newIdx >= playlist.length) newIdx = 0;
+                                loadFxTrack(newIdx);
+                            }
+                        }
+                        break;
+                        
+                    case 'ArrowUp':
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        const diff = key === 'ArrowUp' ? 0.05 : -0.05;
+                        if (currentMode === 'single' || currentMode === 'visual') {
+                            let vol = parseFloat(ui.single.vol.value);
+                            vol = Math.max(0, Math.min(1, vol + diff));
+                            ui.single.vol.value = vol;
+                            updateSingleVolume();
+                            showNotification(`音量: ${Math.round(vol * 100)}%`);
+                        } else if (currentMode === 'fx') {
+                            let vol = parseFloat(ui.fx.vol.value);
+                            vol = Math.max(0, Math.min(1, vol + diff));
+                            ui.fx.vol.value = vol;
+                            updateFxVolume();
+                            showNotification(`音量: ${Math.round(vol * 100)}%`);
+                        } else if (currentMode === 'dual') {
+                            let deck = activeDualDeckIndex === 0 ? ui.dual.deckA : ui.dual.deckB;
+                            let vol = parseFloat(deck.vol.value);
+                            vol = Math.max(0, Math.min(1, vol + diff));
+                            deck.vol.value = vol;
+                            updateDualVolume();
+                            showNotification(`デッキ ${activeDualDeckIndex === 0 ? 'A' : 'B'} 音量: ${Math.round(vol * 100)}%`);
+                        } else if (currentMode === 'multi') {
+                            let deck = decks[activeMultiDeckIndex];
+                            if (deck) {
+                                let vol = parseFloat(deck.ui.vol.value);
+                                vol = Math.max(0, Math.min(1, vol + diff));
+                                deck.ui.vol.value = vol;
+                                updateDeckVolume(deck);
+                                showNotification(`デッキ ${activeMultiDeckIndex + 1} 音量: ${Math.round(vol * 100)}%`);
+                            }
+                        }
+                        break;
+                        
+                    case '[':
+                    case ']':
+                        if (currentMode === 'dual') {
+                            e.preventDefault();
+                            let crossVal = parseInt(ui.dual.crossfader.value);
+                            crossVal = Math.max(0, Math.min(100, crossVal + (key === ']' ? 5 : -5)));
+                            ui.dual.crossfader.value = crossVal;
+                            updateDualVolume();
+                            showNotification(`クロスフェーダー: ${crossVal}%`);
+                        }
+                        break;
+                        
+                    case 'm':
+                    case 'M':
+                        e.preventDefault();
+                        if (audioContext) {
+                            initAudio();
+                            isMuted = !isMuted;
+                            if (masterGainNode) {
+                                masterGainNode.gain.setTargetAtTime(isMuted ? 0 : 1, audioContext.currentTime, 0.05);
+                                showNotification(isMuted ? "ミュート: ON" : "ミュート: OFF");
+                            }
+                        }
+                        break;
+                }
+            });
+
+            // MIDI Mixer Events
+            const midiMixerBtn = document.getElementById('single-midi-mixer-btn');
+            const midiMixerPanel = document.getElementById('midi-mixer-panel');
+            const closeMidiMixerBtn = document.getElementById('close-midi-mixer-btn');
+            const singleArtworkArea = document.getElementById('single-artwork-area');
+            
+            midiMixerBtn.addEventListener('click', () => {
+                midiMixerPanel.classList.toggle('hidden');
+                if (midiMixerPanel.classList.contains('hidden')) {
+                    singleArtworkArea.classList.remove('hidden');
+                } else {
+                    singleArtworkArea.classList.add('hidden');
+                    midiMixerPanel.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+            
+            closeMidiMixerBtn.addEventListener('click', () => {
+                midiMixerPanel.classList.add('hidden');
+                singleArtworkArea.classList.remove('hidden');
+            });
+
+            // Recording events
+            const recordBtn = document.getElementById('record-btn');
+            recordBtn.addEventListener('click', () => {
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            });
+            
+            document.getElementById('close-recording-modal').addEventListener('click', () => {
+                document.getElementById('recording-modal').classList.add('hidden');
+                const preview = document.getElementById('recording-preview');
+                preview.pause();
+                preview.src = '';
+                if (activeRecordingUrl) {
+                    URL.revokeObjectURL(activeRecordingUrl);
+                    activeRecordingUrl = null;
+                }
+                currentWebmBlob = null;
+            });
+            
+            document.getElementById('download-webm-btn').addEventListener('click', () => {
+                if (!currentWebmBlob) return;
+                const a = document.createElement('a');
+                a.href = activeRecordingUrl;
+                a.download = `LiveMix_${new Date().toISOString().slice(0,19).replace(/[-:]/g,"")}.webm`;
+                a.click();
+            });
+            
+            document.getElementById('download-wav-btn').addEventListener('click', async () => {
+                if (!currentWebmBlob) return;
+                const statusDiv = document.getElementById('recording-export-status');
+                const downloadBtn = document.getElementById('download-wav-btn');
+                
+                statusDiv.classList.remove('hidden');
+                downloadBtn.disabled = true;
+                downloadBtn.classList.add('opacity-50');
+                
+                try {
+                    const arrayBuffer = await currentWebmBlob.arrayBuffer();
+                    const audioBuf = await audioContext.decodeAudioData(arrayBuffer);
+                    const wavBlob = bufferToWav(audioBuf);
+                    const wavUrl = URL.createObjectURL(wavBlob);
+                    
+                    const a = document.createElement('a');
+                    a.href = wavUrl;
+                    a.download = `LiveMix_${new Date().toISOString().slice(0,19).replace(/[-:]/g,"")}.wav`;
+                    a.click();
+                    
+                    setTimeout(() => URL.revokeObjectURL(wavUrl), 5000);
+                } catch (err) {
+                    console.error("WAV Export Failed:", err);
+                    alert("WAV変換に失敗しました。WebM形式でのダウンロードをお試しください。");
+                } finally {
+                    statusDiv.classList.add('hidden');
+                    downloadBtn.disabled = false;
+                    downloadBtn.classList.remove('opacity-50');
+                }
+            });
+        }
+
+        // FLOATING SHORTCUT NOTIFICATION HUD
+        function showNotification(text) {
+            let notification = document.getElementById('shortcut-notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'shortcut-notification';
+                notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-900/90 border border-blue-500 text-blue-400 px-4 py-2 rounded-full text-xs font-bold shadow-lg transition-all duration-300 opacity-0 pointer-events-none z-50';
+                document.body.appendChild(notification);
+            }
+            notification.textContent = text;
+            notification.classList.remove('opacity-0');
+            notification.classList.add('opacity-100');
+            
+            clearTimeout(notification.timeoutId);
+            notification.timeoutId = setTimeout(() => {
+                notification.classList.remove('opacity-100');
+                notification.classList.add('opacity-0');
+            }, 1500);
+        }
+        
+        function initPresets() {
+            Object.keys(fxPresets).forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = fxPresets[key].name;
+                ui.fx.preset.appendChild(option);
+            });
+            ui.fx.preset.value = 'flat';
+        }
+        
+        function applyFxPreset(key) {
+            if (key === 'custom') return;
+            const p = fxPresets[key];
+            if (!p) return;
+            
+            p.eq.forEach((val, i) => { ui.fx.eq[i].value = val; updateEq(i, val); });
+            ui.fx.bass.value = p.bass; updateBass(p.bass);
+            ui.fx.dist.value = p.dist; updateDist(p.dist);
+            ui.fx.echo.value = p.echo; updateEcho(p.echo);
+            ui.fx.trem.value = p.trem; updateTrem(p.trem);
+            ui.fx.reverb.value = p.reverb; updateReverb(p.reverb);
+            ui.fx.spd.value = p.spd; updateSpeed(p.spd);
+        }
+
+        // --- MIDI Functions (Unified) ---
+        let spessaSynthWrappers = {};
+        
+        function getMidiSynth(key, forceCreate = true) {
+            // key: 'main', 'dualA', 'dualB', or deck objects for multi
+            if (!audioContext) initAudio();
+            
+            if (isSpessaSynthLoaded && spessaSynthInstance) {
+                if (typeof key === 'object') {
+                    if (!key.spessaSynth && forceCreate) {
+                        key.spessaSynth = new SpessaSynthPlayerWrapper(spessaSynthInstance);
+                    }
+                    return key.spessaSynth;
+                } else {
+                    if (!spessaSynthWrappers[key] && forceCreate) {
+                        spessaSynthWrappers[key] = new SpessaSynthPlayerWrapper(spessaSynthInstance);
+                    }
+                    return spessaSynthWrappers[key];
+                }
+            }
+            
+            let synth;
+            if (typeof key === 'object') {
+                // Multi deck object
+                if (!key.midiSynth && forceCreate) {
+                    key.midiSynth = new WebAudioTinySynth({useReverb:0, quality:0}); // 軽量化
+                }
+                synth = key.midiSynth;
+            } else {
+                if (!midiPlayers[key] && forceCreate) {
+                    midiPlayers[key] = new WebAudioTinySynth({useReverb:0, quality:1});
+                    if (key === 'main') {
+                        wrapMidiSynthSend(midiPlayers[key]);
+                    }
+                }
+                synth = midiPlayers[key];
+            }
+            
+            if (synth && !synth._wrappedGetPlayStatus) {
+                synth._wrappedGetPlayStatus = true;
+                const originalGetPlayStatus = synth.getPlayStatus.bind(synth);
+                synth.getPlayStatus = function() {
+                    const status = originalGetPlayStatus();
+                    let currentTime = 0;
+                    let maxTime = 0;
+                    if (synth.song) {
+                        currentTime = (status.curTick * 4 * 60) / (synth.song.timebase * synth.song.tempo);
+                        maxTime = (status.maxTick * 4 * 60) / (synth.song.timebase * synth.song.tempo);
+                    }
+                    return {
+                        play: status.play,
+                        currentTime: currentTime,
+                        maxTime: maxTime,
+                        curTick: status.curTick,
+                        maxTick: status.maxTick
+                    };
+                };
+            }
+            
+            return synth;
+        }
+
+        let activeLedTimeouts = {};
+        function wrapMidiSynthSend(synth) {
+            if (synth._wrapped) return;
+            synth._wrapped = true;
+            
+            const originalSend = synth.send.bind(synth);
+            synth.send = function(msg, time) {
+                originalSend(msg, time);
+                if (!msg || msg.length < 1) return;
+                
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+                
+                if (cmd === 0x90 && msg[2] > 0) {
+                    // Note On
+                    requestAnimationFrame(() => {
+                        const led = document.getElementById(`midi-led-${ch}`);
+                        if (led) {
+                            led.classList.remove('bg-gray-700');
+                            led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                            
+                            if (activeLedTimeouts[ch]) clearTimeout(activeLedTimeouts[ch]);
+                            activeLedTimeouts[ch] = setTimeout(() => {
+                                led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                                led.classList.add('bg-gray-700');
+                            }, 100);
+                        }
+                    });
+                } else if (cmd === 0xc0) {
+                    // Program change
+                    const prog = msg[1];
+                    requestAnimationFrame(() => {
+                        const select = document.getElementById(`midi-inst-${ch}`);
+                        if (select) select.value = prog;
+                    });
+                } else if (cmd === 0xb0 && msg[1] === 7) {
+                    // Volume CC 7
+                    const vol = msg[2];
+                    requestAnimationFrame(() => {
+                        const slider = document.getElementById(`midi-vol-${ch}`);
+                        if (slider) slider.value = vol;
+                    });
+                }
+            };
+        }
+
+        function initMidiMixerUI() {
+            const container = document.getElementById('midi-channels-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const synth = getMidiSynth('main');
+            const programs = synth.program || [];
+            
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-2 md:grid-cols-4 gap-2';
+            
+            for (let ch = 0; ch < 16; ch++) {
+                const col = document.createElement('div');
+                col.className = 'bg-gray-800 border border-gray-700/50 rounded-lg p-2 flex flex-col justify-between space-y-1';
+                
+                let html = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-1.5">
+                            <div id="midi-led-${ch}" class="w-2 h-2 rounded-full bg-gray-700 transition-all duration-300"></div>
+                            <span class="text-[9px] font-bold text-gray-400">CH ${ch+1}</span>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button id="midi-mute-${ch}" onclick="toggleMidiChannelMute(${ch})" class="text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-red-900 text-gray-300 font-bold flex items-center justify-center transition-colors">M</button>
+                            <button id="midi-solo-${ch}" onclick="toggleMidiChannelSolo(${ch})" class="text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-yellow-700 text-gray-300 font-bold flex items-center justify-center transition-colors">S</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <span class="text-[8px] text-gray-500">Vol</span>
+                        <input type="range" id="midi-vol-${ch}" min="0" max="127" value="100" oninput="changeMidiChannelVolume(${ch}, this.value)" class="w-full h-1 bg-gray-700 rounded appearance-none cursor-pointer">
+                    </div>
+                `;
+                
+                if (ch === 9) {
+                    html += `<div class="text-[9px] text-gray-500 py-1 italic text-center bg-gray-900/30 rounded border border-gray-700/30">MIDI Drums</div>`;
+                } else {
+                    html += `
+                        <select id="midi-inst-${ch}" onchange="changeMidiChannelInstrument(${ch}, this.value)" class="bg-gray-900 text-[9px] text-gray-300 border border-gray-700 rounded px-1 py-0.5 focus:outline-none w-full cursor-pointer hover:bg-gray-800">
+                    `;
+                    programs.forEach((p, idx) => {
+                        html += `<option value="${idx}">${p.name || `Instrument ${idx+1}`}</option>`;
+                    });
+                    html += `</select>`;
+                }
+                
+                col.innerHTML = html;
+                grid.appendChild(col);
+            }
+            container.appendChild(grid);
+            resetMidiMixerState();
+        }
+
+        window.changeMidiChannelVolume = (ch, val) => {
+            midiVolumes[ch] = parseInt(val);
+            const synth = getMidiSynth('main', false);
+            if (synth && !midiMuted[ch]) {
+                synth.send([0xb0 | ch, 7, midiVolumes[ch]], audioContext.currentTime);
+            }
+        };
+
+        window.changeMidiChannelInstrument = (ch, val) => {
+            const synth = getMidiSynth('main', false);
+            if (synth) {
+                synth.send([0xc0 | ch, parseInt(val)], audioContext.currentTime);
+            }
+        };
+
+        window.toggleMidiChannelMute = (ch) => {
+            midiMuted[ch] = !midiMuted[ch];
+            const btn = document.getElementById(`midi-mute-${ch}`);
+            if (btn) {
+                if (midiMuted[ch]) {
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-red-600 text-white font-bold flex items-center justify-center transition-colors";
+                } else {
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-red-900 text-gray-300 font-bold flex items-center justify-center transition-colors";
+                }
+            }
+            applyMidiChannelStates();
+        };
+
+        window.toggleMidiChannelSolo = (ch) => {
+            midiSoloed[ch] = !midiSoloed[ch];
+            const btn = document.getElementById(`midi-solo-${ch}`);
+            if (btn) {
+                if (midiSoloed[ch]) {
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-yellow-500 text-black font-bold flex items-center justify-center transition-colors";
+                } else {
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-yellow-700 text-gray-300 font-bold flex items-center justify-center transition-colors";
+                }
+            }
+            applyMidiChannelStates();
+        };
+
+        function applyMidiChannelStates() {
+            const synth = getMidiSynth('main', false);
+            if (!synth) return;
+            
+            const anySolo = midiSoloed.some(s => s);
+            
+            for (let ch = 0; ch < 16; ch++) {
+                let targetVol = midiVolumes[ch];
+                
+                if (midiMuted[ch]) {
+                    targetVol = 0;
+                } else if (anySolo && !midiSoloed[ch]) {
+                    targetVol = 0;
+                }
+                
+                synth.send([0xb0 | ch, 7, targetVol], audioContext.currentTime);
+            }
+        }
+
+        function resetMidiMixerState() {
+            midiMuted.fill(false);
+            midiSoloed.fill(false);
+            midiVolumes.fill(100);
+            
+            for (let ch = 0; ch < 16; ch++) {
+                const muteBtn = document.getElementById(`midi-mute-${ch}`);
+                if (muteBtn) {
+                    muteBtn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-red-900 text-gray-300 font-bold flex items-center justify-center transition-colors";
+                }
+                const soloBtn = document.getElementById(`midi-solo-${ch}`);
+                if (soloBtn) {
+                    soloBtn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-yellow-700 text-gray-300 font-bold flex items-center justify-center transition-colors";
+                }
+                const slider = document.getElementById(`midi-vol-${ch}`);
+                if (slider) {
+                    slider.value = 100;
+                }
+            }
+        }
+
+        // --- Recording Functions ---
+        function startRecording() {
+            initAudio();
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            recordedChunks = [];
+            recordDuration = 0;
+            isRecording = true;
+            
+            try {
+                mediaRecorder = new MediaRecorder(recDestNode.stream, { mimeType: 'audio/webm;codecs=opus' });
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(recDestNode.stream);
+            }
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                showRecordingResult();
+            };
+            
+            mediaRecorder.start(1000);
+            
+            const btn = document.getElementById('record-btn');
+            const dot = document.getElementById('record-dot');
+            const text = document.getElementById('record-text');
+            
+            btn.classList.add('bg-red-600', 'text-white', 'border-red-600');
+            btn.classList.remove('text-red-400', 'hover:bg-red-950');
+            dot.classList.add('animate-ping');
+            
+            recordInterval = setInterval(() => {
+                recordDuration++;
+                text.textContent = `Rec ${formatTime(recordDuration)}`;
+            }, 1000);
+            
+            showNotification("録音を開始しました");
+        }
+
+        function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+            
+            mediaRecorder.stop();
+            clearInterval(recordInterval);
+            
+            const btn = document.getElementById('record-btn');
+            const dot = document.getElementById('record-dot');
+            const text = document.getElementById('record-text');
+            
+            btn.classList.remove('bg-red-600', 'text-white', 'border-red-600');
+            btn.classList.add('text-red-400', 'hover:bg-red-950');
+            dot.classList.remove('animate-ping');
+            text.textContent = 'Rec Session';
+            
+            showNotification("録音を停止しました");
+        }
+
+        function showRecordingResult() {
+            const modal = document.getElementById('recording-modal');
+            const preview = document.getElementById('recording-preview');
+            
+            currentWebmBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+            
+            if (activeRecordingUrl) {
+                URL.revokeObjectURL(activeRecordingUrl);
+            }
+            activeRecordingUrl = URL.createObjectURL(currentWebmBlob);
+            preview.src = activeRecordingUrl;
+            
+            modal.classList.remove('hidden');
+            document.getElementById('recording-export-status').classList.add('hidden');
+        }
+
+        async function loadMidiData(synth, arrayBuffer, destNode) {
+            if (!synth) return;
+            // Synth接続
+            synth.setAudioContext(audioContext, destNode || audioContext.destination);
+            
+            try {
+                synth.loadMIDI(new Uint8Array(arrayBuffer));
+                // 音量初期設定 (スライダー値と同期)
+                if (currentMode === 'single' || currentMode === 'visual') {
+                    synth.setMasterVol(parseFloat(ui.single.vol.value));
+                } else if (currentMode === 'fx') {
+                    synth.setMasterVol(parseFloat(ui.fx.vol.value));
+                } else if (currentMode === 'dual') {
+                    updateDualVolume();
+                } else if (currentMode === 'multi') {
+                    const deck = decks.find(d => d.midiSynth === synth || d.spessaSynth === synth);
+                    if (deck) {
+                        synth.setMasterVol(parseFloat(deck.ui.vol.value));
+                    } else {
+                        synth.setMasterVol(0.5);
+                    }
+                } else {
+                    synth.setMasterVol(0.5);
+                }
+            } catch(e) {
+                console.error("MIDI Load Error:", e);
+            }
+        }
+
+        // Global MIDI Loop (updates all active UI smoothly)
+        function startMidiGlobalLoop() {
+            const update = () => {
+                // Single/Visual UI Update
+                if (currentMode === 'single' || currentMode === 'visual') {
+                    const synth = getMidiSynth('main', false);
+                    if (synth) {
+                        const status = synth.getPlayStatus();
+                        if (status && status.play) {
+                             ui.single.time.textContent = formatTime(status.currentTime);
+                             ui.single.dur.textContent = formatTime(status.maxTime);
+                             if(document.activeElement !== ui.single.seek && status.maxTime > 0) {
+                                 ui.single.seek.value = (status.currentTime / status.maxTime) * 100;
+                             }
+                             // End check
+                             if (status.currentTime >= status.maxTime) {
+                                 if(loopMode !== 0) { synth.playMIDI(); }
+                                 else { isSinglePlaying=false; updateSingleUIState(); }
+                             }
+                        }
+                    }
+                }
+                
+                // Dual UI Update
+                if (currentMode === 'dual') {
+                    ['dualA', 'dualB'].forEach((key, i) => {
+                        const synth = getMidiSynth(key, false);
+                        if (synth) {
+                            const status = synth.getPlayStatus();
+                            const deckUI = i === 0 ? ui.dual.deckA : ui.dual.deckB;
+                            if (status && status.play) {
+                                deckUI.time.textContent = `${formatTime(status.currentTime)} / ${formatTime(status.maxTime)}`;
+                                if(document.activeElement !== deckUI.seek && status.maxTime > 0) {
+                                    deckUI.seek.value = (status.currentTime / status.maxTime) * 100;
+                                }
+                                // Loop for dual
+                                if(status.currentTime >= status.maxTime) synth.playMIDI();
+                            }
+                        }
+                    });
+                }
+                
+                // Multi UI Update
+                if (currentMode === 'multi') {
+                    decks.forEach(deck => {
+                        const synth = getMidiSynth(deck, false);
+                        if (synth) {
+                            const status = synth.getPlayStatus();
+                            if (status && status.play) {
+                                deck.ui.time.textContent = `${formatTime(status.currentTime)} / ${formatTime(status.maxTime)}`;
+                                if(document.activeElement !== deck.ui.seek && status.maxTime > 0) {
+                                    deck.ui.seek.value = (status.currentTime / status.maxTime) * 100;
+                                }
+                                if(status.currentTime >= status.maxTime) synth.playMIDI();
+                            }
+                        }
+                    });
+                }
+                
+                // FX UI Update
+                if (currentMode === 'fx') {
+                    const synth = getMidiSynth('main', false);
+                    if (synth) {
+                         const status = synth.getPlayStatus();
+                         if (status && status.play) {
+                             ui.fx.time.textContent = formatTime(status.currentTime);
+                             ui.fx.dur.textContent = formatTime(status.maxTime);
+                             if(document.activeElement !== ui.fx.seek && status.maxTime > 0) {
+                                 ui.fx.seek.value = (status.currentTime / status.maxTime) * 100;
+                             }
+                             if (status.currentTime >= status.maxTime) {
+                                 if(isFxLoop) synth.playMIDI();
+                                 else { isFxPlaying=false; updateFxUIState(false); }
+                             }
+                         }
+                    }
+                }
+
+                requestAnimationFrame(update);
+            };
+            requestAnimationFrame(update);
+        }
+
+        function seekMidi(synth, percent) {
+            if(!synth) return;
+            const status = synth.getPlayStatus();
+            if(status.maxTime > 0) {
+                const time = (percent / 100) * status.maxTime;
+                // locateMIDI(seconds) check
+                if(typeof synth.locateMIDI === 'function') {
+                    synth.locateMIDI(time);
+                } else {
+                    // Fallback: restart if needed, mostly handled by display update
+                    // console.log("Seeking not fully supported in this version");
+                }
+            }
+        }
+
+        // --- Audio Core ---
+        function initAudio() {
+            if (audioContext) return;
+            const AC = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AC();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            
+            masterGainNode = audioContext.createGain();
+            analyser.connect(masterGainNode);
+            masterGainNode.connect(audioContext.destination);
+            if (isMuted) masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+
+            recDestNode = audioContext.createMediaStreamDestination();
+            analyser.connect(recDestNode);
+
+            // Create FX Nodes
+            const freqs = [60, 250, 1000, 4000, 12000];
+            eqNodes = freqs.map(f => {
+                const bq = audioContext.createBiquadFilter();
+                bq.type = 'peaking'; bq.frequency.value = f; bq.gain.value = 0;
+                return bq;
+            });
+            bassNode = audioContext.createBiquadFilter();
+            bassNode.type = 'lowshelf'; bassNode.frequency.value = 100; bassNode.gain.value = 0;
+            
+            distNode = audioContext.createWaveShaper();
+            distNode.curve = makeDistortionCurve(0);
+            
+            tremoloNode = audioContext.createGain();
+            tremoloOsc = audioContext.createOscillator();
+            tremoloOsc.frequency.value = 5; 
+            tremoloDepthNode = audioContext.createGain(); // Use global var
+            tremoloDepthNode.gain.value = 0; 
+            tremoloOsc.connect(tremoloDepthNode).connect(tremoloNode.gain);
+            tremoloOsc.start();
+            
+            delayNode = audioContext.createDelay();
+            delayNode.delayTime.value = 0.4;
+            const delayFeedback = audioContext.createGain();
+            delayFeedback.gain.value = 0.4;
+            delayNode.connect(delayFeedback).connect(delayNode);
+            delayGainNode = audioContext.createGain();
+            delayGainNode.gain.value = 0;
+            
+            reverbNode = audioContext.createConvolver();
+            reverbNode.buffer = createReverbBuffer(2.0, 2.0);
+            
+            dryGainNode = audioContext.createGain();
+            wetGainNode = audioContext.createGain();
+            wetGainNode.gain.value = 0;
+
+            // Init Players
+            players.forEach((p, i) => {
+                p.crossOrigin = "anonymous";
+                const src = audioContext.createMediaElementSource(p);
+                const gain = audioContext.createGain();
+                gain.gain.value = parseFloat(ui.single.vol.value); // 初期爆音を防止
+                
+                src.connect(gain);
+                singleSources[i] = src;
+                singleGainNodes[i] = gain;
+
+                p.addEventListener('timeupdate', () => {
+                    if (currentMode === 'single' || currentMode === 'visual') handleSingleTimeUpdate(i);
+                    else if (currentMode === 'dual') handleDualTimeUpdate(i);
+                    else if (currentMode === 'fx') handleFxTimeUpdate(i);
+                });
+                p.addEventListener('ended', () => {
+                    if (currentMode === 'single' || currentMode === 'visual') handleSingleEnded(i);
+                    else if (currentMode === 'fx') {
+                        if(isFxLoop) { p.currentTime=0; p.play(); }
+                        else { isFxPlaying=false; updateFxUIState(false); }
+                    }
+                });
+                p.addEventListener('play', () => { 
+                    if(currentMode==='single' || currentMode==='visual') {isSinglePlaying=true; updateSingleUIState(); updateVisualUIState(true);}
+                    else if(currentMode==='dual') updateDualUIState(i);
+                    else if(currentMode==='fx') updateFxUIState(true);
+                });
+                p.addEventListener('pause', () => { 
+                    if(currentMode==='single' || currentMode==='visual') {isSinglePlaying=false; updateSingleUIState(); updateVisualUIState(false);}
+                    else if(currentMode==='dual') updateDualUIState(i);
+                    else if(currentMode==='fx') updateFxUIState(false);
+                });
+            });
+            
+            connectAudioGraph();
+            drawVisualizer();
+        }
+        
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; ++i) {
+                const x = i * 2 / n_samples - 1;
+                curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+        
+        function createReverbBuffer(duration, decay) {
+            const rate = audioContext.sampleRate;
+            const len = rate * duration;
+            const buffer = audioContext.createBuffer(2, len, rate);
+            for (let c = 0; c < 2; c++) {
+                const data = buffer.getChannelData(c);
+                for (let i = 0; i < len; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+                }
+            }
+            return buffer;
+        }
+        
+        function connectAudioGraph() {
+            if(!audioContext) return;
+            
+            // Disconnect first
+            singleGainNodes.forEach(g => { 
+                try { g.disconnect(); } catch(e){} 
+            });
+            
+            if(currentMode === 'fx') {
+                if(singleGainNodes[0] && eqNodes[0]) {
+                    // FX Routing: Player0 Gain -> EQ -> Bass -> Dist -> Tremolo -> Split
+                    let lastNode = singleGainNodes[0];
+                    eqNodes.forEach(eq => { lastNode.connect(eq); lastNode = eq; });
+                    lastNode.connect(bassNode);
+                    bassNode.connect(distNode);
+                    distNode.connect(tremoloNode);
+                    
+                    tremoloNode.connect(dryGainNode);
+                    tremoloNode.connect(reverbNode);
+                    reverbNode.connect(wetGainNode);
+                    tremoloNode.connect(delayNode);
+                    delayNode.connect(delayGainNode);
+                    
+                    dryGainNode.connect(analyser);
+                    wetGainNode.connect(analyser);
+                    delayGainNode.connect(analyser);
+                    
+                    // Re-connect MAIN MIDI to FX Chain
+                    const synth = midiPlayers.main;
+                    if(synth && singleGainNodes[0]) synth.setAudioContext(audioContext, singleGainNodes[0]);
+                }
+            } else {
+                // Standard Routing: Gain -> Analyser
+                singleGainNodes.forEach(g => g.connect(analyser));
+                
+                // Re-connect MAIN MIDI
+                const synth = midiPlayers.main;
+                if(synth && singleGainNodes[0]) synth.setAudioContext(audioContext, singleGainNodes[0]);
+            }
+            
+            // 音量を即座に同期して初期爆音を回避
+            if (currentMode === 'single' || currentMode === 'visual') {
+                updateSingleVolume();
+            } else if (currentMode === 'fx') {
+                updateFxVolume();
+            } else if (currentMode === 'dual') {
+                updateDualVolume();
+            }
+            
+            // Dual/Multi MIDI Routing is handled dynamically on load/play
+        }
+
+        function stopAllAudio() {
+             // Stop All MIDI
+             Object.values(midiPlayers).forEach(p => { if(p) p.stopMIDI(); });
+             decks.forEach(d => { if(d.midiSynth) d.midiSynth.stopMIDI(); });
+            
+            players.forEach(p => { 
+                p.pause(); p.currentTime = 0; 
+                p.playbackRate = 1.0; 
+            });
+            isSinglePlaying = false; isAutoCrossfading = false; currentSinglePlayerIndex = 0; 
+            updateSingleUIState(); updateDualUIState(0); updateDualUIState(1); updateFxUIState(false);
+            updateVisualUIState(false);
+            decks.forEach(d => { d.player.pause(); d.player.currentTime = 0; updateDeckUI(d); });
+        }
+
+        // --- Export Logic ---
+        async function exportFxTrack() {
+            if(fxTrackIndex === -1 || !playlist[fxTrackIndex]) return;
+            if(!window.OfflineAudioContext) { alert("ブラウザが対応していません"); return; }
+            
+            const btn = ui.fx.exportBtn;
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = `<span class="text-xs">Exporting...</span>`;
+            btn.classList.add('downloading');
+            
+            try {
+                const track = playlist[fxTrackIndex];
+                const arrayBuffer = await track.file.arrayBuffer();
+                let audioBuffer;
+                
+                // Decode or Render MIDI
+                if (track.isMidi) {
+                    // MIDI Export is complex (need to render TinySynth offline), skipping for basic impl
+                    // Fallback alert
+                    alert("MIDIファイルのエクスポートは現在サポートされていません");
+                    throw new Error("MIDI Export not supported");
+                } else {
+                    audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                }
+                
+                const offlineCtx = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
+                
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.playbackRate.value = parseFloat(ui.fx.spd.value);
+                
+                const eq = ui.fx.eq.map((slider, i) => {
+                    const bq = offlineCtx.createBiquadFilter();
+                    bq.type = 'peaking';
+                    bq.frequency.value = [60, 250, 1000, 4000, 12000][i];
+                    bq.gain.value = parseFloat(slider.value);
+                    return bq;
+                });
+                
+                const bass = offlineCtx.createBiquadFilter();
+                bass.type = 'lowshelf'; bass.frequency.value = 100;
+                bass.gain.value = parseFloat(ui.fx.bass.value);
+                
+                const dist = offlineCtx.createWaveShaper();
+                dist.curve = makeDistortionCurve(parseFloat(ui.fx.dist.value));
+                
+                const trem = offlineCtx.createGain();
+                const tremOsc = offlineCtx.createOscillator();
+                tremOsc.frequency.value = 5;
+                const tremDepth = offlineCtx.createGain();
+                tremDepth.gain.value = parseFloat(ui.fx.trem.value);
+                tremOsc.connect(tremDepth).connect(trem.gain);
+                tremOsc.start();
+                
+                const delay = offlineCtx.createDelay();
+                delay.delayTime.value = 0.4;
+                const fb = offlineCtx.createGain();
+                fb.gain.value = 0.4;
+                delay.connect(fb).connect(delay);
+                const delayGain = offlineCtx.createGain();
+                delayGain.gain.value = parseFloat(ui.fx.echo.value);
+                
+                const reverb = offlineCtx.createConvolver();
+                const rate = offlineCtx.sampleRate;
+                const len = rate * 2.0;
+                const buff = offlineCtx.createBuffer(2, len, rate);
+                for(let c=0; c<2; c++){
+                    const d = buff.getChannelData(c);
+                    for(let k=0; k<len; k++) d[k] = (Math.random()*2-1)*Math.pow(1-k/len, 2.0);
+                }
+                reverb.buffer = buff;
+                const wet = offlineCtx.createGain();
+                wet.gain.value = parseFloat(ui.fx.reverb.value);
+                
+                const dry = offlineCtx.createGain();
+                
+                let last = source;
+                eq.forEach(node => { last.connect(node); last = node; });
+                last.connect(bass);
+                bass.connect(dist);
+                dist.connect(trem);
+                
+                trem.connect(dry);
+                trem.connect(reverb);
+                reverb.connect(wet);
+                trem.connect(delay);
+                delay.connect(delayGain);
+                
+                dry.connect(offlineCtx.destination);
+                wet.connect(offlineCtx.destination);
+                delayGain.connect(offlineCtx.destination);
+                
+                source.start();
+                
+                const renderedBuffer = await offlineCtx.startRendering();
+                const wavBlob = bufferToWav(renderedBuffer);
+                const url = URL.createObjectURL(wavBlob);
+                
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `FX_${track.name}.wav`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch(e) {
+                console.error(e);
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.classList.remove('downloading');
+            }
+        }
+        
+        function bufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; 
+            const bitDepth = 16;
+            
+            let result;
+            if (numChannels === 2) {
+                result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+            } else {
+                result = buffer.getChannelData(0);
+            }
+            return encodeWAV(result, format, sampleRate, numChannels, bitDepth);
+        }
+        
+        function interleave(inputL, inputR) {
+            const length = inputL.length + inputR.length;
+            const result = new Float32Array(length);
+            let index = 0;
+            let inputIndex = 0;
+            while (index < length) {
+                result[index++] = inputL[inputIndex];
+                result[index++] = inputR[inputIndex];
+                inputIndex++;
+            }
+            return result;
+        }
+        
+        function encodeWAV(samples, format, sampleRate, numChannels, bitDepth) {
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+            const view = new DataView(buffer);
+            
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, samples.length * bytesPerSample, true);
+            if (format === 1) { 
+                floatTo16BitPCM(view, 44, samples);
+            } else {
+                writeFloat32(view, 44, samples);
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+        
+        function floatTo16BitPCM(output, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                const s = Math.max(-1, Math.min(1, input[i]));
+                output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        }
+        
+        function writeFloat32(output, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 4) {
+                output.setFloat32(offset, input[i], true);
+            }
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // --- FX Mode Logic ---
+        async function loadFxTrack(index) {
+            initAudio();
+            if(index < 0 || index >= playlist.length) return;
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            stopAllAudio();
+            connectAudioGraph();
+            
+            fxTrackIndex = index;
+            const track = playlist[index];
+            ui.fx.title.textContent = track.name;
+            ui.fx.status.textContent = "Ready";
+            applyFxPreset(ui.fx.preset.value);
+            
+            if (track.isMidi) {
+                ui.fx.title.textContent += " (MIDI)";
+                const synth = getMidiSynth('main');
+                const buf = await track.file.arrayBuffer();
+                await loadMidiData(synth, buf, singleGainNodes[0]);
+                toggleFxPlay();
+            } else {
+                const p = players[0]; 
+                p.loop = false; 
+                p.src = track.url;
+                p.currentTime = 0;
+                updateFxVolume(); 
+                p.play().catch(e=>console.log(e));
+            }
+        }
+        
+        function updateFxVolume() {
+            const vol = parseFloat(ui.fx.vol.value);
+            if(singleGainNodes[0]) singleGainNodes[0].gain.setTargetAtTime(vol, audioContext.currentTime, 0.1);
+            const synth = midiPlayers.main;
+            if(synth) synth.setMasterVol(vol);
+        }
+        
+        function toggleFxPlay() {
+            initAudio();
+            const track = playlist[fxTrackIndex];
+            if(fxTrackIndex === -1 && playlist.length > 0) { loadFxTrack(0); return; }
+            
+            if (track && track.isMidi) {
+                const synth = midiPlayers.main;
+                if(!synth) return;
+                const status = synth.getPlayStatus();
+                if(status.play) {
+                    synth.stopMIDI();
+                    isFxPlaying = false;
+                } else {
+                    synth.playMIDI();
+                    isFxPlaying = true;
+                }
+                updateFxUIState(isFxPlaying);
+            } else {
+                const p = players[0];
+                if(p.src) { if(p.paused) p.play(); else p.pause(); }
+            }
+        }
+        
+        function seekFx() {
+            const track = playlist[fxTrackIndex];
+            if (track && track.isMidi) {
+                seekMidi(midiPlayers.main, ui.fx.seek.value);
+            } else {
+                const p = players[0];
+                if(p.duration) p.currentTime = (ui.fx.seek.value / 100) * p.duration;
+            }
+        }
+        
+        function handleFxTimeUpdate(i) {
+            if(i !== 0) return;
+            const p = players[0];
+            if(isNaN(p.duration)) return;
+            ui.fx.time.textContent = formatTime(p.currentTime);
+            ui.fx.dur.textContent = formatTime(p.duration);
+            if(document.activeElement !== ui.fx.seek) ui.fx.seek.value = (p.currentTime / p.duration) * 100;
+        }
+        
+        function updateFxUIState(isPlaying) {
+            if(isPlaying) {
+                ui.fx.playIcon.classList.add('hidden'); ui.fx.pauseIcon.classList.remove('hidden');
+                ui.fx.status.textContent = "FX Active";
+            } else {
+                ui.fx.playIcon.classList.remove('hidden'); ui.fx.pauseIcon.classList.add('hidden');
+                ui.fx.status.textContent = "Paused";
+            }
+        }
+        
+        function updateEq(bandIndex, val) { if(eqNodes[bandIndex]) eqNodes[bandIndex].gain.value = parseFloat(val); }
+        function updateBass(val) { if(bassNode) bassNode.gain.value = parseFloat(val); ui.fx.bassVal.textContent = val + "dB"; }
+        function updateDist(val) { if(distNode) distNode.curve = makeDistortionCurve(parseFloat(val)); ui.fx.distVal.textContent = val; }
+        function updateEcho(val) { if(delayGainNode) delayGainNode.gain.value = parseFloat(val); ui.fx.echoVal.textContent = Math.round(parseFloat(val)*100)+"%"; }
+        
+        function updateTrem(val) { 
+            if(tremoloDepthNode) tremoloDepthNode.gain.value = parseFloat(val);
+            ui.fx.tremVal.textContent = Math.round(parseFloat(val)*100)+"%";
+        }
+        
+        function updateReverb(val) { if(wetGainNode) wetGainNode.gain.value = parseFloat(val); ui.fx.reverbVal.textContent = Math.round(parseFloat(val)*100) + "%"; }
+        function updateSpeed(val) { 
+            const p = players[0]; p.playbackRate = parseFloat(val); 
+            ui.fx.spdVal.textContent = "x" + parseFloat(val).toFixed(2);
+        }
+
+        // --- Single Mode Logic ---
+        async function loadSingleTrack(index, autoPlay = true) {
+            initAudio();
+            if(index < 0 || index >= playlist.length) return;
+            const track = playlist[index];
+            if(audioContext.state === 'suspended') audioContext.resume();
+
+            if(!track.isMidi && isAutoCrossfade && isSinglePlaying && index !== singleTrackIndex && currentMode === 'single') {
+                 performAutoCrossfade(index);
+                 return;
+            }
+            
+            stopAllAudio();
+            connectAudioGraph(); 
+            
+            singleTrackIndex = index;
+            updatePlaylistUI();
+            updateSingleUIInfo();
+            resetMidiMixerState();
+            
+            if (track.isMidi) {
+                // --- MIDI PLAYBACK ---
+                const synth = getMidiSynth('main');
+                const arrayBuffer = await track.file.arrayBuffer();
+                await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
+                
+                initMidiMixerUI();
+                document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
+                
+                ui.single.title.textContent = track.name + " (MIDI)";
+                showNotification(`▶ 再生中: ${track.name}`);
+                if(autoPlay) toggleSinglePlay();
+
+            } else {
+                document.getElementById('single-midi-mixer-btn').classList.add('hidden');
+                document.getElementById('midi-mixer-panel').classList.add('hidden');
+                document.getElementById('single-artwork-area').classList.remove('hidden');
+                
+                // --- AUDIO PLAYBACK ---
+                currentSinglePlayerIndex = 0; 
+                const p = players[0];
+                p.loop = false;
+                p.src = track.url;
+                p.currentTime = 0;
+                singleGainNodes[0].gain.value = parseFloat(ui.single.vol.value);
+                singleGainNodes[1].gain.value = 0;
+
+                showNotification(`▶ 再生中: ${track.name}`);
+                if(autoPlay) p.play().catch(e => console.log(e));
+                else {
+                    isSinglePlaying = false;
+                    updateSingleUIState();
+                    updateVisualUIState(false);
+                }
+            }
+        }
+        
+        function performAutoCrossfade(nextIndex) {
+            if(isAutoCrossfading) return;
+            isAutoCrossfading = true;
+            
+            let activeId = (!players[0].paused) ? 0 : 1;
+            let nextId = activeId === 0 ? 1 : 0;
+            let currP = players[activeId];
+            let nextP = players[nextId];
+            let currG = singleGainNodes[activeId];
+            let nextG = singleGainNodes[nextId];
+            
+            nextP.src = playlist[nextIndex].url;
+            nextP.currentTime = 0;
+            
+            nextP.play().then(() => {
+                const now = audioContext.currentTime;
+                const vol = parseFloat(ui.single.vol.value);
+                
+                currG.gain.cancelScheduledValues(now);
+                currG.gain.setValueAtTime(vol, now);
+                currG.gain.linearRampToValueAtTime(0, now + autoCrossfadeDur);
+                
+                nextG.gain.cancelScheduledValues(now);
+                nextG.gain.setValueAtTime(0, now);
+                nextG.gain.linearRampToValueAtTime(vol, now + autoCrossfadeDur);
+                
+                currentSinglePlayerIndex = nextId; 
+                singleTrackIndex = nextIndex;
+                updateSingleUIInfo();
+                updatePlaylistUI();
+                
+                setTimeout(() => {
+                    currP.pause();
+                    currP.currentTime = 0;
+                    isAutoCrossfading = false;
+                }, autoCrossfadeDur * 1000);
+            }).catch(e => {
+                isAutoCrossfading = false;
+                loadSingleTrack(nextIndex, true);
+            });
+        }
+
+        function toggleSinglePlay() {
+            initAudio();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            const track = playlist[singleTrackIndex];
+            if (track && track.isMidi) {
+                const synth = midiPlayers.main;
+                if(!synth) return;
+                const status = synth.getPlayStatus();
+                if(status.play) {
+                    synth.stopMIDI();
+                    isSinglePlaying = false;
+                } else {
+                    synth.playMIDI();
+                    isSinglePlaying = true;
+                }
+                updateSingleUIState();
+            } else {
+                let p = players[currentSinglePlayerIndex];
+                if(singleTrackIndex === -1 && playlist.length > 0) loadSingleTrack(0, true);
+                else if(p.src) { if(p.paused) p.play(); else p.pause(); }
+            }
+        }
+
+        function changeSingleTrack(dir) {
+            const filtered = playlist.map((t, idx) => ({ ...t, idx }))
+                .filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+            if(filtered.length === 0) return;
+            
+            let currentFilteredIndex = filtered.findIndex(t => t.idx === singleTrackIndex);
+            let nextFilteredIndex = currentFilteredIndex + dir;
+            if(nextFilteredIndex >= filtered.length) nextFilteredIndex = 0;
+            if(nextFilteredIndex < 0) nextFilteredIndex = filtered.length - 1;
+            
+            loadSingleTrack(filtered[nextFilteredIndex].idx, true);
+        }
+
+        function handleSingleTimeUpdate(i) {
+            if (i !== currentSinglePlayerIndex) return;
+            const p = players[i];
+            if(isNaN(p.duration)) return;
+            ui.single.time.textContent = formatTime(p.currentTime);
+            ui.single.dur.textContent = formatTime(p.duration);
+            if(document.activeElement !== ui.single.seek) ui.single.seek.value = (p.currentTime / p.duration) * 100;
+            
+            if(isAutoCrossfade && !isAutoCrossfading && !p.paused && currentMode === 'single') {
+                if((p.duration - p.currentTime) <= autoCrossfadeDur && (p.duration - p.currentTime) > 0.5) {
+                    if(loopMode !== 1 && singleTrackIndex >= playlist.length - 1) return; 
+                    changeSingleTrack(1);
+                }
+            }
+        }
+
+        function handleSingleEnded(i) {
+            if (i !== currentSinglePlayerIndex) return;
+            if(isAutoCrossfading) return; 
+            if (loopMode === 2) { 
+                const p = players[i];
+                p.currentTime = 0;
+                p.play().catch(e => console.log(e));
+            } else if (loopMode === 1) { 
+                changeSingleTrack(1);
+            } else { 
+                if (singleTrackIndex < playlist.length - 1) changeSingleTrack(1);
+                else { 
+                    isSinglePlaying = false; 
+                    updateSingleUIState(); 
+                    updateVisualUIState(false);
+                }
+            }
+        }
+        
+        function seekSingle() {
+            const track = playlist[singleTrackIndex];
+            if (track && track.isMidi) {
+                seekMidi(midiPlayers.main, ui.single.seek.value);
+            } else {
+                let p = players[currentSinglePlayerIndex];
+                if(p.duration) p.currentTime = (ui.single.seek.value / 100) * p.duration;
+            }
+        }
+        
+        function updateSingleVolume() {
+            const vol = parseFloat(ui.single.vol.value);
+            singleGainNodes.forEach(g => g.gain.setTargetAtTime(vol, audioContext.currentTime, 0.1));
+            const synth = midiPlayers.main;
+            if(synth) synth.setMasterVol(vol);
+        }
+
+        function updateVisualUIState(isPlaying) {
+            ui.visual.title.textContent = playlist[singleTrackIndex] ? playlist[singleTrackIndex].name : "No Track";
+            if(isPlaying) {
+                ui.visual.playIcon.classList.add('hidden');
+                ui.visual.pauseIcon.classList.remove('hidden');
+            } else {
+                ui.visual.playIcon.classList.remove('hidden');
+                ui.visual.pauseIcon.classList.add('hidden');
+            }
+        }
+
+        // --- Dual Mode Logic ---
+        function selectDualDeck(i) {
+            activeDualDeckIndex = i;
+            if (i === 0) {
+                ui.dual.deckA.el.classList.add('deck-selected');
+                ui.dual.deckB.el.classList.remove('deck-selected');
+            } else {
+                ui.dual.deckA.el.classList.remove('deck-selected');
+                ui.dual.deckB.el.classList.add('deck-selected');
+            }
+        }
+
+        async function loadDualTrack(trackIndex) {
+            initAudio();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            const track = playlist[trackIndex];
+            const deckKey = activeDualDeckIndex === 0 ? 'dualA' : 'dualB';
+            dualTracks[activeDualDeckIndex] = track;
+            
+            const deckUI = activeDualDeckIndex === 0 ? ui.dual.deckA : ui.dual.deckB;
+            deckUI.title.textContent = track.name;
+            deckUI.time.textContent = "0:00 / 0:00";
+            deckUI.seek.value = 0;
+
+            connectAudioGraph();
+
+            if (track.isMidi) {
+                const synth = getMidiSynth(deckKey);
+                // Connect to appropriate gain node
+                const buf = await track.file.arrayBuffer();
+                await loadMidiData(synth, buf, singleGainNodes[activeDualDeckIndex]);
+                deckUI.title.textContent += " (MIDI)";
+            } else {
+                const p = players[activeDualDeckIndex];
+                p.loop = true;
+                p.src = track.url;
+                p.currentTime = 0;
+            }
+            
+            updateDualVolume();
+        }
+
+        function toggleDualPlay(i) {
+            initAudio();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            const track = dualTracks[i];
+            const deckKey = i === 0 ? 'dualA' : 'dualB';
+            
+            if (track && track.isMidi) {
+                const synth = midiPlayers[deckKey];
+                if(!synth) return;
+                const status = synth.getPlayStatus();
+                if(status.play) { synth.stopMIDI(); } 
+                else { synth.playMIDI(); }
+                updateDualUIState(i); // Update UI manually for MIDI
+            } else {
+                const p = players[i];
+                if(!p.src) return;
+                if(p.paused) p.play(); else p.pause();
+            }
+        }
+
+        function stopDualDeck(i) {
+            const track = dualTracks[i];
+            const deckKey = i === 0 ? 'dualA' : 'dualB';
+            
+            if (track && track.isMidi) {
+                const synth = midiPlayers[deckKey];
+                if(synth) synth.stopMIDI();
+                updateDualUIState(i);
+            } else {
+                players[i].pause();
+                players[i].currentTime = 0;
+            }
+        }
+
+        function playBothDual() {
+            initAudio();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            [0, 1].forEach(i => {
+                const track = dualTracks[i];
+                if(track) {
+                   if(track.isMidi) {
+                       const synth = midiPlayers[i===0?'dualA':'dualB'];
+                       if(synth && !synth.getPlayStatus().play) synth.playMIDI();
+                   } else {
+                       const p = players[i];
+                       if(p.src && p.paused) p.play();
+                   }
+                }
+            });
+            updateDualUIState(0); updateDualUIState(1);
+        }
+
+        function stopBothDual() {
+            [0, 1].forEach(i => stopDualDeck(i));
+        }
+
+        function updateDualVolume() {
+            const xVal = parseInt(ui.dual.crossfader.value) / 100;
+            const gA = Math.cos(xVal * 0.5 * Math.PI);
+            const gB = Math.cos((1.0 - xVal) * 0.5 * Math.PI);
+            
+            // Audio players & MIDI synths share the same gain nodes in this design
+            if(singleGainNodes[0]) singleGainNodes[0].gain.setTargetAtTime(gA * parseFloat(ui.dual.deckA.vol.value), audioContext.currentTime, 0.1);
+            if(singleGainNodes[1]) singleGainNodes[1].gain.setTargetAtTime(gB * parseFloat(ui.dual.deckB.vol.value), audioContext.currentTime, 0.1);
+        }
+
+        function handleDualTimeUpdate(i) {
+            const p = players[i];
+            const deckUI = i === 0 ? ui.dual.deckA : ui.dual.deckB;
+            if(isNaN(p.duration)) return;
+            deckUI.time.textContent = `${formatTime(p.currentTime)} / ${formatTime(p.duration)}`;
+            if(document.activeElement !== deckUI.seek) deckUI.seek.value = (p.currentTime / p.duration) * 100;
+        }
+
+        function seekDual(i) {
+            const track = dualTracks[i];
+            const deckUI = i === 0 ? ui.dual.deckA : ui.dual.deckB;
+            if (track && track.isMidi) {
+                seekMidi(midiPlayers[i===0?'dualA':'dualB'], deckUI.seek.value);
+            } else {
+                const p = players[i];
+                if(p.duration) p.currentTime = (deckUI.seek.value / 100) * p.duration;
+            }
+        }
+
+        function updateDualUIState(i) {
+            const track = dualTracks[i];
+            let isPlaying = false;
+            
+            if (track && track.isMidi) {
+                 const synth = midiPlayers[i===0?'dualA':'dualB'];
+                 if(synth) isPlaying = synth.getPlayStatus().play;
+            } else {
+                 isPlaying = !players[i].paused;
+            }
+            
+            const deckUI = i === 0 ? ui.dual.deckA : ui.dual.deckB;
+            const icon = isPlaying 
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            deckUI.play.innerHTML = icon;
+        }
+
+        // --- Multi Mode Logic ---
+        function initMultiDecks() {
+            createDeck();
+            createDeck();
+            selectMultiDeck(0);
+        }
+
+        function createDeck() {
+            const index = decks.length;
+            const deckId = `deck-${deckCounter++}`;
+            const el = document.createElement('div');
+            el.className = "bg-gray-900/50 rounded-lg p-3 border border-gray-700 flex flex-col justify-between transition-all duration-200 cursor-pointer h-full min-h-[180px] relative group";
+            el.onclick = (e) => {
+                if (e.target.closest('button') || e.target.closest('input')) return;
+                selectMultiDeck(decks.findIndex(d => d.id === deckId));
+            };
+            
+            // step="0.01" を追加
+            el.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider deck-label">Deck ${index + 1}</div>
+                    <div class="flex items-center space-x-2">
+                        <div class="h-2 w-2 rounded-full bg-gray-600 status-dot"></div>
+                        <button class="deck-remove text-gray-600 hover:text-red-500 transition p-1" title="デッキを削除">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-center mb-2 overflow-hidden flex-1 flex flex-col justify-center">
+                    <h3 class="text-sm font-bold truncate text-white mb-1 deck-title">No Track</h3>
+                    <p class="text-[10px] text-gray-400 font-mono deck-time">0:00 / 0:00</p>
+                </div>
+                <div class="space-y-3 pointer-events-auto">
+                    <input type="range" class="deck-seek w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer" value="0" min="0" max="100" step="0.01">
+                    <div class="flex justify-center items-center space-x-3">
+                        <button class="deck-play bg-blue-600 hover:bg-blue-500 text-white rounded-full p-2 shadow transition transform hover:scale-105">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </button>
+                        <button class="deck-stop text-gray-400 hover:text-white p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] text-gray-500">Vol</span>
+                        <input type="range" class="deck-vol w-full h-1" min="0" max="1" step="0.01" value="0.3">
+                    </div>
+                </div>
+            `;
+            
+            ui.decksContainer.appendChild(el);
+            const player = new Audio();
+            player.crossOrigin = "anonymous";
+            player.loop = true; 
+            
+            const deckObj = {
+                id: deckId, el, player, gainNode: null, midiSynth: null, track: null,
+                ui: {
+                    title: el.querySelector('.deck-title'), time: el.querySelector('.deck-time'),
+                    seek: el.querySelector('.deck-seek'), play: el.querySelector('.deck-play'),
+                    stop: el.querySelector('.deck-stop'), vol: el.querySelector('.deck-vol'),
+                    dot: el.querySelector('.status-dot'), remove: el.querySelector('.deck-remove'),
+                    label: el.querySelector('.deck-label')
+                }
+            };
+
+            deckObj.ui.play.onclick = (e) => { e.stopPropagation(); toggleDeckPlay(deckObj); };
+            deckObj.ui.stop.onclick = (e) => { e.stopPropagation(); stopDeck(deckObj); };
+            deckObj.ui.seek.onclick = (e) => e.stopPropagation();
+            deckObj.ui.seek.oninput = (e) => { e.stopPropagation(); seekDeck(deckObj); };
+            deckObj.ui.vol.onclick = (e) => e.stopPropagation();
+            deckObj.ui.vol.oninput = (e) => { e.stopPropagation(); updateDeckVolume(deckObj); };
+            deckObj.ui.remove.onclick = (e) => { e.stopPropagation(); removeDeck(deckObj); };
+            
+            player.addEventListener('timeupdate', () => updateDeckTime(deckObj));
+            player.addEventListener('play', () => updateDeckUI(deckObj));
+            player.addEventListener('pause', () => updateDeckUI(deckObj));
+
+            decks.push(deckObj);
+            if(audioContext) setupDeckAudio(deckObj);
+            updateDeckNumbers();
+        }
+
+        function removeDeck(deckObj) {
+            if (decks.length <= 1) return; 
+            deckObj.player.pause(); deckObj.player.src = '';
+            if (deckObj.midiSynth) deckObj.midiSynth.stopMIDI();
+            if (deckObj.gainNode) deckObj.gainNode.disconnect();
+            
+            deckObj.el.remove();
+            const idx = decks.indexOf(deckObj);
+            if (idx > -1) decks.splice(idx, 1);
+            if (activeMultiDeckIndex >= decks.length) activeMultiDeckIndex = decks.length - 1;
+            selectMultiDeck(activeMultiDeckIndex);
+            updateDeckNumbers();
+        }
+
+        function updateDeckNumbers() {
+            decks.forEach((d, i) => {
+                d.ui.label.textContent = `Deck ${i + 1}`;
+                d.ui.remove.style.display = decks.length > 1 ? 'block' : 'none';
+            });
+        }
+
+        function setupDeckAudio(deck) {
+            if(deck.gainNode) return;
+            const src = audioContext.createMediaElementSource(deck.player);
+            const gain = audioContext.createGain();
+            src.connect(gain);
+            gain.connect(analyser);
+            deck.gainNode = gain;
+            gain.gain.value = parseFloat(deck.ui.vol.value);
+            
+            // Setup MIDI if needed
+            if(deck.midiSynth) deck.midiSynth.setAudioContext(audioContext, gain);
+        }
+
+        function selectMultiDeck(index) {
+            if(index >= decks.length) return;
+            activeMultiDeckIndex = index;
+            decks.forEach((d, i) => {
+                if(i === index) d.el.classList.add('deck-selected');
+                else d.el.classList.remove('deck-selected');
+            });
+        }
+
+        async function loadToMultiDeck(track) {
+            initAudio();
+            if(decks.length === 0) return;
+            if(activeMultiDeckIndex >= decks.length) selectMultiDeck(0);
+            
+            const deck = decks[activeMultiDeckIndex];
+            if(audioContext.state === 'suspended') audioContext.resume();
+            if(!deck.gainNode) setupDeckAudio(deck);
+            
+            deck.track = track;
+            
+            if (track.isMidi) {
+                const synth = getMidiSynth(deck);
+                const buf = await track.file.arrayBuffer();
+                await loadMidiData(synth, buf, deck.gainNode);
+                deck.ui.title.textContent = track.name + " (MIDI)";
+                deck.player.src = ""; // Clear audio
+            } else {
+                deck.player.src = track.url;
+                deck.player.currentTime = 0;
+                deck.ui.title.textContent = track.name;
+            }
+            
+            deck.ui.time.textContent = "0:00 / 0:00";
+            deck.ui.seek.value = 0;
+            
+            deck.el.classList.remove('deck-selected');
+            void deck.el.offsetWidth; 
+            deck.el.classList.add('deck-selected');
+        }
+
+        function toggleDeckPlay(deck) {
+            initAudio();
+            if(!deck.gainNode && audioContext) setupDeckAudio(deck);
+            if(audioContext.state === 'suspended') audioContext.resume();
+            
+            if (deck.track && deck.track.isMidi) {
+                 if(deck.midiSynth) {
+                     const status = deck.midiSynth.getPlayStatus();
+                     if(status.play) deck.midiSynth.stopMIDI();
+                     else deck.midiSynth.playMIDI();
+                     updateDeckUI(deck);
+                 }
+            } else {
+                if(!deck.player.src) return;
+                if(deck.player.paused) deck.player.play().catch(e=>console.error(e));
+                else deck.player.pause();
+            }
+        }
+
+        function stopDeck(deck) {
+            if (deck.track && deck.track.isMidi) {
+                if(deck.midiSynth) deck.midiSynth.stopMIDI();
+                updateDeckUI(deck);
+            } else {
+                deck.player.pause();
+                deck.player.currentTime = 0;
+            }
+        }
+        
+        function seekDeck(deck) {
+            if (deck.track && deck.track.isMidi) {
+                seekMidi(deck.midiSynth, deck.ui.seek.value);
+            } else {
+                if(deck.player.duration) deck.player.currentTime = (deck.ui.seek.value / 100) * deck.player.duration;
+            }
+        }
+        
+        function updateDeckVolume(deck) {
+            if(deck.gainNode) deck.gainNode.gain.setTargetAtTime(parseFloat(deck.ui.vol.value), audioContext.currentTime, 0.1);
+        }
+
+        function updateDeckTime(deck) {
+            if(isNaN(deck.player.duration)) return;
+            deck.ui.time.textContent = `${formatTime(deck.player.currentTime)} / ${formatTime(deck.player.duration)}`;
+            if(document.activeElement !== deck.ui.seek) deck.ui.seek.value = (deck.player.currentTime / deck.player.duration) * 100;
+        }
+
+        function updateDeckUI(deck) {
+            let isPlaying = false;
+            if(deck.track && deck.track.isMidi) {
+                if(deck.midiSynth) isPlaying = deck.midiSynth.getPlayStatus().play;
+            } else {
+                isPlaying = !deck.player.paused;
+            }
+            
+            deck.ui.play.innerHTML = isPlaying 
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            if(isPlaying) {
+                deck.ui.dot.classList.add('bg-green-500', 'animate-pulse');
+                deck.ui.dot.classList.remove('bg-gray-600');
+            } else {
+                deck.ui.dot.classList.remove('bg-green-500', 'animate-pulse');
+                deck.ui.dot.classList.add('bg-gray-600');
+            }
+        }
+
+        function playAllDecks() {
+            initAudio();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            decks.forEach(d => {
+                if(!d.gainNode && audioContext) setupDeckAudio(d);
+                if (d.track && d.track.isMidi && d.midiSynth) {
+                    if(!d.midiSynth.getPlayStatus().play) d.midiSynth.playMIDI();
+                    updateDeckUI(d);
+                } else if(d.player.src && d.player.paused) {
+                    d.player.play().catch(e=>{});
+                }
+            });
+        }
+        
+        function stopAllDecks() { decks.forEach(d => stopDeck(d)); }
+
+        // --- Common Helpers ---
+        function updateModeUI() {
+            // Reset styles
+            ui.modeIndicator.classList.remove('opacity-0');
+            ui.helpBtn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+            ui.helpBtn.classList.add('bg-gray-900', 'text-gray-300', 'border-gray-600');
+            
+            // Hide all first
+            [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.visualView, ui.helpView].forEach(v => v.classList.add('hidden-mode'));
+            ui.headerVisualizer.classList.remove('hidden-mode');
+
+            if(currentMode === 'single') {
+                ui.modeIndicator.style.transform = 'translateX(0)';
+                ui.singleView.classList.remove('hidden-mode');
+            } else if(currentMode === 'dual') {
+                ui.modeIndicator.style.transform = 'translateX(100%)';
+                ui.dualView.classList.remove('hidden-mode');
+                selectDualDeck(activeDualDeckIndex);
+            } else if(currentMode === 'multi') {
+                ui.modeIndicator.style.transform = 'translateX(200%)';
+                ui.multiView.classList.remove('hidden-mode');
+            } else if(currentMode === 'fx') {
+                ui.modeIndicator.style.transform = 'translateX(300%)';
+                ui.fxView.classList.remove('hidden-mode');
+            } else if(currentMode === 'visual') {
+                ui.modeIndicator.style.transform = 'translateX(400%)';
+                ui.visualView.classList.remove('hidden-mode');
+                ui.headerVisualizer.classList.add('hidden-mode');
+            } else { // help
+                ui.modeIndicator.classList.add('opacity-0');
+                ui.helpBtn.classList.remove('bg-gray-900', 'text-gray-300', 'border-gray-600');
+                ui.helpBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                ui.helpView.classList.remove('hidden-mode');
+            }
+        }
+
+        function updateSingleUIInfo() {
+            if(singleTrackIndex === -1) return;
+            const t = playlist[singleTrackIndex];
+            ui.single.title.textContent = t.name;
+            ui.single.status.textContent = "Ready";
+            ui.single.artwork.style.borderColor = `hsl(${Math.random()*360}, 70%, 50%)`;
+        }
+
+        function updateSingleUIState() {
+            if(isSinglePlaying) {
+                ui.single.playIcon.classList.add('hidden');
+                ui.single.pauseIcon.classList.remove('hidden');
+                ui.single.artwork.style.animationPlayState = 'running';
+                ui.single.status.textContent = "Now Playing";
+            } else {
+                ui.single.playIcon.classList.remove('hidden');
+                ui.single.pauseIcon.classList.add('hidden');
+                ui.single.artwork.style.animationPlayState = 'paused';
+                ui.single.status.textContent = "Paused";
+            }
+        }
+
+        function toggleLoop() {
+            loopMode = (loopMode + 1) % 3;
+            ui.single.loopBtn.classList.remove('text-gray-500', 'text-blue-400');
+            ui.single.loopIconAll.classList.add('hidden');
+            ui.single.loopIconOne.classList.add('hidden');
+            ui.single.loopText.textContent = "Loop";
+
+            if (loopMode === 0) {
+                ui.single.loopBtn.classList.add('text-gray-500');
+                ui.single.loopIconAll.classList.remove('hidden');
+                ui.single.loopText.textContent = "Off";
+            } else if (loopMode === 1) {
+                ui.single.loopBtn.classList.add('text-blue-400');
+                ui.single.loopIconAll.classList.remove('hidden');
+                ui.single.loopText.textContent = "All";
+            } else {
+                ui.single.loopBtn.classList.add('text-blue-400');
+                ui.single.loopIconOne.classList.remove('hidden');
+                ui.single.loopText.textContent = "1";
+            }
+        }
+
+        function toggleShuffle() { isShuffling=!isShuffling; ui.single.shuffle.classList.toggle('text-blue-400'); ui.single.shuffle.classList.toggle('text-gray-500'); }
+
+        function updatePlaylistUI() {
+            ui.playlist.innerHTML = '';
+            
+            const filteredTracks = playlist.map((track, idx) => ({ ...track, originalIndex: idx }))
+                .filter(item => activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
+                
+            ui.trackCount.textContent = `(${filteredTracks.length})`;
+            
+            if(filteredTracks.length === 0) {
+                 ui.playlist.innerHTML = `<div class="text-center text-gray-600 mt-10 p-4 border-2 border-dashed border-gray-700 rounded-lg mx-4"><p class="mb-2">プレイリストは空です</p></div>`;
+                 return;
+            }
+
+            filteredTracks.forEach((item, displayIdx) => {
+                const idx = item.originalIndex;
+                const track = playlist[idx];
+                const isActive = (currentMode === 'single' && idx === singleTrackIndex) || (currentMode === 'fx' && idx === fxTrackIndex) || (currentMode === 'visual' && idx === singleTrackIndex);
+                
+                const div = document.createElement('div');
+                div.className = `flex items-center justify-between p-2 rounded group transition cursor-pointer ${isActive ? 'bg-gray-800 border-l-2 border-blue-500' : 'hover:bg-gray-800 border-l-2 border-transparent'}`;
+                div.onclick = (e) => {
+                    if(e.target.closest('.delete-btn') || e.target.closest('.move-btn')) return;
+                    if(currentMode === 'single' || currentMode === 'visual') loadSingleTrack(idx);
+                    else if(currentMode === 'dual') loadDualTrack(idx);
+                    else if(currentMode === 'multi') loadToMultiDeck(track);
+                    else loadFxTrack(idx);
+                };
+                
+                const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-2">MIDI</span>' : '';
+
+                div.innerHTML = `
+                    <div class="flex-1 min-w-0 mr-3 flex items-center">
+                        ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>' : '<span class="w-4 text-xs text-gray-600 mr-2 text-center">'+(displayIdx+1)+'</span>'}
+                        <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
+                            ${track.name} ${extInfo}
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <button class="move-btn text-gray-600 hover:text-blue-400 p-1 opacity-0 group-hover:opacity-100 transition mr-1" title="移動" onclick="event.stopPropagation(); openMoveModal(${idx})">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        </button>
+                        <button class="delete-btn text-gray-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition" onclick="confirmDelete(${idx})">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                `;
+                ui.playlist.appendChild(div);
+            });
+        }
+
+        // --- Database ---
+        function openDB() { return new Promise((resolve,reject) => { const r=indexedDB.open(DB_NAME,DB_VERSION); r.onupgradeneeded=e=>{const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id',autoIncrement:true}); if(!db.objectStoreNames.contains('soundfonts')) db.createObjectStore('soundfonts',{keyPath:'id'});}; r.onsuccess=e=>{db=e.target.result; resolve(db);}; r.onerror=e=>reject(e); }); }
+        async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); t.objectStore(STORE_NAME).getAll().onsuccess = e => { 
+            const res=e.target.result; 
+            if(res && res.length) playlist = res.map(i => ({
+                id:i.id, name:i.name.replace(/\.[^/.]+$/, ""), 
+                url:URL.createObjectURL(i.blob), file:i.blob,
+                playlistName: i.playlistName || 'All Tracks',
+                isMidi: i.name.toLowerCase().endsWith('.mid') || i.name.toLowerCase().endsWith('.midi') || i.blob.type === 'audio/midi' || i.blob.type === 'audio/mid'
+            }));
+            updatePlaylistUI(); 
+        }; }
+        async function saveTrackToDB(file, playlistName = 'All Tracks') { return new Promise((res,rej)=>{ const t=db.transaction([STORE_NAME],'readwrite'); const r=t.objectStore(STORE_NAME).add({name:file.name, blob:file, playlistName: playlistName}); r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e); }); }
+        async function deleteTrackFromDB(id) { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).delete(id).onsuccess=()=>res(); }); }
+        async function clearDB() { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }); }
+
+        async function handleFiles(files) {
+            if(!files.length) return;
+            const news = Array.from(files).filter(f => f.type.startsWith('audio/') || f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi'));
+            for(const f of news) {
+                try {
+                    const id = await saveTrackToDB(f, activePlaylist);
+                    playlist.push({
+                        id, name:f.name.replace(/\.[^/.]+$/, ""), 
+                        url:URL.createObjectURL(f), file:f,
+                        playlistName: activePlaylist,
+                        isMidi: f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi') || f.type === 'audio/midi' || f.type === 'audio/mid'
+                    });
+                } catch(e) { console.error(e); }
+            }
+            updatePlaylistUI();
+        }
+
+        async function traverseEntry(entry, filesList) {
+            if (entry.isFile) {
+                return new Promise((resolve) => {
+                    entry.file((file) => {
+                        filesList.push(file);
+                        resolve();
+                    }, () => resolve());
+                });
+            } else if (entry.isDirectory) {
+                const reader = entry.createReader();
+                return new Promise((resolve) => {
+                    const readEntries = () => {
+                        reader.readEntries(async (entries) => {
+                            if (entries.length === 0) {
+                                resolve();
+                            } else {
+                                const subQueue = [];
+                                for (const subEntry of entries) {
+                                    subQueue.push(traverseEntry(subEntry, filesList));
+                                }
+                                await Promise.all(subQueue);
+                                readEntries();
+                            }
+                        }, () => resolve());
+                    };
+                    readEntries();
+                });
+            }
+        }
+
+        async function loadActiveSoundFont() {
+            if (!db) return;
+            return new Promise((resolve) => {
+                try {
+                    const t = db.transaction(['soundfonts'], 'readonly');
+                    const req = t.objectStore('soundfonts').get('active-sf2');
+                    req.onsuccess = async (e) => {
+                        const res = e.target.result;
+                        if (res && res.blob) {
+                            try {
+                                activeSoundFontBuffer = await res.blob.arrayBuffer();
+                                showNotification("カスタムSoundFontをロード中...");
+                                await initSpessaSynth(activeSoundFontBuffer);
+                                showNotification("カスタムSoundFontが有効になりました");
+                            } catch(err) {
+                                console.error("SoundFont load error:", err);
+                                showNotification("SoundFontのロードに失敗しました");
+                            }
+                        }
+                        resolve();
+                    };
+                    req.onerror = () => resolve();
+                } catch(err) {
+                    resolve();
+                }
+            });
+        }
+
+        async function initSpessaSynth(soundfontBuffer) {
+            initAudio();
+            if (audioContext.state === 'suspended') await audioContext.resume();
+            
+            const Spessa = await import("./spessasynth_lib.js");
+            window.SpessaSynth = Spessa;
+            
+            const res = await fetch("./spessasynth_processor.js");
+            const code = await res.text();
+            const blob = new Blob([code], { type: "application/javascript" });
+            const url = URL.createObjectURL(blob);
+            await audioContext.audioWorklet.addModule(url);
+            
+            spessaSynthInstance = new Spessa.WorkletSynthesizer(audioContext);
+            await spessaSynthInstance.soundBankManager.addSoundBank(soundfontBuffer, "main");
+            await spessaSynthInstance.isReady;
+            
+            isSpessaSynthLoaded = true;
+        }
+
+        class SpessaSynthPlayerWrapper {
+            constructor(workletSynth) {
+                this.synth = workletSynth;
+                this.sequencer = null;
+                this.midiData = null;
+                this.volume = 0.5;
+                this.isMidiPlaying = false;
+            }
+            
+            setAudioContext(ctx, destNode) {
+                if (this.synth) {
+                    try {
+                        this.synth.disconnect();
+                        if (destNode) this.synth.connect(destNode);
+                        else this.synth.connect(ctx.destination);
+                    } catch(e) {}
+                }
+            }
+            
+            loadMIDI(uint8Array) {
+                this.midiData = uint8Array.buffer;
+                if (this.sequencer) {
+                    this.sequencer.stop();
+                }
+                const Spessa = window.SpessaSynth;
+                if (Spessa && Spessa.Sequencer) {
+                    this.sequencer = new Spessa.Sequencer(this.synth);
+                    this.sequencer.loadNewSongList([{
+                        binary: this.midiData,
+                        fileName: "song.mid"
+                    }]);
+                    this.sequencer.onNoteOn = (channel, note, velocity) => {
+                        if (velocity > 0) {
+                            requestAnimationFrame(() => {
+                                const led = document.getElementById(`midi-led-${channel}`);
+                                if (led) {
+                                    led.classList.remove('bg-gray-700');
+                                    led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                                    
+                                    if (activeLedTimeouts[channel]) clearTimeout(activeLedTimeouts[channel]);
+                                    activeLedTimeouts[channel] = setTimeout(() => {
+                                        led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                                        led.classList.add('bg-gray-700');
+                                    }, 100);
+                                }
+                            });
+                        }
+                    };
+                }
+            }
+            
+            playMIDI() {
+                if (this.sequencer) {
+                    this.sequencer.play();
+                    this.isMidiPlaying = true;
+                }
+            }
+            
+            stopMIDI() {
+                if (this.sequencer) {
+                    this.sequencer.stop();
+                    this.isMidiPlaying = false;
+                }
+            }
+            
+            setMasterVol(vol) {
+                this.volume = vol;
+                if (this.synth) {
+                    this.synth.volume = vol;
+                }
+            }
+            
+            send(msg, time) {
+                if (!msg || msg.length < 1 || !this.synth) return;
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+                
+                if (cmd === 0xb0) {
+                    this.synth.controllerChange(ch, msg[1], msg[2]);
+                } else if (cmd === 0xc0) {
+                    this.synth.programChange(ch, msg[1]);
+                } else if (cmd === 0x90) {
+                    this.synth.noteOn(ch, msg[1], msg[2]);
+                } else if (cmd === 0x80) {
+                    this.synth.noteOff(ch, msg[1]);
+                }
+            }
+            
+            getPlayStatus() {
+                if (!this.sequencer) return { play: false, currentTime: 0, maxTime: 0 };
+                return {
+                    play: this.isMidiPlaying && !this.sequencer.isPaused,
+                    currentTime: this.sequencer.currentTime,
+                    maxTime: this.sequencer.duration
+                };
+            }
+        }
+
+        // --- Delete ---
+        window.confirmDelete = (i) => { pendingDeleteIndex = i; isDeleteAll = false; modal.msg.textContent = 'この曲を削除しますか？'; openModal(); };
+        window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; modal.msg.textContent = '全て削除しますか？'; openModal(); };
+        function openModal() { modal.el.classList.remove('hidden'); requestAnimationFrame(()=>modal.el.classList.add('modal-active')); }
+        function closeModal() { modal.el.classList.remove('modal-active'); setTimeout(()=>modal.el.classList.add('hidden'),200); pendingDeleteIndex=-1; isDeleteAll=false; }
+        
+        async function executeDelete() {
+            const idx = pendingDeleteIndex;
+            const all = isDeleteAll;
+            closeModal();
+            
+            if(all) {
+                stopAllAudio(); await clearDB(); playlist=[];
+                ui.single.title.textContent="No Track Selected";
+                ui.fx.title.textContent="No Track Selected";
+                decks.forEach(d => { d.ui.title.textContent="No Track"; d.player.src=""; });
+                ui.dual.deckA.title.textContent="No Track"; ui.dual.deckB.title.textContent="No Track";
+            } else if(idx !== -1) {
+                const t = playlist[idx];
+                await deleteTrackFromDB(t.id);
+                playlist.splice(idx, 1);
+                
+                if(currentMode === 'single') {
+                    if(idx === singleTrackIndex) { stopAllAudio(); singleTrackIndex = -1; updateSingleUIInfo(); }
+                    else if(idx < singleTrackIndex) singleTrackIndex--;
+                } else if(currentMode === 'fx') {
+                    if(idx === fxTrackIndex) { stopAllAudio(); fxTrackIndex = -1; ui.fx.title.textContent="No Track Selected"; }
+                    else if(idx < fxTrackIndex) fxTrackIndex--;
+                }
+            }
+            updatePlaylistUI();
+        }
+
+        // --- Playlist Helpers ---
+        function updatePlaylistDropdown() {
+            const select = document.getElementById('playlist-select');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="All Tracks">All Tracks</option>';
+            customPlaylists.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+            
+            select.value = activePlaylist;
+            
+            const delBtn = document.getElementById('delete-playlist-btn');
+            if (activePlaylist === 'All Tracks') {
+                delBtn.classList.add('hidden');
+            } else {
+                delBtn.classList.remove('hidden');
+            }
+        }
+
+        window.openMoveModal = (idx) => {
+            pendingMoveIndex = idx;
+            const container = document.getElementById('playlist-options-container');
+            container.innerHTML = '';
+            
+            const allBtn = document.createElement('button');
+            allBtn.className = 'w-full text-left px-3 py-2 rounded bg-gray-900 hover:bg-gray-700 text-xs text-gray-300 hover:text-white transition';
+            allBtn.textContent = 'All Tracks';
+            allBtn.onclick = () => executeMove('All Tracks');
+            container.appendChild(allBtn);
+            
+            customPlaylists.forEach(name => {
+                if (playlist[idx].playlistName === name) return;
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-3 py-2 rounded bg-gray-900 hover:bg-gray-700 text-xs text-gray-300 hover:text-white transition mt-1.5';
+                btn.textContent = name;
+                btn.onclick = () => executeMove(name);
+                container.appendChild(btn);
+            });
+            
+            document.getElementById('move-playlist-modal').classList.remove('hidden');
+        };
+        
+        async function executeMove(destPlaylistName) {
+            if (pendingMoveIndex === -1) return;
+            const track = playlist[pendingMoveIndex];
+            
+            try {
+                const t = db.transaction([STORE_NAME], 'readwrite');
+                const store = t.objectStore(STORE_NAME);
+                const req = store.get(track.id);
+                req.onsuccess = (e) => {
+                    const data = e.target.result;
+                    if (data) {
+                        data.playlistName = destPlaylistName;
+                        store.put(data);
+                    }
+                };
+            } catch(e) {
+                console.error("DB update failed during move:", e);
+            }
+            
+            track.playlistName = destPlaylistName;
+            document.getElementById('move-playlist-modal').classList.add('hidden');
+            pendingMoveIndex = -1;
+            
+            showNotification(`「${track.name}」を「${destPlaylistName}」に移動しました`);
+            updatePlaylistUI();
+        }
+
+        function formatTime(s) { if(isNaN(s)) return "0:00"; const m=Math.floor(s/60); const sc=Math.floor(s%60); return `${m}:${sc<10?'0':''}${sc}`; }
+
+
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            
+            const isVisualMode = currentMode === 'visual';
+            const cvs = isVisualMode ? ui.visual.canvas : ui.canvas;
+            const ctx = cvs.getContext('2d');
+            const w = cvs.width = cvs.clientWidth;
+            const h = cvs.height = cvs.clientHeight;
+
+            // 背景クリア
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, w, h);
+
+            // Single/FX/Visualモード以外は描画しない (簡易化のため)
+            if (currentMode !== 'single' && currentMode !== 'fx' && currentMode !== 'visual') {
+                ctx.fillStyle = '#374151';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Visualizer Paused', w/2, h/2 + 4);
+                return;
+            }
+
+            if (!analyser) return;
+
+            const len = analyser.frequencyBinCount;
+            const data = new Uint8Array(len);
+            analyser.getByteFrequencyData(data);
+            
+            // Visual Mode Logic
+            if(isVisualMode) {
+                 if(visualType === 'spectrum') {
+                     const barW = (w / len) * 2.5;
+                     let x = 0;
+                     for (let i = 0; i < len; i++) {
+                        const barH = (data[i] / 255) * h;
+                        const g = ctx.createLinearGradient(0, h - barH, 0, h);
+                        g.addColorStop(0, '#60a5fa'); g.addColorStop(1, '#3b82f6');
+                        ctx.fillStyle = g;
+                        ctx.fillRect(x, h - barH, barW, barH);
+                        x += barW + 1;
+                    }
+                 } else if(visualType === 'wave') {
+                    analyser.getByteTimeDomainData(data);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#60a5fa';
+                    ctx.beginPath();
+                    const sliceWidth = w * 1.0 / len;
+                    let x = 0;
+                    for (let i = 0; i < len; i++) {
+                        const v = data[i] / 128.0;
+                        const y = v * h / 2;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                        x += sliceWidth;
+                    }
+                    ctx.lineTo(w, h / 2);
+                    ctx.stroke();
+                 } else if(visualType === 'circle') {
+                     const cx = w / 2;
+                     const cy = h / 2;
+                     const radius = Math.min(w, h) / 3;
+                     
+                     for(let i = 0; i < len; i+=2) { // Skip some for performance
+                         const val = data[i];
+                         const angle = (i / len) * Math.PI * 2;
+                         const barH = (val / 255) * (Math.min(w, h) / 4);
+                         
+                         const x1 = cx + Math.cos(angle) * radius;
+                         const y1 = cy + Math.sin(angle) * radius;
+                         const x2 = cx + Math.cos(angle) * (radius + barH);
+                         const y2 = cy + Math.sin(angle) * (radius + barH);
+                         
+                         ctx.strokeStyle = `hsl(${i/len * 360}, 100%, 50%)`;
+                         ctx.lineWidth = 2;
+                         ctx.beginPath();
+                         ctx.moveTo(x1, y1);
+                         ctx.lineTo(x2, y2);
+                         ctx.stroke();
+                     }
+                 }
+            } else {
+                // Default small visualizer
+                const barW = (w / len) * 2.5;
+                let x = 0;
+                for (let i = 0; i < len; i++) {
+                    const barH = data[i] / 2.5;
+                    const g = ctx.createLinearGradient(0, h - barH, 0, h);
+                    if (currentMode === 'fx') {
+                        g.addColorStop(0, '#a78bfa'); g.addColorStop(1, '#7c3aed');
+                    } else {
+                        g.addColorStop(0, '#60a5fa'); g.addColorStop(1, '#3b82f6');
+                    }
+                    ctx.fillStyle = g;
+                    ctx.fillRect(x, h - barH, barW, barH);
+                    x += barW + 1;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
