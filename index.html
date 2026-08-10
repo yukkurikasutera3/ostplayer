@@ -215,9 +215,10 @@
 </head>
 <body id="app-body" class="theme-cyberpunk bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300">
 
-    <!-- 背景画像レイヤー & オーバーレイ -->
+    <!-- 背景画像レイヤー & オーバーレイ & 背景ビジュアライザー -->
     <div id="custom-bg-layer" class="fixed inset-0 bg-cover bg-center pointer-events-none transition-all duration-300 z-0 hidden"></div>
     <div id="custom-bg-overlay" class="fixed inset-0 bg-black/60 pointer-events-none transition-all duration-300 z-0 hidden"></div>
+    <canvas id="bg-visualizer-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0"></canvas>
 
     <div id="main-app-container" class="w-full max-w-6xl bg-gray-800/90 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-700 h-[850px] md:h-[750px] relative z-10">
         
@@ -767,6 +768,24 @@
                         <input type="range" id="custom-card-input" min="0.3" max="0.98" value="0.85" step="0.05" class="w-full h-1 bg-gray-700 rounded">
                     </div>
                 </div>
+            <!-- 背景ビジュアライザー コントロール -->
+            <div class="bg-gray-800/80 p-4 rounded-lg border border-purple-900/50 space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center space-x-1">
+                        <span>🌌</span><span>背景ビジュアライザー (Ambient Visualizer)</span>
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="bg-vis-toggle" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+                
+                <div class="grid grid-cols-4 gap-2 pt-1">
+                    <button onclick="setBgVisType('spectrum')" id="bg-vis-btn-spectrum" class="bg-purple-900/60 border border-purple-500 text-purple-200 text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition">Spectrum</button>
+                    <button onclick="setBgVisType('wave')" id="bg-vis-btn-wave" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Fluid Wave</button>
+                    <button onclick="setBgVisType('particles')" id="bg-vis-btn-particles" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Particles</button>
+                    <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Beat Aura</button>
+                </div>
             </div>
 
             <div class="flex justify-end pt-2 border-t border-gray-800">
@@ -1092,6 +1111,7 @@
                 await loadCustomBgFromDB();
                 initMultiDecks();
                 initThemeFromSettings();
+                initBgVisualizer();
                 // Timerの開始(Global Loop)
                 startMidiGlobalLoop();
             } catch (err) { console.error(err); }
@@ -3401,6 +3421,187 @@
             
             setTheme('cyberpunk');
             showNotification("カスタム背景をリセットしました");
+        }
+
+        // --- Fullscreen Background Visualizer ---
+        let isBgVisualizerEnabled = localStorage.getItem('ost_bg_vis_enabled') !== 'false';
+        let bgVisualizerType = localStorage.getItem('ost_bg_vis_type') || 'spectrum';
+        let bgParticles = [];
+        let bgVisAnimId = null;
+
+        function initBgVisualizer() {
+            const canvas = document.getElementById('bg-visualizer-canvas');
+            if(!canvas) return;
+            
+            const resize = () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            };
+            window.addEventListener('resize', resize);
+            resize();
+
+            bgParticles = [];
+            for(let i=0; i<70; i++) {
+                bgParticles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: Math.random() * 3 + 1,
+                    color: ['#38bdf8', '#c084fc', '#f472b6', '#34d399', '#fbbf24'][Math.floor(Math.random()*5)],
+                    vx: (Math.random() - 0.5) * 0.8,
+                    vy: -(Math.random() * 1.2 + 0.3),
+                    alpha: Math.random() * 0.7 + 0.3
+                });
+            }
+
+            const toggle = document.getElementById('bg-vis-toggle');
+            if(toggle) {
+                toggle.checked = isBgVisualizerEnabled;
+                toggle.addEventListener('change', (e) => {
+                    isBgVisualizerEnabled = e.target.checked;
+                    localStorage.setItem('ost_bg_vis_enabled', isBgVisualizerEnabled);
+                    showNotification(`背景ビジュアライザーを ${isBgVisualizerEnabled ? 'ON' : 'OFF'} にしました`);
+                });
+            }
+            updateBgVisButtons();
+            renderBgVisualizer();
+        }
+
+        function setBgVisType(type) {
+            bgVisualizerType = type;
+            localStorage.setItem('ost_bg_vis_type', type);
+            updateBgVisButtons();
+        }
+        window.setBgVisType = setBgVisType;
+        window.initBgVisualizer = initBgVisualizer;
+
+        function updateBgVisButtons() {
+            const types = ['spectrum', 'wave', 'particles', 'aura'];
+            types.forEach(t => {
+                const btn = document.getElementById(`bg-vis-btn-${t}`);
+                if(btn) {
+                    if(t === bgVisualizerType) {
+                        btn.className = 'bg-purple-900/60 border border-purple-500 text-purple-200 text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition';
+                    } else {
+                        btn.className = 'bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition';
+                    }
+                }
+            });
+        }
+
+        function renderBgVisualizer() {
+            bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+            
+            const canvas = document.getElementById('bg-visualizer-canvas');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if(!isBgVisualizerEnabled) return;
+
+            let freqData = new Uint8Array(64);
+            let timeData = new Uint8Array(64);
+            let bassEnergy = 0;
+
+            if(analyser) {
+                const len = analyser.frequencyBinCount;
+                const buffer = new Uint8Array(len);
+                analyser.getByteFrequencyData(buffer);
+                
+                const step = Math.floor(len / 64) || 1;
+                for(let i=0; i<64; i++) {
+                    freqData[i] = buffer[i * step] || 0;
+                }
+                for(let i=0; i<8; i++) bassEnergy += freqData[i];
+                bassEnergy = bassEnergy / 8;
+
+                analyser.getByteTimeDomainData(buffer);
+                for(let i=0; i<64; i++) {
+                    timeData[i] = buffer[i * step] || 128;
+                }
+            }
+
+            if(bgVisualizerType === 'spectrum') {
+                const bars = 64;
+                const barW = w / bars;
+                for(let i=0; i<bars; i++) {
+                    const val = freqData[i] / 255;
+                    const barH = val * (h * 0.35);
+                    
+                    const grad = ctx.createLinearGradient(0, h - barH, 0, h);
+                    grad.addColorStop(0, `hsla(${200 + i * 2.5}, 90%, 65%, ${0.3 + val * 0.5})`);
+                    grad.addColorStop(1, `hsla(${260 + i * 2.5}, 80%, 40%, 0.05)`);
+                    
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(i * barW, h - barH, barW - 2, barH);
+
+                    const topH = val * (h * 0.15);
+                    const gradTop = ctx.createLinearGradient(0, 0, 0, topH);
+                    gradTop.addColorStop(0, `hsla(${200 + i * 2.5}, 90%, 65%, ${0.2 + val * 0.3})`);
+                    gradTop.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradTop;
+                    ctx.fillRect(i * barW, 0, barW - 2, topH);
+                }
+            } else if(bgVisualizerType === 'wave') {
+                const time = Date.now() * 0.002;
+                
+                [
+                    { color: 'hsla(195, 95%, 60%, 0.45)', mult: 1.0, speed: 1.0 },
+                    { color: 'hsla(270, 90%, 65%, 0.40)', mult: 1.4, speed: 0.8 },
+                    { color: 'hsla(330, 85%, 65%, 0.35)', mult: 0.7, speed: 1.2 }
+                ].forEach((waveConfig, wIdx) => {
+                    ctx.beginPath();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = waveConfig.color;
+                    ctx.shadowColor = waveConfig.color;
+                    ctx.shadowBlur = 12;
+                    
+                    const sliceW = w / 64;
+                    let x = 0;
+                    for(let i=0; i<64; i++) {
+                        const freqVal = (freqData[i] / 255) * 60;
+                        const v = (timeData[i] - 128) / 128;
+                        const y = (h / 2) + Math.sin(i * 0.1 + time * waveConfig.speed + wIdx) * (40 + freqVal) + v * 30;
+                        if(i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                        x += sliceW;
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                });
+            } else if(bgVisualizerType === 'particles') {
+                const pulse = (bassEnergy / 255);
+                bgParticles.forEach(p => {
+                    p.y += p.vy * (1 + pulse * 1.5);
+                    p.x += p.vx;
+                    if(p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
+                    if(p.x < -10) p.x = w + 10;
+                    if(p.x > w + 10) p.x = -10;
+
+                    const curRadius = p.radius * (1 + pulse * 1.8);
+                    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, curRadius * 2);
+                    grad.addColorStop(0, p.color);
+                    grad.addColorStop(1, 'transparent');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, curRadius * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            } else if(bgVisualizerType === 'aura') {
+                const pulseRadius = (w * 0.2) + (bassEnergy / 255) * (w * 0.25);
+                const grad = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, pulseRadius);
+                const hue = (Date.now() * 0.02) % 360;
+                
+                grad.addColorStop(0, `hsla(${hue}, 90%, 60%, ${0.25 + (bassEnergy/255)*0.35})`);
+                grad.addColorStop(0.5, `hsla(${(hue+60)%360}, 80%, 50%, 0.12)`);
+                grad.addColorStop(1, 'transparent');
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, w, h);
+            }
         }
 
         function exportPlaylistJSON() {
