@@ -1673,12 +1673,19 @@
                     const status = originalGetPlayStatus();
                     let currentTime = 0;
                     let maxTime = 0;
-                    if (synth.song) {
+                    if (synth._smfMap && synth._smfMap.totalDuration > 0) {
+                        maxTime = synth._smfMap.totalDuration;
+                        currentTime = synth._smfMap.tickToSec(status.curTick || 0);
+                    } else if (synth.song) {
                         const maxTick = status.maxTick || synth.song.maxTick || 0;
                         const curTick = status.curTick || 0;
-                        const progress = maxTick > 0 ? (curTick / maxTick) : 0;
+                        
+                        if (!synth._fixedMaxTime || synth._fixedMaxTime === 0) {
+                            synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
+                        }
                         
                         maxTime = synth._fixedMaxTime || ((maxTick * 4 * 60) / (synth.song.timebase * (synth.song.tempo || 120)));
+                        const progress = maxTick > 0 ? Math.max(0, Math.min(1, curTick / maxTick)) : 0;
                         currentTime = progress * maxTime;
                     }
                     return {
@@ -2101,6 +2108,38 @@
             }
         }
 
+        function calculateFixedMidiDurationFromSong(song) {
+            if (!song || !song.timebase || !song.maxTick) return 0;
+            const timebase = song.timebase;
+            let currentTempo = song.tempo || 120;
+            
+            if (!song.ev || !Array.isArray(song.ev) || song.ev.length === 0) {
+                return (song.maxTick * 4 * 60) / (timebase * currentTempo);
+            }
+
+            let totalSeconds = 0;
+            let lastTick = 0;
+            
+            for (let i = 0; i < song.ev.length; i++) {
+                const ev = song.ev[i];
+                if (!ev) continue;
+                const curTick = ev.t || 0;
+                if (curTick > lastTick) {
+                    const deltaTicks = curTick - lastTick;
+                    totalSeconds += (deltaTicks * 60) / (timebase * currentTempo);
+                    lastTick = curTick;
+                }
+                if (ev.tempo) {
+                    currentTempo = ev.tempo;
+                }
+            }
+            
+            if (song.maxTick > lastTick) {
+                totalSeconds += ((song.maxTick - lastTick) * 60) / (timebase * currentTempo);
+            }
+            return totalSeconds;
+        }
+
         async function loadMidiData(synth, arrayBuffer, destNode) {
             if (!synth) return;
             synth.setAudioContext(audioContext, destNode || audioContext.destination);
@@ -2110,6 +2149,10 @@
                     synth._smfMap = parseSMF(arrayBuffer);
                 }
                 synth.loadMIDI(new Uint8Array(arrayBuffer));
+                
+                if (synth.song) {
+                    synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
+                }
                 
                 // 音量初期設定 (スライダー値と同期)
                 if (currentMode === 'single' || currentMode === 'visual') {
@@ -3884,8 +3927,9 @@
             updatePlaylistUI(); 
         }; }
         async function saveTrackToDB(file, playlistName = 'All Tracks') { return new Promise((res,rej)=>{ const t=db.transaction([STORE_NAME],'readwrite'); const r=t.objectStore(STORE_NAME).add({name:file.name, blob:file, playlistName: playlistName}); r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e); }); }
-        async function deleteTrackFromDB(id) { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).delete(id).onsuccess=()=>res(); }); }
-        async function clearDB() { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }); }
+        async function deleteTrackFromDB(id) { return new Promise(res=>{ if(!db||id===undefined) return res(); try{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).delete(id).onsuccess=()=>res(); }catch(e){res();} }); }
+        async function updateTrackPlaylistInDB(id, playlistName) { if (!db || id === undefined) return; return new Promise((res) => { try { const tx = db.transaction([STORE_NAME], 'readwrite'); const store = tx.objectStore(STORE_NAME); const req = store.get(id); req.onsuccess = (e) => { const data = e.target.result; if (data) { data.playlistName = playlistName; store.put(data); } res(); }; req.onerror = () => res(); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch(e) { res(); } }); }
+        async function clearDB() { return new Promise(res=>{ if(!db) return res(); try{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }catch(e){res();} }); }
 
         const SUPPORTED_AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.wma', '.aiff', '.weba', '.webm', '.mid', '.midi'];
 
@@ -4374,17 +4418,8 @@
             if (!track) return;
             
             try {
-                if (db && track.id) {
-                    const t = db.transaction([STORE_NAME], 'readwrite');
-                    const store = t.objectStore(STORE_NAME);
-                    const req = store.get(track.id);
-                    req.onsuccess = (e) => {
-                        const data = e.target.result;
-                        if (data) {
-                            data.playlistName = destPlaylistName;
-                            store.put(data);
-                        }
-                    };
+                if (db && track.id !== undefined) {
+                    await updateTrackPlaylistInDB(track.id, destPlaylistName);
                 }
             } catch(e) {
                 console.error("DB update failed during move:", e);
