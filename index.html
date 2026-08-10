@@ -643,27 +643,28 @@
 
         <!-- 右側: プレイリスト (共通) -->
         <div class="w-full md:w-4/12 bg-gray-900/90 backdrop-blur-sm flex flex-col h-full overflow-hidden border-l border-gray-700/50">
-            <div class="p-4 border-b border-gray-800 bg-gray-900/80 flex justify-between items-center select-none">
-                <h3 class="font-bold text-gray-300 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                    Library <span id="track-count" class="ml-2 text-xs text-gray-500">(0)</span>
+            <!-- Header Title Row -->
+            <div class="px-4 py-3 border-b border-gray-800 bg-gray-900/90 flex justify-between items-center select-none shrink-0">
+                <h3 class="font-bold text-gray-200 flex items-center text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-blue-400"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    Library <span id="track-count" class="ml-2 text-xs text-gray-500 font-normal">(0)</span>
                 </h3>
-                <div class="flex items-center space-x-2 text-xs">
-                    <button id="quick-add-btn" onclick="document.getElementById('file-input').click()" class="text-blue-400 font-bold hover:text-blue-300 hover:underline flex items-center" title="音楽ファイルを追加">+ 曲追加</button>
-                    <span class="text-gray-600 text-xs">|</span>
-                    <button id="export-json-btn" class="text-gray-400 hover:text-white hover:underline" title="プレイリストをJSON出力">JSON出</button>
-                    <input type="file" id="json-input" accept=".json" class="hidden">
-                    <button id="import-json-btn" class="text-gray-400 hover:text-white hover:underline" title="JSONプレイリスト読込">JSON入</button>
-                    <span class="text-gray-600 text-xs">|</span>
-                    <button id="import-sf2-btn" class="text-yellow-400 font-bold hover:text-yellow-300 hover:underline" title="カスタムSoundFont (.sf2 / .sf3) を読み込み">🎵 SF2</button>
-                    <button id="reset-sf2-btn" onclick="resetSoundFont()" class="text-gray-500 hover:text-red-400 hover:underline text-[10px]" title="SoundFontをデフォルトにリセット">クリア</button>
-                    <span class="text-gray-600 text-xs">|</span>
-                    <button id="clear-playlist-btn" class="text-red-400 hover:text-red-300 hover:underline">全消去</button>
+                <div class="flex items-center space-x-2 text-[11px] whitespace-nowrap">
+                    <button id="import-sf2-btn" class="px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold hover:bg-yellow-500/20 transition whitespace-nowrap" title="カスタムSoundFont (.sf2 / .sf3) を追加">🎵 SF2</button>
+                    <button id="reset-sf2-btn" onclick="resetSoundFont()" class="text-gray-500 hover:text-red-400 transition text-[10px] whitespace-nowrap" title="SoundFontをデフォルトにリセット">クリア</button>
+                    <span class="text-gray-700">|</span>
+                    <button id="clear-playlist-btn" class="text-red-400 hover:text-red-300 font-bold hover:underline transition whitespace-nowrap" title="全曲消去">全消去</button>
                 </div>
             </div>
-            <!-- Playlist Search Input Bar -->
-            <div class="px-3 py-1.5 bg-gray-950/70 border-b border-gray-800">
-                <input type="text" id="playlist-search-input" placeholder="🔍 曲名で検索..." class="w-full bg-gray-900/90 text-xs text-gray-200 border border-gray-700 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
+
+            <!-- Sub Header: Search Bar & JSON Tools -->
+            <div class="px-3 py-1.5 bg-gray-950/80 border-b border-gray-800 flex items-center space-x-2 shrink-0">
+                <input type="text" id="playlist-search-input" placeholder="🔍 曲名で検索..." class="flex-1 min-w-0 bg-gray-900/90 text-xs text-gray-200 border border-gray-700/80 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
+                <div class="flex items-center space-x-1 shrink-0 text-[10px] whitespace-nowrap">
+                    <button id="export-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="プレイリストをJSON出力">JSON出</button>
+                    <input type="file" id="json-input" accept=".json" class="hidden">
+                    <button id="import-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="JSONプレイリスト読込">JSON入</button>
+                </div>
             </div>
             <!-- Playlists Section -->
             <div class="px-4 py-2 border-b border-gray-800 bg-gray-950 flex items-center justify-between space-x-2 shrink-0 select-none">
@@ -2037,13 +2038,11 @@
             if(!synth) return;
             const status = synth.getPlayStatus();
             if(status.maxTime > 0) {
-                const time = (percent / 100) * status.maxTime;
-                // locateMIDI(seconds) check
-                if(typeof synth.locateMIDI === 'function') {
-                    synth.locateMIDI(time);
-                } else {
-                    // Fallback: restart if needed, mostly handled by display update
-                    // console.log("Seeking not fully supported in this version");
+                const targetTime = (parseFloat(percent) / 100) * status.maxTime;
+                if (typeof synth.seekTo === 'function') {
+                    synth.seekTo(targetTime);
+                } else if (typeof synth.locateMIDI === 'function') {
+                    synth.locateMIDI(targetTime);
                 }
             }
         }
@@ -3967,6 +3966,24 @@
                     this.sequencer.stop();
                     this.isMidiPlaying = false;
                 }
+            }
+            
+            seekTo(targetSeconds) {
+                if (this.sequencer) {
+                    try {
+                        this.sequencer.currentTime = targetSeconds;
+                    } catch(e) {
+                        try {
+                            if (typeof this.sequencer.setTime === 'function') {
+                                this.sequencer.setTime(targetSeconds);
+                            }
+                        } catch(err){}
+                    }
+                }
+            }
+
+            locateMIDI(targetSeconds) {
+                this.seekTo(targetSeconds);
             }
             
             setMasterVol(vol) {
