@@ -169,11 +169,7 @@
             overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
         
-        /* モーダル */
-        .modal-enter { opacity: 0; pointer-events: none; }
-        .modal-enter .modal-content { transform: scale(0.95); }
-        .modal-active { opacity: 1; pointer-events: auto; }
-        .modal-active .modal-content { transform: scale(1); }
+        /* モーダル - hidden/flex toggle only */
         
         /* デッキ選択時のスタイル */
         .deck-selected {
@@ -694,7 +690,7 @@
     </div>
     
     <!-- テーマ & カスタム背景モーダル -->
-    <div id="theme-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 modal-enter transition-opacity duration-200">
+    <div id="theme-modal" class="fixed inset-0 bg-black/80 items-center justify-center z-[9999] hidden transition-opacity duration-200">
         <div class="modal-content bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl space-y-5 text-gray-200">
             <div class="flex justify-between items-center border-b border-gray-800 pb-3">
                 <h3 class="text-lg font-bold text-white flex items-center space-x-2">
@@ -3552,13 +3548,13 @@
 
         function openThemeModal() {
             const modal = document.getElementById('theme-modal');
-            if(modal) modal.classList.add('modal-active');
+            if(modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
         }
         window.openThemeModal = openThemeModal;
 
         function closeThemeModal() {
             const modal = document.getElementById('theme-modal');
-            if(modal) modal.classList.remove('modal-active');
+            if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
         }
         window.closeThemeModal = closeThemeModal;
         window.setTheme = setTheme;
@@ -4285,15 +4281,14 @@
         window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; if(modal.msg) modal.msg.textContent = '全て削除しますか？'; openModal(); };
         function openModal() {
             if (modal && modal.el) {
-                modal.el.style.zIndex = '9999';
-                modal.el.classList.remove('hidden', 'modal-enter', 'opacity-0', 'pointer-events-none');
-                modal.el.classList.add('flex', 'modal-active');
+                modal.el.classList.remove('hidden');
+                modal.el.classList.add('flex');
             }
         }
         function closeModal() {
             if (modal && modal.el) {
                 modal.el.classList.add('hidden');
-                modal.el.classList.remove('flex', 'modal-active');
+                modal.el.classList.remove('flex');
             }
             pendingDeleteIndex = -1;
             isDeleteAll = false;
