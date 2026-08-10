@@ -609,7 +609,7 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
                         <span id="record-text">Rec Session</span>
                     </button>
-                    <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi" class="hidden">
+                    <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff" class="hidden">
                     <button id="add-files-btn" class="text-blue-400 hover:text-blue-300 border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition">
                         + ファイルを追加
                     </button>
@@ -632,9 +632,11 @@
                     Library <span id="track-count" class="ml-2 text-xs text-gray-500">(0)</span>
                 </h3>
                 <div class="flex items-center space-x-2 text-xs">
-                    <button id="export-json-btn" class="text-blue-400 hover:text-blue-300 hover:underline" title="プレイリストをJSON出力">JSON出</button>
+                    <button id="quick-add-btn" onclick="document.getElementById('file-input').click()" class="text-blue-400 font-bold hover:text-blue-300 hover:underline flex items-center" title="音楽ファイルを追加">+ 曲追加</button>
+                    <span class="text-gray-600 text-xs">|</span>
+                    <button id="export-json-btn" class="text-gray-400 hover:text-white hover:underline" title="プレイリストをJSON出力">JSON出</button>
                     <input type="file" id="json-input" accept=".json" class="hidden">
-                    <button id="import-json-btn" class="text-blue-400 hover:text-blue-300 hover:underline" title="JSONプレイリスト読込">JSON入</button>
+                    <button id="import-json-btn" class="text-gray-400 hover:text-white hover:underline" title="JSONプレイリスト読込">JSON入</button>
                     <span class="text-gray-600 text-xs">|</span>
                     <button id="import-sf2-btn" class="text-yellow-500 hover:text-yellow-400 hover:underline">SF2</button>
                     <span class="text-gray-600 text-xs">|</span>
@@ -659,6 +661,15 @@
             </div>
             <div id="playlist" class="flex-1 overflow-y-auto p-2 space-y-1">
                 <!-- リストはJSで生成 -->
+            </div>
+            <!-- Sidebar Bottom Action Bar -->
+            <div class="p-2.5 border-t border-gray-800 bg-gray-950/90 flex justify-between items-center space-x-2 shrink-0 select-none">
+                <button onclick="document.getElementById('file-input').click()" class="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-bold py-1.5 rounded transition flex justify-center items-center space-x-1" title="ファイルを追加">
+                    <span>+</span><span>ファイル追加</span>
+                </button>
+                <button onclick="document.getElementById('folder-input').click()" class="flex-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold py-1.5 rounded transition flex justify-center items-center space-x-1" title="フォルダを追加">
+                    <span>📁</span><span>フォルダ追加</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1270,28 +1281,38 @@
                 e.preventDefault();
                 drop.classList.add('opacity-0', 'pointer-events-none');
                 
-                const items = e.dataTransfer.items;
-                if (!items) {
-                    handleFiles(e.dataTransfer.files);
-                    return;
+                let filesList = [];
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    filesList = Array.from(e.dataTransfer.files);
                 }
                 
-                const filesList = [];
-                const queue = [];
-                
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    if (item.kind === 'file') {
-                        const entry = item.webkitGetAsEntry();
-                        if (entry) {
-                            queue.push(traverseEntry(entry, filesList));
+                const items = e.dataTransfer.items;
+                if (items && items.length > 0) {
+                    const entryFiles = [];
+                    const queue = [];
+                    for (let i = 0; i < items.length; i++) {
+                        const item = items[i];
+                        if (item.kind === 'file') {
+                            if (typeof item.webkitGetAsEntry === 'function') {
+                                const entry = item.webkitGetAsEntry();
+                                if (entry) {
+                                    queue.push(traverseEntry(entry, entryFiles));
+                                } else if (item.getAsFile()) {
+                                    entryFiles.push(item.getAsFile());
+                                }
+                            } else if (item.getAsFile()) {
+                                entryFiles.push(item.getAsFile());
+                            }
                         }
+                    }
+                    await Promise.all(queue);
+                    if (entryFiles.length > 0) {
+                        filesList = entryFiles;
                     }
                 }
                 
-                await Promise.all(queue);
                 if (filesList.length > 0) {
-                    handleFiles(filesList);
+                    await handleFiles(filesList);
                 }
             });
 
@@ -3201,21 +3222,49 @@
         async function deleteTrackFromDB(id) { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).delete(id).onsuccess=()=>res(); }); }
         async function clearDB() { return new Promise(res=>{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }); }
 
+        const SUPPORTED_AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.wma', '.aiff', '.weba', '.webm', '.mid', '.midi'];
+
+        function isAudioFile(file) {
+            if (!file) return false;
+            if (file.type && (file.type.startsWith('audio/') || file.type === 'video/webm' || file.type === 'video/ogg')) return true;
+            const name = (file.name || '').toLowerCase();
+            return SUPPORTED_AUDIO_EXTS.some(ext => name.endsWith(ext));
+        }
+
         async function handleFiles(files) {
-            if(!files.length) return;
-            const news = Array.from(files).filter(f => f.type.startsWith('audio/') || f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi'));
-            for(const f of news) {
-                try {
-                    const id = await saveTrackToDB(f, activePlaylist);
-                    playlist.push({
-                        id, name:f.name.replace(/\.[^/.]+$/, ""), 
-                        url:URL.createObjectURL(f), file:f,
-                        playlistName: activePlaylist,
-                        isMidi: f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi') || f.type === 'audio/midi' || f.type === 'audio/mid'
-                    });
-                } catch(e) { console.error(e); }
+            if(!files || !files.length) return;
+            const news = Array.from(files).filter(isAudioFile);
+            if(news.length === 0) {
+                showNotification("対応している音声ファイル (.mp3, .wav, .mid 等) が見つかりませんでした");
+                return;
             }
+            
+            showNotification(`${news.length} 件のファイルを処理中...`);
+            let addedCount = 0;
+            
+            for(const f of news) {
+                let id = Date.now() + Math.floor(Math.random() * 100000);
+                if (db) {
+                    try {
+                        id = await saveTrackToDB(f, activePlaylist);
+                    } catch(e) {
+                        console.warn("IndexedDB Save fallback (memory mode):", e);
+                    }
+                }
+                const isMidi = f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi') || (f.type && (f.type === 'audio/midi' || f.type === 'audio/mid'));
+                playlist.push({
+                    id,
+                    name: f.name.replace(/\.[^/.]+$/, ""), 
+                    url: URL.createObjectURL(f),
+                    file: f,
+                    playlistName: activePlaylist,
+                    isMidi: isMidi
+                });
+                addedCount++;
+            }
+            
             updatePlaylistUI();
+            showNotification(`▶ ${addedCount} 曲をライブラリに追加しました`);
         }
 
         async function traverseEntry(entry, filesList) {
