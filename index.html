@@ -3216,8 +3216,218 @@
             });
         }
 
+        // --- Theme & Custom Background Management ---
+        let currentTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
+        let customBgData = null;
+
+        function initThemeFromSettings() {
+            const savedBlur = localStorage.getItem('ost_bg_blur') || '0';
+            const savedOverlay = localStorage.getItem('ost_bg_overlay') || '0.6';
+            const savedCard = localStorage.getItem('ost_card_opacity') || '0.85';
+            
+            const blurInput = document.getElementById('custom-blur-input');
+            const overlayInput = document.getElementById('custom-overlay-input');
+            const cardInput = document.getElementById('custom-card-input');
+            
+            if(blurInput) blurInput.value = savedBlur;
+            if(overlayInput) overlayInput.value = savedOverlay;
+            if(cardInput) cardInput.value = savedCard;
+            
+            updateCustomBgStyles();
+            setTheme(currentTheme);
+        }
+
+        function setTheme(themeName) {
+            currentTheme = themeName;
+            localStorage.setItem('ost_theme', themeName);
+            
+            const body = document.getElementById('app-body');
+            if(!body) return;
+            
+            body.className = body.className.replace(/theme-\w+/g, '').trim();
+            body.classList.add(`theme-${themeName}`);
+            
+            const bgLayer = document.getElementById('custom-bg-layer');
+            const bgOverlay = document.getElementById('custom-bg-overlay');
+            
+            if (themeName === 'custom') {
+                if (bgLayer) bgLayer.classList.remove('hidden');
+                if (bgOverlay) bgOverlay.classList.remove('hidden');
+                const controls = document.getElementById('custom-bg-controls');
+                if (controls) controls.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                if (bgLayer) bgLayer.classList.add('hidden');
+                if (bgOverlay) bgOverlay.classList.add('hidden');
+            }
+        }
+
+        function openThemeModal() {
+            const modal = document.getElementById('theme-modal');
+            if(modal) modal.classList.add('modal-active');
+        }
+
+        function closeThemeModal() {
+            const modal = document.getElementById('theme-modal');
+            if(modal) modal.classList.remove('modal-active');
+        }
+
+        async function handleCustomBgUpload(file) {
+            if(!file || !file.type.startsWith('image/')) {
+                showNotification("有効な画像ファイルを選択してください");
+                return;
+            }
+            showNotification("画像を読み込み中...");
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result;
+                customBgData = base64;
+                const bgLayer = document.getElementById('custom-bg-layer');
+                if(bgLayer) bgLayer.style.backgroundImage = `url("${base64}")`;
+                
+                await saveCustomBgToDB(base64);
+                setTheme('custom');
+                showNotification("カスタム背景画像を適用・保存しました");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function saveCustomBgToDB(base64Data) {
+            if(!db) return;
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(['settings'], 'readwrite');
+                    tx.objectStore('settings').put({ id: 'custom-bg', data: base64Data });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                } catch(e) { resolve(); }
+            });
+        }
+
+        async function loadCustomBgFromDB() {
+            if (!db) return;
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(['settings'], 'readonly');
+                    const req = tx.objectStore('settings').get('custom-bg');
+                    req.onsuccess = (e) => {
+                        const res = e.target.result;
+                        if (res && res.data) {
+                            customBgData = res.data;
+                            const bgLayer = document.getElementById('custom-bg-layer');
+                            if(bgLayer) bgLayer.style.backgroundImage = `url("${res.data}")`;
+                        }
+                        resolve();
+                    };
+                    req.onerror = () => resolve();
+                } catch(e) { resolve(); }
+            });
+        }
+
+        function updateCustomBgStyles() {
+            const blurEl = document.getElementById('custom-blur-input');
+            const overlayEl = document.getElementById('custom-overlay-input');
+            const cardEl = document.getElementById('custom-card-input');
+            
+            const blurVal = blurEl ? blurEl.value : '0';
+            const overlayVal = overlayEl ? overlayEl.value : '0.6';
+            const cardVal = cardEl ? cardEl.value : '0.85';
+            
+            const blurText = document.getElementById('blur-val-text');
+            const overlayText = document.getElementById('overlay-val-text');
+            const cardText = document.getElementById('card-val-text');
+            
+            if(blurText) blurText.textContent = blurVal + 'px';
+            if(overlayText) overlayText.textContent = Math.round(overlayVal * 100) + '%';
+            if(cardText) cardText.textContent = Math.round(cardVal * 100) + '%';
+            
+            document.documentElement.style.setProperty('--custom-blur', blurVal + 'px');
+            document.documentElement.style.setProperty('--custom-overlay-opacity', overlayVal);
+            document.documentElement.style.setProperty('--custom-card-opacity', cardVal);
+            
+            const bgLayer = document.getElementById('custom-bg-layer');
+            const bgOverlay = document.getElementById('custom-bg-overlay');
+            if (bgLayer) bgLayer.style.filter = `blur(${blurVal}px)`;
+            if (bgOverlay) bgOverlay.style.backgroundColor = `rgba(0,0,0,${overlayVal})`;
+            
+            localStorage.setItem('ost_bg_blur', blurVal);
+            localStorage.setItem('ost_bg_overlay', overlayVal);
+            localStorage.setItem('ost_card_opacity', cardVal);
+        }
+
+        async function resetCustomBg() {
+            customBgData = null;
+            const bgLayer = document.getElementById('custom-bg-layer');
+            if (bgLayer) bgLayer.style.backgroundImage = '';
+            
+            if (db) {
+                try {
+                    const tx = db.transaction(['settings'], 'readwrite');
+                    tx.objectStore('settings').delete('custom-bg');
+                } catch(e){}
+            }
+            
+            setTheme('cyberpunk');
+            showNotification("カスタム背景をリセットしました");
+        }
+
+        function exportPlaylistJSON() {
+            const exportData = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                customPlaylists: customPlaylists,
+                tracks: playlist.map(t => ({
+                    name: t.name,
+                    playlistName: t.playlistName,
+                    isMidi: t.isMidi
+                }))
+            };
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `OSTPlayer_Playlist_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showNotification("プレイリストをJSON出力しました");
+        }
+
+        function importPlaylistJSON(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.customPlaylists && Array.isArray(data.customPlaylists)) {
+                        data.customPlaylists.forEach(pName => {
+                            if (!customPlaylists.includes(pName)) customPlaylists.push(pName);
+                        });
+                        localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                        updatePlaylistDropdown();
+                    }
+                    showNotification("プレイリスト情報を読み込みました");
+                } catch(err) {
+                    console.error(err);
+                    showNotification("JSONファイルの解析に失敗しました");
+                }
+            };
+            reader.readAsText(file);
+        }
+
         // --- Database ---
-        function openDB() { return new Promise((resolve,reject) => { const r=indexedDB.open(DB_NAME,DB_VERSION); r.onupgradeneeded=e=>{const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id',autoIncrement:true}); if(!db.objectStoreNames.contains('soundfonts')) db.createObjectStore('soundfonts',{keyPath:'id'});}; r.onsuccess=e=>{db=e.target.result; resolve(db);}; r.onerror=e=>reject(e); }); }
+        function openDB() { 
+            return new Promise((resolve,reject) => { 
+                const r = indexedDB.open(DB_NAME, 3); 
+                r.onupgradeneeded = e => {
+                    const db = e.target.result; 
+                    if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id',autoIncrement:true}); 
+                    if(!db.objectStoreNames.contains('soundfonts')) db.createObjectStore('soundfonts',{keyPath:'id'});
+                    if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings',{keyPath:'id'});
+                }; 
+                r.onsuccess = e => { db = e.target.result; resolve(db); }; 
+                r.onerror = e => reject(e); 
+            }); 
+        }
         async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); t.objectStore(STORE_NAME).getAll().onsuccess = e => { 
             const res=e.target.result; 
             if(res && res.length) playlist = res.map(i => ({
