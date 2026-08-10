@@ -1234,9 +1234,21 @@
 
             // Common Events
             if (ui.addFilesBtn) ui.addFilesBtn.addEventListener('click', () => ui.fileInput.click());
-            ui.fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.fileInput.value = ''; });
+            ui.fileInput.addEventListener('change', async (e) => {
+                const selectedFiles = Array.from(e.target.files || []);
+                ui.fileInput.value = '';
+                if (selectedFiles.length > 0) {
+                    await handleFiles(selectedFiles);
+                }
+            });
             if (ui.addFolderBtn) ui.addFolderBtn.addEventListener('click', () => ui.folderInput.click());
-            ui.folderInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.folderInput.value = ''; });
+            ui.folderInput.addEventListener('change', async (e) => {
+                const selectedFiles = Array.from(e.target.files || []);
+                ui.folderInput.value = '';
+                if (selectedFiles.length > 0) {
+                    await handleFiles(selectedFiles);
+                }
+            });
             ui.importSf2Btn.addEventListener('click', () => ui.sf2Input.click());
             ui.sf2Input.addEventListener('change', async (e) => {
                 const files = e.target.files;
@@ -3150,14 +3162,19 @@
 
         function updatePlaylistUI() {
             ui.playlist.innerHTML = '';
+            const query = (playlistSearchQuery || '').trim().toLowerCase();
             
             const filteredTracks = playlist.map((track, idx) => ({ ...track, originalIndex: idx }))
-                .filter(item => activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
+                .filter(item => {
+                    const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
+                    const matchQuery = !query || item.name.toLowerCase().includes(query);
+                    return matchPlaylist && matchQuery;
+                });
                 
             ui.trackCount.textContent = `(${filteredTracks.length})`;
             
             if(filteredTracks.length === 0) {
-                 ui.playlist.innerHTML = `<div class="text-center text-gray-600 mt-10 p-4 border-2 border-dashed border-gray-700 rounded-lg mx-4"><p class="mb-2">プレイリストは空です</p></div>`;
+                 ui.playlist.innerHTML = `<div class="text-center text-gray-600 mt-10 p-4 border-2 border-dashed border-gray-700 rounded-lg mx-4"><p class="mb-2">${query ? '該当するトラックがありません' : 'プレイリストは空です'}</p></div>`;
                  return;
             }
 
