@@ -833,6 +833,7 @@
         
         let customPlaylists = JSON.parse(localStorage.getItem('customPlaylists') || '[]');
         let activePlaylist = 'All Tracks';
+        let playlistSearchQuery = '';
         let pendingMoveIndex = -1;
         
         // Single Mode State
