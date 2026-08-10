@@ -3265,11 +3265,17 @@
             const modal = document.getElementById('theme-modal');
             if(modal) modal.classList.add('modal-active');
         }
+        window.openThemeModal = openThemeModal;
 
         function closeThemeModal() {
             const modal = document.getElementById('theme-modal');
             if(modal) modal.classList.remove('modal-active');
         }
+        window.closeThemeModal = closeThemeModal;
+        window.setTheme = setTheme;
+        window.resetCustomBg = resetCustomBg;
+        window.exportPlaylistJSON = exportPlaylistJSON;
+        window.importPlaylistJSON = importPlaylistJSON;
 
         async function handleCustomBgUpload(file) {
             if(!file || !file.type.startsWith('image/')) {
