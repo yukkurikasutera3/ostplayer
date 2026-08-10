@@ -784,7 +784,7 @@
                     <button onclick="setBgVisType('spectrum')" id="bg-vis-btn-spectrum" class="bg-purple-900/60 border border-purple-500 text-purple-200 text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition">Spectrum</button>
                     <button onclick="setBgVisType('wave')" id="bg-vis-btn-wave" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Fluid Wave</button>
                     <button onclick="setBgVisType('particles')" id="bg-vis-btn-particles" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Particles</button>
-                    <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Beat Aura</button>
+                    <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition" title="重低音に合わせてプレイヤーがリズム良く揺れる">Beat Bounce</button>
                 </div>
             </div>
 
@@ -3624,6 +3624,23 @@
                     ctx.shadowBlur = 20;
                     ctx.stroke();
                     ctx.shadowBlur = 0;
+                }
+            }
+
+            // Screen Bounce Transform Effect for Beat Bounce Mode
+            const mainApp = document.getElementById('main-app-container');
+            if (mainApp) {
+                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && bassEnergy > 25) {
+                    const normBass = (bassEnergy / 255);
+                    const scale = 1 + normBass * 0.04;
+                    const translateY = -normBass * 6;
+                    const tilt = Math.sin(Date.now() * 0.008) * normBass * 0.6;
+                    
+                    mainApp.style.transform = `scale(${scale}) translateY(${translateY}px) rotate(${tilt}deg)`;
+                    mainApp.style.transition = 'transform 0.04s ease-out';
+                } else {
+                    mainApp.style.transform = 'none';
+                    mainApp.style.transition = 'transform 0.15s ease-out';
                 }
             }
         }
