@@ -766,6 +766,7 @@
                         <input type="range" id="custom-card-input" min="0.3" max="0.98" value="0.85" step="0.05" class="w-full h-1 bg-gray-700 rounded">
                     </div>
                 </div>
+            </div>
             <!-- 背景ビジュアライザー コントロール -->
             <div class="bg-gray-800/80 p-4 rounded-lg border border-purple-900/50 space-y-3">
                 <div class="flex justify-between items-center">
@@ -4276,8 +4277,11 @@
         }
 
         // --- Delete ---
-        // --- Delete ---
-        window.confirmDelete = (i) => { pendingDeleteIndex = i; isDeleteAll = false; if(modal.msg) modal.msg.textContent = 'この曲を削除しますか？'; openModal(); };
+        window.confirmDelete = (i) => {
+            pendingDeleteIndex = i; isDeleteAll = false;
+            if(modal.msg) modal.msg.textContent = 'この曲を削除しますか？';
+            openModal();
+        };
         window.confirmClearAll = () => { if(!playlist.length)return; isDeleteAll = true; if(modal.msg) modal.msg.textContent = '全て削除しますか？'; openModal(); };
         function openModal() {
             if (modal && modal.el) {
