@@ -1951,40 +1951,154 @@
             document.getElementById('recording-export-status').classList.add('hidden');
         }
 
-        function calculateMidiFixedDuration(song) {
-            if (!song || !song.timebase || !song.maxTick) return 0;
-            const timebase = song.timebase;
-            let currentTempo = song.tempo || 120; // BPM
-            
-            const events = song.ev || (song.track ? song.track.flat() : null);
-            if (!events || !Array.isArray(events) || events.length === 0) {
-                return (song.maxTick * 4 * 60) / (timebase * currentTempo);
-            }
-
-            let totalSeconds = 0;
-            let lastTick = 0;
-            const tempoEvents = events.filter(e => e && ((e.cmd === 0xff && e.type === 0x51) || e.tempo));
-            if (tempoEvents.length === 0) {
-                return (song.maxTick * 4 * 60) / (timebase * currentTempo);
-            }
-
-            for (let i = 0; i < tempoEvents.length; i++) {
-                const ev = tempoEvents[i];
-                const deltaTicks = (ev.t || 0) - lastTick;
-                if (deltaTicks > 0) {
-                    totalSeconds += (deltaTicks * 60) / (timebase * currentTempo);
+        // --- Standalone Standard MIDI File (SMF) Parser for Exact Duration & Tempo Mapping ---
+        function parseSMF(buffer) {
+            try {
+                const data = new Uint8Array(buffer);
+                let offset = 0;
+                function readStr(len) {
+                    let str = '';
+                    for (let i = 0; i < len; i++) str += String.fromCharCode(data[offset++]);
+                    return str;
                 }
-                lastTick = ev.t || lastTick;
-                if (ev.tempo) currentTempo = ev.tempo;
-                else if (ev.data && ev.data.length >= 3) {
-                    const us = (ev.data[0] << 16) | (ev.data[1] << 8) | ev.data[2];
-                    if (us > 0) currentTempo = 60000000 / us;
+                function readU32() {
+                    const v = (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+                    offset += 4;
+                    return v >>> 0;
                 }
+                function readU16() {
+                    const v = (data[offset] << 8) | data[offset+1];
+                    offset += 2;
+                    return v;
+                }
+                function readVarLen() {
+                    let v = 0;
+                    while (offset < data.length) {
+                        const b = data[offset++];
+                        v = (v << 7) | (b & 0x7f);
+                        if ((b & 0x80) === 0) break;
+                    }
+                    return v;
+                }
+
+                if (readStr(4) !== 'MThd') return null;
+                const headerLen = readU32();
+                const format = readU16();
+                const numTracks = readU16();
+                const division = readU16();
+                offset += (headerLen - 6);
+
+                if ((division & 0x8000) !== 0) return null;
+                const ppqn = division;
+
+                const allEvents = [];
+                for (let t = 0; t < numTracks; t++) {
+                    if (offset >= data.length) break;
+                    const chunkType = readStr(4);
+                    const chunkLen = readU32();
+                    const trackEnd = offset + chunkLen;
+                    let currentTick = 0;
+                    let runningStatus = 0;
+
+                    while (offset < trackEnd && offset < data.length) {
+                        const delta = readVarLen();
+                        currentTick += delta;
+                        let status = data[offset];
+                        if (status < 0x80) {
+                            status = runningStatus;
+                        } else {
+                            offset++;
+                            if (status < 0xf0) runningStatus = status;
+                        }
+
+                        if (status === 0xff) {
+                            const metaType = data[offset++];
+                            const len = readVarLen();
+                            if (metaType === 0x51 && len === 3) {
+                                const usPerQN = (data[offset] << 16) | (data[offset+1] << 8) | data[offset+2];
+                                allEvents.push({ tick: currentTick, type: 'tempo', usPerQN });
+                            }
+                            offset += len;
+                        } else if (status === 0xf0 || status === 0xf7) {
+                            const len = readVarLen();
+                            offset += len;
+                        } else {
+                            const cmd = status & 0xf0;
+                            let dataLen = 2;
+                            if (cmd === 0xc0 || cmd === 0xd0) dataLen = 1;
+                            offset += dataLen;
+                            allEvents.push({ tick: currentTick, type: 'midi' });
+                        }
+                    }
+                    offset = trackEnd;
+                }
+
+                allEvents.sort((a, b) => a.tick - b.tick);
+
+                let maxTick = 0;
+                if (allEvents.length > 0) maxTick = allEvents[allEvents.length - 1].tick;
+
+                let currentTempo = 500000;
+                let currentSec = 0;
+                let lastTick = 0;
+
+                const timePoints = [{ tick: 0, timeSec: 0, usPerQN: currentTempo }];
+
+                for (const ev of allEvents) {
+                    if (ev.tick > lastTick) {
+                        const dt = ev.tick - lastTick;
+                        currentSec += (dt / ppqn) * (currentTempo / 1000000);
+                        lastTick = ev.tick;
+                    }
+                    if (ev.type === 'tempo') {
+                        currentTempo = ev.usPerQN;
+                        timePoints.push({ tick: ev.tick, timeSec: currentSec, usPerQN: currentTempo });
+                    }
+                }
+
+                return {
+                    totalDuration: currentSec,
+                    maxTick: maxTick,
+                    ppqn: ppqn,
+                    timePoints: timePoints,
+                    tickToSec(targetTick) {
+                        let sec = 0;
+                        let lastT = 0;
+                        let tempo = 500000;
+                        for (const pt of timePoints) {
+                            if (pt.tick > targetTick) break;
+                            sec = pt.timeSec;
+                            lastT = pt.tick;
+                            tempo = pt.usPerQN;
+                        }
+                        if (targetTick > lastT) {
+                            sec += ((targetTick - lastT) / ppqn) * (tempo / 1000000);
+                        }
+                        return sec;
+                    },
+                    secToTick(targetSec) {
+                        let tick = 0;
+                        let lastSec = 0;
+                        let tempo = 500000;
+                        let lastT = 0;
+                        for (const pt of timePoints) {
+                            if (pt.timeSec > targetSec) break;
+                            tick = pt.tick;
+                            lastSec = pt.timeSec;
+                            lastT = pt.tick;
+                            tempo = pt.usPerQN;
+                        }
+                        if (targetSec > lastSec) {
+                            const remSec = targetSec - lastSec;
+                            tick = lastT + Math.floor((remSec * 1000000 / tempo) * ppqn);
+                        }
+                        return Math.min(tick, maxTick);
+                    }
+                };
+            } catch(err) {
+                console.warn("SMF parse warning:", err);
+                return null;
             }
-            if (song.maxTick > lastTick) {
-                totalSeconds += ((song.maxTick - lastTick) * 60) / (timebase * currentTempo);
-            }
-            return totalSeconds;
         }
 
         async function loadMidiData(synth, arrayBuffer, destNode) {
@@ -1992,11 +2106,10 @@
             synth.setAudioContext(audioContext, destNode || audioContext.destination);
             
             try {
-                synth.loadMIDI(new Uint8Array(arrayBuffer));
-                
-                if (synth.song) {
-                    synth._fixedMaxTime = calculateMidiFixedDuration(synth.song);
+                if (arrayBuffer) {
+                    synth._smfMap = parseSMF(arrayBuffer);
                 }
+                synth.loadMIDI(new Uint8Array(arrayBuffer));
                 
                 // 音量初期設定 (スライダー値と同期)
                 if (currentMode === 'single' || currentMode === 'visual') {
@@ -2120,7 +2233,11 @@
             // 2. Default Built-in Synthesizer (WebAudioTinySynth)
             if (typeof synth.locateMIDI === 'function') {
                 const status = synth.getPlayStatus();
-                if (status && status.maxTick > 0) {
+                if (synth._smfMap && status.maxTime > 0) {
+                    const targetSec = (pct / 100) * status.maxTime;
+                    const targetTick = synth._smfMap.secToTick(targetSec);
+                    synth.locateMIDI(targetTick);
+                } else if (status && status.maxTick > 0) {
                     const targetTick = Math.floor((pct / 100) * status.maxTick);
                     synth.locateMIDI(targetTick);
                 }
@@ -4111,24 +4228,32 @@
             const all = isDeleteAll;
             closeModal();
             
-            if(all) {
-                stopAllAudio(); await clearDB(); playlist=[];
-                ui.single.title.textContent="No Track Selected";
-                ui.fx.title.textContent="No Track Selected";
-                decks.forEach(d => { d.ui.title.textContent="No Track"; d.player.src=""; });
-                ui.dual.deckA.title.textContent="No Track"; ui.dual.deckB.title.textContent="No Track";
-            } else if(idx !== -1) {
+            if (all) {
+                stopAllAudio();
+                try { await clearDB(); } catch(e){}
+                playlist = [];
+                ui.single.title.textContent = "No Track Selected";
+                ui.fx.title.textContent = "No Track Selected";
+                decks.forEach(d => { d.ui.title.textContent = "No Track"; d.player.src = ""; });
+                ui.dual.deckA.title.textContent = "No Track";
+                ui.dual.deckB.title.textContent = "No Track";
+                showNotification("すべての曲を削除しました");
+            } else if (idx !== -1 && idx < playlist.length) {
                 const t = playlist[idx];
-                await deleteTrackFromDB(t.id);
+                if (t && t.id) {
+                    try { await deleteTrackFromDB(t.id); } catch(e){}
+                }
+                const removedName = t ? t.name : '';
                 playlist.splice(idx, 1);
                 
-                if(currentMode === 'single') {
-                    if(idx === singleTrackIndex) { stopAllAudio(); singleTrackIndex = -1; updateSingleUIInfo(); }
-                    else if(idx < singleTrackIndex) singleTrackIndex--;
-                } else if(currentMode === 'fx') {
-                    if(idx === fxTrackIndex) { stopAllAudio(); fxTrackIndex = -1; ui.fx.title.textContent="No Track Selected"; }
-                    else if(idx < fxTrackIndex) fxTrackIndex--;
+                if (currentMode === 'single') {
+                    if (idx === singleTrackIndex) { stopAllAudio(); singleTrackIndex = -1; updateSingleUIInfo(); }
+                    else if (idx < singleTrackIndex) singleTrackIndex--;
+                } else if (currentMode === 'fx') {
+                    if (idx === fxTrackIndex) { stopAllAudio(); fxTrackIndex = -1; ui.fx.title.textContent = "No Track Selected"; }
+                    else if (idx < fxTrackIndex) fxTrackIndex--;
                 }
+                showNotification(`「${removedName}」を削除しました`);
             }
             updatePlaylistUI();
         }
@@ -4194,49 +4319,80 @@
         window.deleteCurrentPlaylist = deleteCurrentPlaylist;
 
         window.openMoveModal = (idx) => {
+            if (idx < 0 || idx >= playlist.length) return;
             pendingMoveIndex = idx;
+            const track = playlist[idx];
             const container = document.getElementById('playlist-options-container');
+            if (!container) return;
             container.innerHTML = '';
             
+            // Option 1: All Tracks
+            const isCurAll = (track.playlistName === 'All Tracks' || !track.playlistName);
             const allBtn = document.createElement('button');
-            allBtn.className = 'w-full text-left px-3 py-2 rounded bg-gray-900 hover:bg-gray-700 text-xs text-gray-300 hover:text-white transition';
-            allBtn.textContent = 'All Tracks';
+            allBtn.className = `w-full text-left px-3 py-2 rounded text-xs transition flex justify-between items-center ${isCurAll ? 'bg-blue-950 border border-blue-500/50 text-blue-300 font-bold' : 'bg-gray-900 hover:bg-gray-700 text-gray-300 hover:text-white'}`;
+            allBtn.innerHTML = `<span>All Tracks (全ライブラリ)</span>${isCurAll ? '<span class="text-[10px] bg-blue-500/20 px-1.5 py-0.5 rounded">現在</span>' : ''}`;
             allBtn.onclick = () => executeMove('All Tracks');
             container.appendChild(allBtn);
-            
+
+            // Option 2: Custom Playlists
             customPlaylists.forEach(name => {
-                if (playlist[idx].playlistName === name) return;
+                const isCur = (track.playlistName === name);
                 const btn = document.createElement('button');
-                btn.className = 'w-full text-left px-3 py-2 rounded bg-gray-900 hover:bg-gray-700 text-xs text-gray-300 hover:text-white transition mt-1.5';
-                btn.textContent = name;
+                btn.className = `w-full text-left px-3 py-2 rounded text-xs transition mt-1.5 flex justify-between items-center ${isCur ? 'bg-blue-950 border border-blue-500/50 text-blue-300 font-bold' : 'bg-gray-900 hover:bg-gray-700 text-gray-300 hover:text-white'}`;
+                btn.innerHTML = `<span>📂 ${name}</span>${isCur ? '<span class="text-[10px] bg-blue-500/20 px-1.5 py-0.5 rounded">現在</span>' : ''}`;
                 btn.onclick = () => executeMove(name);
                 container.appendChild(btn);
             });
-            
-            document.getElementById('move-playlist-modal').classList.remove('hidden');
+
+            // Option 3: Create new playlist inline
+            const createBtn = document.createElement('button');
+            createBtn.className = 'w-full text-left px-3 py-2 rounded text-xs transition mt-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 font-bold flex items-center space-x-1';
+            createBtn.innerHTML = '<span>+ 新しいプレイリストを作成して移動...</span>';
+            createBtn.onclick = () => {
+                const newName = prompt("移動先の新しいプレイリスト名を入力してください:");
+                if (!newName) return;
+                const trimmed = newName.trim();
+                if (!trimmed) return;
+                if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
+                    executeMove(trimmed);
+                    return;
+                }
+                customPlaylists.push(trimmed);
+                localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                updatePlaylistDropdown();
+                executeMove(trimmed);
+            };
+            container.appendChild(createBtn);
+
+            const modal = document.getElementById('move-playlist-modal');
+            if (modal) modal.classList.remove('hidden');
         };
         
         async function executeMove(destPlaylistName) {
-            if (pendingMoveIndex === -1) return;
+            if (pendingMoveIndex === -1 || pendingMoveIndex >= playlist.length) return;
             const track = playlist[pendingMoveIndex];
+            if (!track) return;
             
             try {
-                const t = db.transaction([STORE_NAME], 'readwrite');
-                const store = t.objectStore(STORE_NAME);
-                const req = store.get(track.id);
-                req.onsuccess = (e) => {
-                    const data = e.target.result;
-                    if (data) {
-                        data.playlistName = destPlaylistName;
-                        store.put(data);
-                    }
-                };
+                if (db && track.id) {
+                    const t = db.transaction([STORE_NAME], 'readwrite');
+                    const store = t.objectStore(STORE_NAME);
+                    const req = store.get(track.id);
+                    req.onsuccess = (e) => {
+                        const data = e.target.result;
+                        if (data) {
+                            data.playlistName = destPlaylistName;
+                            store.put(data);
+                        }
+                    };
+                }
             } catch(e) {
                 console.error("DB update failed during move:", e);
             }
             
             track.playlistName = destPlaylistName;
-            document.getElementById('move-playlist-modal').classList.add('hidden');
+            const modalEl = document.getElementById('move-playlist-modal');
+            if (modalEl) modalEl.classList.add('hidden');
             pendingMoveIndex = -1;
             
             showNotification(`「${track.name}」を「${destPlaylistName}」に移動しました`);
