@@ -655,7 +655,8 @@
                     <input type="file" id="json-input" accept=".json" class="hidden">
                     <button id="import-json-btn" class="text-gray-400 hover:text-white hover:underline" title="JSONプレイリスト読込">JSON入</button>
                     <span class="text-gray-600 text-xs">|</span>
-                    <button id="import-sf2-btn" class="text-yellow-500 hover:text-yellow-400 hover:underline">SF2</button>
+                    <button id="import-sf2-btn" class="text-yellow-400 font-bold hover:text-yellow-300 hover:underline" title="カスタムSoundFont (.sf2 / .sf3) を読み込み">🎵 SF2</button>
+                    <button id="reset-sf2-btn" onclick="resetSoundFont()" class="text-gray-500 hover:text-red-400 hover:underline text-[10px]" title="SoundFontをデフォルトにリセット">クリア</button>
                     <span class="text-gray-600 text-xs">|</span>
                     <button id="clear-playlist-btn" class="text-red-400 hover:text-red-300 hover:underline">全消去</button>
                 </div>
@@ -1299,26 +1300,10 @@
             });
             ui.importSf2Btn.addEventListener('click', () => ui.sf2Input.click());
             ui.sf2Input.addEventListener('change', async (e) => {
-                const files = e.target.files;
-                if (!files || files.length < 1) return;
-                const file = files[0];
-                try {
-                    showNotification("SoundFontを保存中...");
-                    const t = db.transaction(['soundfonts'], 'readwrite');
-                    await new Promise((resolve, reject) => {
-                        const r = t.objectStore('soundfonts').put({ id: 'active-sf2', blob: file });
-                        r.onsuccess = resolve; r.onerror = reject;
-                    });
-                    
-                    activeSoundFontBuffer = await file.arrayBuffer();
-                    showNotification("SoundFontを適用中...");
-                    await initSpessaSynth(activeSoundFontBuffer);
-                    showNotification("カスタムSoundFontを適用しました！");
-                } catch(err) {
-                    console.error(err);
-                    showNotification("SoundFontのロードに失敗しました");
-                }
+                const selectedFiles = Array.from(e.target.files || []);
                 ui.sf2Input.value = '';
+                if (!selectedFiles || selectedFiles.length < 1) return;
+                await loadSoundFontFile(selectedFiles[0]);
             });
             ui.clearBtn.addEventListener('click', confirmClearAll);
             modal.cancel.addEventListener('click', closeModal);
@@ -3715,11 +3700,73 @@
             return SUPPORTED_AUDIO_EXTS.some(ext => name.endsWith(ext));
         }
 
+        async function loadSoundFontFile(file) {
+            if (!file) return;
+            const name = file.name || '';
+            const ext = name.toLowerCase();
+            if (!ext.endsWith('.sf2') && !ext.endsWith('.sf3')) {
+                showNotification("有効な SoundFont ファイル (.sf2 / .sf3) を選択してください");
+                return;
+            }
+
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            showNotification(`🎵 SoundFont (${name} - ${sizeMB} MB) を読み込み中...`);
+
+            try {
+                // 1. Read array buffer in memory immediately
+                activeSoundFontBuffer = await file.arrayBuffer();
+                showNotification(`SoundFont (${name}) を合成エンジンに適用中...`);
+                
+                // 2. Initialize synthesizer in memory immediately
+                await initSpessaSynth(activeSoundFontBuffer);
+                showNotification(`✨ Custom SoundFont (${name} - ${sizeMB} MB) を適用しました！`);
+
+                // 3. Save to IndexedDB asynchronously in background so DB locks/quotas never block playback
+                if (db) {
+                    try {
+                        const t = db.transaction(['soundfonts'], 'readwrite');
+                        t.objectStore('soundfonts').put({ id: 'active-sf2', name: file.name, blob: file });
+                    } catch(dbErr) {
+                        console.warn("SoundFont DB background save notice:", dbErr);
+                    }
+                }
+            } catch(err) {
+                console.error("SoundFont load error:", err);
+                showNotification(`SoundFontのロードに失敗しました: ${err.message || err}`);
+            }
+        }
+        window.loadSoundFontFile = loadSoundFontFile;
+
+        async function resetSoundFont() {
+            if (db) {
+                try {
+                    const tx = db.transaction(['soundfonts'], 'readwrite');
+                    tx.objectStore('soundfonts').delete('active-sf2');
+                } catch(e){}
+            }
+            activeSoundFontBuffer = null;
+            spessaSynthInstance = null;
+            isSpessaSynthLoaded = false;
+            showNotification("SoundFontをリセットしました（デフォルト音源を使用します）");
+        }
+        window.resetSoundFont = resetSoundFont;
+
         async function handleFiles(files) {
             if(!files || !files.length) return;
-            const news = Array.from(files).filter(isAudioFile);
+            const fileArr = Array.from(files);
+
+            // Check if any SoundFont (.sf2 / .sf3) was included in the dropped/selected files
+            const sfFile = fileArr.find(f => {
+                const n = (f.name || '').toLowerCase();
+                return n.endsWith('.sf2') || n.endsWith('.sf3');
+            });
+            if (sfFile) {
+                await loadSoundFontFile(sfFile);
+            }
+
+            const news = fileArr.filter(isAudioFile);
             if(news.length === 0) {
-                showNotification("対応している音声ファイル (.mp3, .wav, .mid 等) が見つかりませんでした");
+                if (!sfFile) showNotification("対応している音声ファイル (.mp3, .wav, .mid 等) が見つかりませんでした");
                 return;
             }
             
@@ -3791,13 +3838,14 @@
                         const res = e.target.result;
                         if (res && res.blob) {
                             try {
+                                const sizeMB = (res.blob.size / (1024 * 1024)).toFixed(1);
+                                showNotification(`保存済みSoundFont (${res.name || 'カスタムSF2'} - ${sizeMB} MB) を読み込み中...`);
                                 activeSoundFontBuffer = await res.blob.arrayBuffer();
-                                showNotification("カスタムSoundFontをロード中...");
                                 await initSpessaSynth(activeSoundFontBuffer);
-                                showNotification("カスタムSoundFontが有効になりました");
+                                showNotification(`カスタムSoundFont (${res.name || 'SF2'}) を適用しました`);
                             } catch(err) {
                                 console.error("SoundFont load error:", err);
-                                showNotification("SoundFontのロードに失敗しました");
+                                showNotification("保存済みSoundFontの読み込みに失敗しました（デフォルト音源で起動します）");
                             }
                         }
                         resolve();
@@ -3809,24 +3857,51 @@
             });
         }
 
+        let isAudioWorkletModuleAdded = false;
+
         async function initSpessaSynth(soundfontBuffer) {
+            if (!soundfontBuffer) return;
             initAudio();
             if (audioContext.state === 'suspended') await audioContext.resume();
             
             const Spessa = await import("./spessasynth_lib.js");
             window.SpessaSynth = Spessa;
             
-            const res = await fetch("./spessasynth_processor.js");
-            const code = await res.text();
-            const blob = new Blob([code], { type: "application/javascript" });
-            const url = URL.createObjectURL(blob);
-            await audioContext.audioWorklet.addModule(url);
+            if (!isAudioWorkletModuleAdded) {
+                try {
+                    const res = await fetch("./spessasynth_processor.js");
+                    const code = await res.text();
+                    const blob = new Blob([code], { type: "application/javascript" });
+                    const url = URL.createObjectURL(blob);
+                    await audioContext.audioWorklet.addModule(url);
+                    isAudioWorkletModuleAdded = true;
+                } catch(e) {
+                    console.warn("AudioWorklet module notice:", e);
+                    isAudioWorkletModuleAdded = true;
+                }
+            }
             
+            if (spessaSynthInstance) {
+                try {
+                    spessaSynthInstance.disconnect();
+                } catch(e){}
+                spessaSynthInstance = null;
+            }
+
             spessaSynthInstance = new Spessa.WorkletSynthesizer(audioContext);
-            await spessaSynthInstance.soundBankManager.addSoundBank(soundfontBuffer, "main");
+            const sfCopy = soundfontBuffer.slice(0);
+            await spessaSynthInstance.soundBankManager.addSoundBank(sfCopy, "main");
             await spessaSynthInstance.isReady;
             
             isSpessaSynthLoaded = true;
+
+            // Re-bind active MIDI deck wrappers
+            Object.values(spessaSynthWrappers).forEach(w => {
+                if (w) {
+                    w.synth = spessaSynthInstance;
+                    w.setAudioContext(audioContext, masterGainNode || audioContext.destination);
+                }
+            });
         }
 
         class SpessaSynthPlayerWrapper {
