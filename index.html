@@ -1318,6 +1318,22 @@
                     pendingMoveIndex = -1;
                 });
             }
+
+            // Playlist Creation & Selection Events
+            const addPlBtn = document.getElementById('add-playlist-btn');
+            if (addPlBtn) addPlBtn.addEventListener('click', createNewPlaylist);
+
+            const delPlBtn = document.getElementById('delete-playlist-btn');
+            if (delPlBtn) delPlBtn.addEventListener('click', deleteCurrentPlaylist);
+
+            const plSelect = document.getElementById('playlist-select');
+            if (plSelect) {
+                plSelect.addEventListener('change', (e) => {
+                    activePlaylist = e.target.value;
+                    updatePlaylistDropdown();
+                    updatePlaylistUI();
+                });
+            }
             
             // Drag Drop
             const drop = document.getElementById('drop-zone-overlay');
@@ -1658,8 +1674,12 @@
                     let currentTime = 0;
                     let maxTime = 0;
                     if (synth.song) {
-                        currentTime = (status.curTick * 4 * 60) / (synth.song.timebase * synth.song.tempo);
-                        maxTime = (status.maxTick * 4 * 60) / (synth.song.timebase * synth.song.tempo);
+                        const maxTick = status.maxTick || synth.song.maxTick || 0;
+                        const curTick = status.curTick || 0;
+                        const progress = maxTick > 0 ? (curTick / maxTick) : 0;
+                        
+                        maxTime = synth._fixedMaxTime || ((maxTick * 4 * 60) / (synth.song.timebase * (synth.song.tempo || 120)));
+                        currentTime = progress * maxTime;
                     }
                     return {
                         play: status.play,
@@ -1931,13 +1951,53 @@
             document.getElementById('recording-export-status').classList.add('hidden');
         }
 
+        function calculateMidiFixedDuration(song) {
+            if (!song || !song.timebase || !song.maxTick) return 0;
+            const timebase = song.timebase;
+            let currentTempo = song.tempo || 120; // BPM
+            
+            const events = song.ev || (song.track ? song.track.flat() : null);
+            if (!events || !Array.isArray(events) || events.length === 0) {
+                return (song.maxTick * 4 * 60) / (timebase * currentTempo);
+            }
+
+            let totalSeconds = 0;
+            let lastTick = 0;
+            const tempoEvents = events.filter(e => e && ((e.cmd === 0xff && e.type === 0x51) || e.tempo));
+            if (tempoEvents.length === 0) {
+                return (song.maxTick * 4 * 60) / (timebase * currentTempo);
+            }
+
+            for (let i = 0; i < tempoEvents.length; i++) {
+                const ev = tempoEvents[i];
+                const deltaTicks = (ev.t || 0) - lastTick;
+                if (deltaTicks > 0) {
+                    totalSeconds += (deltaTicks * 60) / (timebase * currentTempo);
+                }
+                lastTick = ev.t || lastTick;
+                if (ev.tempo) currentTempo = ev.tempo;
+                else if (ev.data && ev.data.length >= 3) {
+                    const us = (ev.data[0] << 16) | (ev.data[1] << 8) | ev.data[2];
+                    if (us > 0) currentTempo = 60000000 / us;
+                }
+            }
+            if (song.maxTick > lastTick) {
+                totalSeconds += ((song.maxTick - lastTick) * 60) / (timebase * currentTempo);
+            }
+            return totalSeconds;
+        }
+
         async function loadMidiData(synth, arrayBuffer, destNode) {
             if (!synth) return;
-            // Synth接続
             synth.setAudioContext(audioContext, destNode || audioContext.destination);
             
             try {
                 synth.loadMIDI(new Uint8Array(arrayBuffer));
+                
+                if (synth.song) {
+                    synth._fixedMaxTime = calculateMidiFixedDuration(synth.song);
+                }
+                
                 // 音量初期設定 (スライダー値と同期)
                 if (currentMode === 'single' || currentMode === 'visual') {
                     synth.setMasterVol(parseFloat(ui.single.vol.value));
@@ -4095,6 +4155,43 @@
                 delBtn.classList.remove('hidden');
             }
         }
+
+        function createNewPlaylist() {
+            const name = prompt("新しいプレイリスト名を入力してください:");
+            if (!name) return;
+            const trimmed = name.trim();
+            if (!trimmed) return;
+            if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
+                showNotification("同名のプレイリストが既に存在します");
+                return;
+            }
+            customPlaylists.push(trimmed);
+            localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+            activePlaylist = trimmed;
+            updatePlaylistDropdown();
+            updatePlaylistUI();
+            showNotification(`✨ プレイリスト「${trimmed}」を作成しました`);
+        }
+        window.createNewPlaylist = createNewPlaylist;
+
+        function deleteCurrentPlaylist() {
+            if (activePlaylist === 'All Tracks') return;
+            if (!confirm(`プレイリスト「${activePlaylist}」を削除しますか？\n（※ 含まれる曲は All Tracks に残ります）`)) return;
+            
+            const pName = activePlaylist;
+            customPlaylists = customPlaylists.filter(p => p !== pName);
+            localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+            
+            playlist.forEach(t => {
+                if (t.playlistName === pName) t.playlistName = 'All Tracks';
+            });
+
+            activePlaylist = 'All Tracks';
+            updatePlaylistDropdown();
+            updatePlaylistUI();
+            showNotification(`プレイリスト「${pName}」を削除しました`);
+        }
+        window.deleteCurrentPlaylist = deleteCurrentPlaylist;
 
         window.openMoveModal = (idx) => {
             pendingMoveIndex = idx;
