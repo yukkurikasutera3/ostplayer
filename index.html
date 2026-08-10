@@ -610,15 +610,7 @@
                         <span id="record-text">Rec Session</span>
                     </button>
                     <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff" class="hidden">
-                    <button id="add-files-btn" class="text-blue-400 hover:text-blue-300 border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition">
-                        + ファイルを追加
-                    </button>
-                    
                     <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
-                    <button id="add-folder-btn" class="text-blue-400 hover:text-blue-300 border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition">
-                        + フォルダを追加
-                    </button>
-                    
                     <input type="file" id="sf2-input" accept=".sf2,.sf3" class="hidden">
                 </div>
             </div>
@@ -1241,9 +1233,9 @@
             });
 
             // Common Events
-            ui.addFilesBtn.addEventListener('click', () => ui.fileInput.click());
+            if (ui.addFilesBtn) ui.addFilesBtn.addEventListener('click', () => ui.fileInput.click());
             ui.fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.fileInput.value = ''; });
-            ui.addFolderBtn.addEventListener('click', () => ui.folderInput.click());
+            if (ui.addFolderBtn) ui.addFolderBtn.addEventListener('click', () => ui.folderInput.click());
             ui.folderInput.addEventListener('change', (e) => { handleFiles(e.target.files); ui.folderInput.value = ''; });
             ui.importSf2Btn.addEventListener('click', () => ui.sf2Input.click());
             ui.sf2Input.addEventListener('change', async (e) => {
