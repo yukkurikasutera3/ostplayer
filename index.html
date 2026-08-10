@@ -780,10 +780,11 @@
                     </label>
                 </div>
                 
-                <div class="grid grid-cols-3 gap-2 pt-1">
+                <div class="grid grid-cols-4 gap-2 pt-1">
                     <button onclick="setBgVisType('spectrum')" id="bg-vis-btn-spectrum" class="bg-purple-900/60 border border-purple-500 text-purple-200 text-[11px] font-bold py-1.5 rounded-lg shadow-sm transition">Spectrum</button>
+                    <button onclick="setBgVisType('wave')" id="bg-vis-btn-wave" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Fluid Wave</button>
                     <button onclick="setBgVisType('particles')" id="bg-vis-btn-particles" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Particles</button>
-                    <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition" title="重低音に合わせてプレイヤーがリズム良く揺れる">Beat Bounce</button>
+                    <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition" title="重低音に合わせてプレイヤーが縦方向に弾む">Beat Bounce</button>
                 </div>
             </div>
 
@@ -3474,7 +3475,7 @@
         window.initBgVisualizer = initBgVisualizer;
 
         function updateBgVisButtons() {
-            const types = ['spectrum', 'particles', 'aura'];
+            const types = ['spectrum', 'wave', 'particles', 'aura'];
             types.forEach(t => {
                 const btn = document.getElementById(`bg-vis-btn-${t}`);
                 if(btn) {
@@ -3543,6 +3544,33 @@
                     ctx.fillStyle = gradTop;
                     ctx.fillRect(i * barW, 0, barW - 2, topH);
                 }
+            } else if(bgVisualizerType === 'wave') {
+                const time = Date.now() * 0.002;
+                
+                [
+                    { color: 'hsla(195, 95%, 60%, 0.45)', mult: 1.0, speed: 1.0 },
+                    { color: 'hsla(270, 90%, 65%, 0.40)', mult: 1.4, speed: 0.8 },
+                    { color: 'hsla(330, 85%, 65%, 0.35)', mult: 0.7, speed: 1.2 }
+                ].forEach((waveConfig, wIdx) => {
+                    ctx.beginPath();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = waveConfig.color;
+                    ctx.shadowColor = waveConfig.color;
+                    ctx.shadowBlur = 12;
+                    
+                    const sliceW = w / 64;
+                    let x = 0;
+                    for(let i=0; i<64; i++) {
+                        const freqVal = (freqData[i] / 255) * 60;
+                        const v = (timeData[i] - 128) / 128;
+                        const y = (h / 2) + Math.sin(i * 0.1 + time * waveConfig.speed + wIdx) * (40 + freqVal) + v * 30;
+                        if(i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                        x += sliceW;
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                });
             } else if(bgVisualizerType === 'particles') {
                 const pulse = (bassEnergy / 255);
                 bgParticles.forEach(p => {
@@ -3569,50 +3597,31 @@
                 const time = Date.now() * 0.0015;
                 const hueBase = (time * 40) % 360;
 
-                // 1. Full Screen Pulsing Neon Vignette / Glow
-                const maxRadius = Math.max(w, h) * (0.4 + normBass * 0.45);
+                // Ambient Radial Neon Glow (without shockwave rings)
+                const maxRadius = Math.max(w, h) * (0.35 + normBass * 0.35);
                 const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxRadius);
                 
-                grad.addColorStop(0, `hsla(${hueBase}, 100%, 65%, ${0.35 + normBass * 0.55})`);
-                grad.addColorStop(0.35, `hsla(${(hueBase + 50) % 360}, 90%, 55%, ${0.20 + normBass * 0.35})`);
-                grad.addColorStop(0.7, `hsla(${(hueBase + 120) % 360}, 85%, 45%, ${0.10 + normBass * 0.20})`);
+                grad.addColorStop(0, `hsla(${hueBase}, 90%, 65%, ${0.2 + normBass * 0.35})`);
+                grad.addColorStop(0.5, `hsla(${(hueBase + 50) % 360}, 80%, 55%, ${0.1 + normBass * 0.2})`);
                 grad.addColorStop(1, 'transparent');
 
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, w, h);
-
-                // 2. Concentric Pulsing Shockwave Rings
-                const ringCount = 3;
-                for (let r = 0; r < ringCount; r++) {
-                    const ringOffset = ((time * 1.5 + r * 0.33) % 1);
-                    const ringRadius = ringOffset * (Math.min(w, h) * 0.65) * (1 + normBass * 0.5);
-                    const alpha = (1 - ringOffset) * (0.3 + normBass * 0.6);
-
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
-                    ctx.lineWidth = 3 + normBass * 6;
-                    ctx.strokeStyle = `hsla(${(hueBase + r * 40) % 360}, 100%, 70%, ${alpha})`;
-                    ctx.shadowColor = `hsla(${(hueBase + r * 40) % 360}, 100%, 70%, ${alpha})`;
-                    ctx.shadowBlur = 20;
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                }
             }
 
-            // Screen Bounce Transform Effect for Beat Bounce Mode
+            // Punchy Vertical Speaker-Kick Bounce Effect for Beat Bounce Mode
             const mainApp = document.getElementById('main-app-container');
             if (mainApp) {
-                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && bassEnergy > 25) {
-                    const normBass = (bassEnergy / 255);
-                    const scale = 1 + normBass * 0.04;
-                    const translateY = -normBass * 6;
-                    const tilt = Math.sin(Date.now() * 0.008) * normBass * 0.6;
+                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && bassEnergy > 20) {
+                    const normBass = Math.pow(bassEnergy / 255, 1.4);
+                    const scale = 1 + normBass * 0.045;
+                    const translateY = -normBass * 8;
                     
-                    mainApp.style.transform = `scale(${scale}) translateY(${translateY}px) rotate(${tilt}deg)`;
-                    mainApp.style.transition = 'transform 0.04s ease-out';
+                    mainApp.style.transform = `scale(${scale}) translateY(${translateY}px)`;
+                    mainApp.style.transition = 'transform 0.03s cubic-bezier(0.1, 0.9, 0.2, 1.0)';
                 } else {
                     mainApp.style.transform = 'none';
-                    mainApp.style.transition = 'transform 0.15s ease-out';
+                    mainApp.style.transition = 'transform 0.12s ease-out';
                 }
             }
         }
