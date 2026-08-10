@@ -469,7 +469,17 @@
                                 <span class="text-[10px] text-gray-500">1kHz</span>
                             </div>
                             <div class="flex flex-col items-center space-y-1">
-                                <div class="vertical-range-wrap"><input                    <div class="grid grid-cols-2 gap-3">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-4k" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">4kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-12k" min="-12" max="12" value="0"></div>
+                                <span class="text-[10px] text-gray-500">12kHz</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
                         <div class="bg-gray-900/50 rounded-lg p-2">
                             <div class="flex justify-between mb-1">
                                 <span class="text-[10px] text-purple-300 font-bold uppercase">Bass</span>
@@ -525,15 +535,6 @@
                                 <span id="highpass-val" class="text-[10px] text-gray-500">20Hz</span>
                             </div>
                             <input type="range" id="fx-highpass" min="20" max="5000" step="50" value="20" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
-                        </div>
-                    </div>m">
-                        </div>
-                        <div class="bg-gray-900/50 rounded-lg p-2">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-[10px] text-cyan-300 font-bold uppercase">Speed</span>
-                                <span id="spd-val" class="text-[10px] text-gray-500">1.0</span>
-                            </div>
-                            <input type="range" id="fx-spd" min="0.5" max="2.0" step="0.05" value="1.0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-spd">
                         </div>
                     </div>
                 </div>
@@ -1989,9 +1990,6 @@
             }
         }
 
-        let masterLowpassNode = null;
-        let masterHighpassNode = null;
-
         // --- Audio Core ---
         function initAudio() {
             if (audioContext) return;
@@ -2001,18 +1999,7 @@
             analyser.fftSize = 256;
             
             masterGainNode = audioContext.createGain();
-            
-            masterLowpassNode = audioContext.createBiquadFilter();
-            masterLowpassNode.type = 'lowpass';
-            masterLowpassNode.frequency.value = 20000;
-
-            masterHighpassNode = audioContext.createBiquadFilter();
-            masterHighpassNode.type = 'highpass';
-            masterHighpassNode.frequency.value = 20;
-
-            analyser.connect(masterLowpassNode);
-            masterLowpassNode.connect(masterHighpassNode);
-            masterHighpassNode.connect(masterGainNode);
+            analyser.connect(masterGainNode);
             masterGainNode.connect(audioContext.destination);
             if (isMuted) masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
 
@@ -3148,210 +3135,16 @@
 
         function toggleShuffle() { isShuffling=!isShuffling; ui.single.shuffle.classList.toggle('text-blue-400'); ui.single.shuffle.classList.toggle('text-gray-500'); }
 
-        // --- Theme & Custom Background Manager ---
-        let currentTheme = localStorage.getItem('ost_user_theme') || 'cyberpunk';
-        let customBgData = null;
-
-        function openThemeModal() {
-            const m = document.getElementById('theme-modal');
-            if(m) m.classList.add('modal-active');
-        }
-
-        function closeThemeModal() {
-            const m = document.getElementById('theme-modal');
-            if(m) m.classList.remove('modal-active');
-        }
-
-        async function setTheme(themeName) {
-            currentTheme = themeName;
-            localStorage.setItem('ost_user_theme', themeName);
-            
-            document.body.className = `theme-${themeName} bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300`;
-            
-            const bgLayer = document.getElementById('custom-bg-layer');
-            const bgOverlay = document.getElementById('custom-bg-overlay');
-            
-            if (themeName === 'custom') {
-                if(bgLayer) bgLayer.classList.remove('hidden');
-                if(bgOverlay) bgOverlay.classList.remove('hidden');
-                if (!customBgData) {
-                    await loadCustomBgFromDB();
-                }
-                updateCustomBgStyles();
-            } else {
-                if(bgLayer) bgLayer.classList.add('hidden');
-                if(bgOverlay) bgOverlay.classList.add('hidden');
-            }
-            showNotification(`テーマ切替: ${themeName.toUpperCase()}`);
-        }
-
-        async function initThemeFromSettings() {
-            const savedBlur = localStorage.getItem('ost_bg_blur') || '0';
-            const savedOverlay = localStorage.getItem('ost_bg_overlay') || '0.6';
-            const savedCard = localStorage.getItem('ost_card_opacity') || '0.85';
-            
-            const blurIn = document.getElementById('custom-blur-input');
-            const overlayIn = document.getElementById('custom-overlay-input');
-            const cardIn = document.getElementById('custom-card-input');
-            
-            if(blurIn) blurIn.value = savedBlur;
-            if(overlayIn) overlayIn.value = savedOverlay;
-            if(cardIn) cardIn.value = savedCard;
-            
-            await setTheme(currentTheme);
-        }
-
-        async function handleCustomBgUpload(file) {
-            if (!file || !file.type.startsWith('image/')) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const dataUrl = e.target.result;
-                customBgData = dataUrl;
-                
-                const bgLayer = document.getElementById('custom-bg-layer');
-                if(bgLayer) bgLayer.style.backgroundImage = `url("${dataUrl}")`;
-                
-                if (db) {
-                    try {
-                        const tx = db.transaction(['settings'], 'readwrite');
-                        tx.objectStore('settings').put({ id: 'custom-bg', data: dataUrl });
-                    } catch(err) { console.error(err); }
-                }
-                
-                setTheme('custom');
-                showNotification("カスタム背景画像を適用・保存しました");
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function loadCustomBgFromDB() {
-            if (!db) return;
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(['settings'], 'readonly');
-                    const req = tx.objectStore('settings').get('custom-bg');
-                    req.onsuccess = (e) => {
-                        const res = e.target.result;
-                        if (res && res.data) {
-                            customBgData = res.data;
-                            const bgLayer = document.getElementById('custom-bg-layer');
-                            if(bgLayer) bgLayer.style.backgroundImage = `url("${res.data}")`;
-                        }
-                        resolve();
-                    };
-                    req.onerror = () => resolve();
-                } catch(e) { resolve(); }
-            });
-        }
-
-        function updateCustomBgStyles() {
-            const blurEl = document.getElementById('custom-blur-input');
-            const overlayEl = document.getElementById('custom-overlay-input');
-            const cardEl = document.getElementById('custom-card-input');
-            
-            const blurVal = blurEl ? blurEl.value : '0';
-            const overlayVal = overlayEl ? overlayEl.value : '0.6';
-            const cardVal = cardEl ? cardEl.value : '0.85';
-            
-            const blurText = document.getElementById('blur-val-text');
-            const overlayText = document.getElementById('overlay-val-text');
-            const cardText = document.getElementById('card-val-text');
-            
-            if(blurText) blurText.textContent = blurVal + 'px';
-            if(overlayText) overlayText.textContent = Math.round(overlayVal * 100) + '%';
-            if(cardText) cardText.textContent = Math.round(cardVal * 100) + '%';
-            
-            document.documentElement.style.setProperty('--custom-blur', blurVal + 'px');
-            document.documentElement.style.setProperty('--custom-overlay-opacity', overlayVal);
-            document.documentElement.style.setProperty('--custom-card-opacity', cardVal);
-            
-            const bgLayer = document.getElementById('custom-bg-layer');
-            const bgOverlay = document.getElementById('custom-bg-overlay');
-            if (bgLayer) bgLayer.style.filter = `blur(${blurVal}px)`;
-            if (bgOverlay) bgOverlay.style.backgroundColor = `rgba(0,0,0,${overlayVal})`;
-            
-            localStorage.setItem('ost_bg_blur', blurVal);
-            localStorage.setItem('ost_bg_overlay', overlayVal);
-            localStorage.setItem('ost_card_opacity', cardVal);
-        }
-
-        async function resetCustomBg() {
-            customBgData = null;
-            const bgLayer = document.getElementById('custom-bg-layer');
-            if (bgLayer) bgLayer.style.backgroundImage = '';
-            
-            if (db) {
-                try {
-                    const tx = db.transaction(['settings'], 'readwrite');
-                    tx.objectStore('settings').delete('custom-bg');
-                } catch(e){}
-            }
-            
-            setTheme('cyberpunk');
-            showNotification("カスタム背景をリセットしました");
-        }
-
-        function exportPlaylistJSON() {
-            const exportData = {
-                version: "1.0",
-                exportDate: new Date().toISOString(),
-                customPlaylists: customPlaylists,
-                tracks: playlist.map(t => ({
-                    name: t.name,
-                    playlistName: t.playlistName,
-                    isMidi: t.isMidi
-                }))
-            };
-            const jsonStr = JSON.stringify(exportData, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `OSTPlayer_Playlist_${new Date().toISOString().slice(0,10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showNotification("プレイリストをJSON出力しました");
-        }
-
-        function importPlaylistJSON(file) {
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.customPlaylists && Array.isArray(data.customPlaylists)) {
-                        data.customPlaylists.forEach(pName => {
-                            if (!customPlaylists.includes(pName)) customPlaylists.push(pName);
-                        });
-                        localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
-                        updatePlaylistDropdown();
-                    }
-                    showNotification("プレイリスト情報を読み込みました");
-                } catch(err) {
-                    console.error(err);
-                    showNotification("JSONファイルの解析に失敗しました");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        let playlistSearchQuery = '';
-
         function updatePlaylistUI() {
             ui.playlist.innerHTML = '';
-            const query = (playlistSearchQuery || '').trim().toLowerCase();
             
             const filteredTracks = playlist.map((track, idx) => ({ ...track, originalIndex: idx }))
-                .filter(item => {
-                    const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
-                    const matchQuery = !query || item.name.toLowerCase().includes(query);
-                    return matchPlaylist && matchQuery;
-                });
+                .filter(item => activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
                 
             ui.trackCount.textContent = `(${filteredTracks.length})`;
             
             if(filteredTracks.length === 0) {
-                 ui.playlist.innerHTML = `<div class="text-center text-gray-600 mt-10 p-4 border-2 border-dashed border-gray-700 rounded-lg mx-4"><p class="mb-2">該当するトラックがありません</p></div>`;
+                 ui.playlist.innerHTML = `<div class="text-center text-gray-600 mt-10 p-4 border-2 border-dashed border-gray-700 rounded-lg mx-4"><p class="mb-2">プレイリストは空です</p></div>`;
                  return;
             }
 
@@ -3393,19 +3186,7 @@
         }
 
         // --- Database ---
-        function openDB() { 
-            return new Promise((resolve,reject) => { 
-                const r = indexedDB.open(DB_NAME, 3); 
-                r.onupgradeneeded = e => {
-                    const db = e.target.result; 
-                    if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id',autoIncrement:true}); 
-                    if(!db.objectStoreNames.contains('soundfonts')) db.createObjectStore('soundfonts',{keyPath:'id'});
-                    if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings',{keyPath:'id'});
-                }; 
-                r.onsuccess = e => { db = e.target.result; resolve(db); }; 
-                r.onerror = e => reject(e); 
-            }); 
-        }
+        function openDB() { return new Promise((resolve,reject) => { const r=indexedDB.open(DB_NAME,DB_VERSION); r.onupgradeneeded=e=>{const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id',autoIncrement:true}); if(!db.objectStoreNames.contains('soundfonts')) db.createObjectStore('soundfonts',{keyPath:'id'});}; r.onsuccess=e=>{db=e.target.result; resolve(db);}; r.onerror=e=>reject(e); }); }
         async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); t.objectStore(STORE_NAME).getAll().onsuccess = e => { 
             const res=e.target.result; 
             if(res && res.length) playlist = res.map(i => ({
