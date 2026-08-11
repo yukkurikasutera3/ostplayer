@@ -1123,9 +1123,10 @@
         // ----------------------
 
         // Audio System
-        let audioContext;
-        let analyser;
-        let masterGainNode;
+        let audioContext = null;
+        let analyser = null;
+        let masterGainNode = null;
+        let speakerGainNode = null;
         let isMuted = false;
         // players[0], players[1] for Single, Dual, FX, Visual
         let players = [new Audio(), new Audio()];
@@ -2741,6 +2742,7 @@
             analyser.fftSize = 256;
             
             masterGainNode = audioContext.createGain();
+            speakerGainNode = audioContext.createGain();
 
             // Create Master Filters & 3D Spatial Panner
             masterLowpassNode = audioContext.createBiquadFilter();
@@ -2755,21 +2757,21 @@
 
             init3DPannerNode();
 
-            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Master Gain -> Destination & Rec
+            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Master Gain -> (SpeakerGain & RecDest)
             analyser.connect(masterLowpassNode);
             masterLowpassNode.connect(masterHighpassNode);
 
             if (panner3DNode) {
                 masterHighpassNode.connect(panner3DNode);
                 panner3DNode.connect(masterGainNode);
-                panner3DNode.connect(recDestNode);
             } else {
                 masterHighpassNode.connect(masterGainNode);
-                masterHighpassNode.connect(recDestNode);
             }
 
-            masterGainNode.connect(audioContext.destination);
-            if (isMuted) masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            masterGainNode.connect(speakerGainNode);
+            masterGainNode.connect(recDestNode);
+            speakerGainNode.connect(audioContext.destination);
+            if (isMuted) speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
 
             // Create FX Nodes
             const freqs = [60, 250, 1000, 4000, 12000];
