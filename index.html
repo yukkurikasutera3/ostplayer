@@ -365,8 +365,8 @@
                             <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10" title="ピアノロール">
                                 <span>🎹 Piano Roll</span>
                             </button>
-                            <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="約1秒でWAVオーディオファイルに爆速エクスポート変換">
-                                <span>⚡ 爆速WAV書き出し</span>
+                            <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="WAVオーディオファイルにエクスポート書き出し">
+                                <span>💾 WAV書き出し</span>
                             </button>
                         </div>
 
@@ -3039,7 +3039,7 @@
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
-            showNotification(`⚡ MIDI (${track.name}) を爆速オフラインレンダリング中... (${sfName})`);
+            showNotification(`💾 MIDI (${track.name}) をWAVへ書き出し中... (${sfName})`);
             
             try {
                 const arrayBuffer = await track.file.arrayBuffer();
@@ -3071,7 +3071,7 @@
                     URL.revokeObjectURL(url);
                 }, 1000);
                 
-                showNotification(`✨ 爆速変換完了！ ${cleanName}_${cleanSf}.wav をエクスポートしました！`);
+                showNotification(`✨ 書き出し完了！ ${cleanName}_${cleanSf}.wav をエクスポートしました！`);
             } catch(err) {
                 console.error("Fast MIDI WAV export error:", err);
                 showNotification(`リアルタイム録音モードで書き出しを開始します...`);
