@@ -3196,12 +3196,33 @@
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
+            // Stop active main player MIDI playback
+            const mainSynth = getMidiSynth('main');
+            if (mainSynth && mainSynth.stopMIDI) {
+                try { mainSynth.stopMIDI(); } catch(e){}
+            }
+            isPlaying = false;
+            updatePlayPauseButtons();
+
+            // Mute speaker output during export
+            if (speakerGainNode) {
+                speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            }
+
             isExportingWav = true;
             exportStartTime = performance.now();
             updateExportProgress(0, 'WAV書き出し準備中...', `MIDIトラック (${track.name})`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
+
+            const restoreSpeaker = () => {
+                isExportingWav = false;
+                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                if (speakerGainNode) {
+                    speakerGainNode.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime);
+                }
+            };
 
             try {
                 const arrayBuffer = await track.file.arrayBuffer();
@@ -3273,8 +3294,7 @@
                         URL.revokeObjectURL(url);
                     }, 1000);
 
-                    isExportingWav = false;
-                    bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                    restoreSpeaker();
 
                     updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                     showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
@@ -3316,8 +3336,7 @@
                     URL.revokeObjectURL(url);
                 }, 1000);
 
-                isExportingWav = false;
-                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                restoreSpeaker();
 
                 updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                 showNotification(`✨ 書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
@@ -3325,8 +3344,7 @@
 
             } catch (err) {
                 console.error("Ultra-fast WAV export error:", err);
-                isExportingWav = false;
-                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                restoreSpeaker();
                 hideExportProgressWidget(500);
                 showNotification(`書き出しエラー: ${err.message || '不明なエラー'}`);
             }
