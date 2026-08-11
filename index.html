@@ -679,13 +679,54 @@
                 </div>
                 <div class="help-section">
                     <h3 class="help-heading">データ保存</h3>
-                    <p class="help-text">追加した曲はブラウザ内のデータベースに保存されます。</p>
+                    <p class="help-text">追加した曲や設定、SoundFont はブラウザ内のデータベース (IndexedDB) に安全に保存されます。</p>
+                </div>
+
+                <div class="help-section border-t border-gray-700 pt-4 mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="help-heading flex items-center space-x-1 text-purple-300">
+                            <span>📜</span><span>更新履歴 (Changelog)</span>
+                        </h3>
+                        <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.5 Full Update</span>
+                    </div>
+                    <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-purple-900/50">
+                            <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-indigo-900/40 pb-1">
+                                <span>🎉 最新アップデート (v2.5)</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-08-11</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>音量制御の修正:</strong> FXモード切り替え時に音量が半減する不具合を修正し、全モード間でマスター音量をリアルタイム双方向同期。</li>
+                                <li><strong>FXモード再生ヘッダー同期:</strong> タブ切り替え時に曲を途切れさせず、曲名・再生/一時停止状態・経過時間をリアルタイム完全同期。</li>
+                                <li><strong>ライブラリ再生中同期:</strong> Single, Dual (Deck A/B), Multi (Deck N), FX モードで選択中の曲に動的バッジと点滅インジケーターを表示。並び替えドラッグ時も追尾。</li>
+                                <li><strong>3D Spatial Audio & 8D Orbit 強化:</strong> 2D Panner パッドの直接ドラッグ移動に対応し、「↺ 初期位置に戻す (真中央)」ボタンを追加。</li>
+                                <li><strong>マスターフィルター機能:</strong> FX モードに Lowpass Cut (高音カット) / Highpass Cut (低音カット) フィルターを新設し Web Audio グラフへ統合。</li>
+                            </ul>
+                        </div>
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-gray-700/60">
+                            <div class="flex items-center justify-between text-blue-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>✨ バッチ2 新機能リリース (v2.0)</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-08-10</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>ID3 Tag & カバーアート表示:</strong> MP3 などの埋め込みアルバムアートワーク（APIC）と ID3 Metadata の自動読み込みに対応。</li>
+                                <li><strong>プレイリスト高度化:</strong> ドラッグ＆ドロップによる自由な並び替え（⋮⋮）、プレイリスト名の変更（✏️）、複製（📋）、JSON 入出力機能を追加。</li>
+                                <li><strong>ピッチロック (Pitch Lock):</strong> 再生速度を変更しても音階が変わらない preservesPitch トグルスイッチを搭載。</li>
+                                <li><strong>カスタム背景画像:</strong> ユーザー独自の背景画像のアップロード、ぼかし・暗さ・カード透明度の細かな調整機能を追加。</li>
+                                <li><strong>セッション録音 (Rec Session):</strong> プレイヤーの全出力をブラウザ上で高音質 WAV 録音・ダウンロード可能に。</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <div class="mt-4 flex justify-between items-center text-xs text-gray-500">
                 <span>※ ファイルやフォルダをドラッグ&ドロップして追加</span>
                 <div class="flex items-center space-x-2">
+                    <!-- Changelog / Help Button -->
+                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="更新履歴とヘルプを表示">
+                        <span>📜</span><span>更新履歴</span>
+                    </button>
                     <!-- Record Session Button -->
                     <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="セッションを録音する">
                         <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
