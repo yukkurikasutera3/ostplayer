@@ -730,24 +730,23 @@
                 </div>
             </div>
             
-            <div class="mt-4 flex justify-between items-center text-xs text-gray-500">
-                <span>※ ファイルやフォルダをドラッグ&ドロップして追加</span>
-                <div class="flex items-center space-x-2">
+            <div class="mt-4 flex flex-wrap md:flex-nowrap justify-between items-center text-xs text-gray-500 gap-2">
+                <span class="whitespace-nowrap truncate shrink-0">※ ファイルやフォルダをドラッグ&ドロップして追加</span>
+                <div class="flex items-center space-x-2 shrink-0 flex-wrap md:flex-nowrap gap-y-1">
                     <!-- SoundFont Online Preset Selector -->
-                    <select id="sf2-preset-select" onchange="loadOnlineSoundFont(this.value)" class="px-2.5 py-1 rounded-full border border-yellow-500/50 text-[10px] font-bold text-yellow-300 bg-gray-900 hover:bg-gray-800 transition-colors select-none focus:outline-none cursor-pointer" title="SoundFont プリセットを選択・オンライン取得">
+                    <select id="sf2-preset-select" onchange="loadOnlineSoundFont(this.value)" class="px-2.5 py-1 rounded-full border border-yellow-500/50 text-[10px] font-bold text-yellow-300 bg-gray-900 hover:bg-gray-800 transition-colors select-none focus:outline-none cursor-pointer whitespace-nowrap shrink-0" title="SoundFont プリセットを選択・オンライン取得">
                         <option value="builtin">⚡ SF: デフォルト (Built-in Synth)</option>
-                        <option value="timgm">🚀 SF: TimGM6mb (軽量 6MB GM)</option>
-                        <option value="generaluser">🎶 SF: GeneralUser GS (高音質 30MB GS/GM)</option>
+                        <option value="timgm">🚀 SF: TimGM6mb (軽量 6MB GM 音源)</option>
                         <option value="custom">📁 SF: ローカル.sf2/.sf3を選択...</option>
                     </select>
                     <!-- Changelog / Help Button -->
-                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="更新履歴とヘルプを表示">
-                        <span>📜</span><span>更新履歴</span>
+                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1 whitespace-nowrap shrink-0 min-w-max" title="更新履歴とヘルプを表示">
+                        <span>📜</span><span class="whitespace-nowrap">更新履歴</span>
                     </button>
                     <!-- Record Session Button -->
-                    <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="セッションを録音する">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
-                        <span id="record-text">Rec Session</span>
+                    <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1 whitespace-nowrap shrink-0 min-w-max" title="セッションを録音する">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" id="record-dot"></span>
+                        <span id="record-text" class="whitespace-nowrap">Rec Session</span>
                     </button>
                     <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff" class="hidden">
                     <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
@@ -5152,7 +5151,6 @@
                                 const select = document.getElementById('sf2-preset-select');
                                 if (select && res.name) {
                                     if (res.name === 'TimGM6mb.sf2') select.value = 'timgm';
-                                    else if (res.name === 'GeneralUserGS.sf3') select.value = 'generaluser';
                                     else select.value = 'custom';
                                 }
                                 showNotification(`カスタムSoundFont (${res.name || 'SF2'}) を適用しました`);
@@ -5187,17 +5185,10 @@
                     name: 'TimGM6mb.sf2',
                     urls: [
                         'https://raw.githubusercontent.com/craffel/pretty-midi/master/pretty_midi/TimGM6mb.sf2',
+                        'https://raw.githubusercontent.com/deepin-community/timgm6mb-soundfont/master/TimGM6mb.sf2',
                         'https://cdn.jsdelivr.net/gh/craffel/pretty-midi@master/pretty_midi/TimGM6mb.sf2'
                     ],
-                    label: 'TimGM6mb (軽量 6MB)'
-                },
-                'generaluser': {
-                    name: 'GeneralUserGS.sf3',
-                    urls: [
-                        'https://raw.githubusercontent.com/spessasus/SpessaSynth/master/soundfonts/GeneralUserGS.sf3',
-                        'https://cdn.jsdelivr.net/gh/spessasus/SpessaSynth@master/soundfonts/GeneralUserGS.sf3'
-                    ],
-                    label: 'GeneralUser GS (30MB)'
+                    label: 'TimGM6mb (軽量 6MB GM)'
                 }
             };
             
@@ -5213,8 +5204,9 @@
                 try {
                     const response = await fetch(url);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    buffer = await response.arrayBuffer();
-                    if (buffer && buffer.byteLength > 100000) {
+                    const arrayBuf = await response.arrayBuffer();
+                    if (arrayBuf && arrayBuf.byteLength > 5000000) {
+                        buffer = arrayBuf;
                         break;
                     }
                 } catch(err) {
@@ -5223,21 +5215,23 @@
                 }
             }
             
-            if (!buffer || buffer.byteLength < 100000) {
-                showNotification(`SoundFont のダウンロードに失敗しました (${lastErr ? lastErr.message : '通信エラー'})。別のネットワークでお試しいただくか、ローカルファイルをご選択ください。`);
+            if (!buffer || buffer.byteLength < 5000000) {
+                showNotification(`SoundFont のダウンロードに失敗しました (${lastErr ? lastErr.message : '通信エラー'})。`);
                 const select = document.getElementById('sf2-preset-select');
                 if (select) select.value = 'builtin';
                 return;
             }
             
             try {
-                activeSoundFontBuffer = buffer;
-                showNotification(`SoundFont (${preset.name}) を合成エンジンに適用中...`);
-                await initSpessaSynth(activeSoundFontBuffer);
+                const sizeMB = (buffer.byteLength / (1024 * 1024)).toFixed(1);
+                showNotification(`SoundFont (${preset.name} - ${sizeMB} MB) を合成エンジンに適用中...`);
+                
+                activeSoundFontBuffer = buffer.slice(0);
+                await initSpessaSynth(buffer.slice(0));
                 
                 if (db) {
                     try {
-                        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                        const blob = new Blob([buffer.slice(0)], { type: 'application/octet-stream' });
                         const t = db.transaction(['soundfonts'], 'readwrite');
                         t.objectStore('soundfonts').put({ id: 'active-sf2', name: preset.name, blob: blob });
                     } catch(e) {}
@@ -5250,6 +5244,8 @@
             } catch(err) {
                 console.error("Online SoundFont application error:", err);
                 showNotification(`SoundFont の合成適用に失敗しました: ${err.message || err}`);
+                const select = document.getElementById('sf2-preset-select');
+                if (select) select.value = 'builtin';
             }
         }
         window.loadOnlineSoundFont = loadOnlineSoundFont;
