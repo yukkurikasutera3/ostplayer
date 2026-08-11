@@ -3242,11 +3242,14 @@
             // Pause background canvas visualizer rendering to dedicate 100% CPU to audio synthesis
             isExportingWav = true;
 
-            // Speed ratio: 12.0x accelerated PCM capture (silent to speaker, visualizers paused)
-            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 12.0 : 1.0;
+            // Pause background canvas visualizer rendering to dedicate 100% CPU to audio synthesis
+            isExportingWav = true;
+
+            // Speed ratio: 1.0x (Pristine 1.0x pitch & tempo fidelity, silent to speaker, visualizers paused)
+            const speedBoost = 1.0;
             
             // Mute speaker output while keeping raw PCM capture 100% active
-            if (speakerGainNode && speedBoost > 1.0) {
+            if (speakerGainNode) {
                 speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
             }
 
@@ -3291,7 +3294,7 @@
 
             if (synth.playMIDI) synth.playMIDI();
 
-            showNotification(`🚀 SoundFont (ビジュアライザ無効・消音12倍速) で (${track.name}) を爆速WAV変換中...`);
+            showNotification(`⚡ SoundFont (${sfName}) で (${track.name}) を高音質WAVキャプチャ中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
