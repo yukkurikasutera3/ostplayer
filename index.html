@@ -276,11 +276,6 @@
                     </div>
                     <h2 id="single-title" class="text-2xl font-bold truncate text-white mb-2 px-4">No Track Selected</h2>
                     <p id="single-status" class="text-sm text-gray-400">リストから曲を選択してください</p>
-                    <div id="single-bpm-container" class="mt-2 flex items-center justify-center space-x-2">
-                        <span id="single-bpm-badge" class="hidden bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs px-3 py-1 rounded-full font-bold shadow-sm items-center space-x-1.5">
-                            <span>🥁</span><span id="single-bpm-val">-- BPM</span>
-                        </span>
-                    </div>
                 </div>
 
                 <!-- MIDI Mixer Panel (Collapsible) -->
@@ -472,7 +467,6 @@
                 <!-- Simple Player Clone -->
                 <div class="text-center py-2 flex items-center justify-center space-x-2 shrink-0">
                     <h2 id="fx-title" class="text-lg font-bold truncate text-purple-400 px-2 max-w-[280px]">No Track Selected</h2>
-                    <span id="fx-bpm-badge" class="hidden bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0">🥁 -- BPM</span>
                 </div>
                 
                 <!-- Music Control -->
@@ -711,10 +705,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
             </button>
             <div class="flex-1 min-w-0">
-                <div class="flex items-center space-x-1.5">
-                    <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
-                    <span id="mini-bpm-badge" class="hidden text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-1.5 py-0.2 rounded-full font-bold shrink-0">🥁 -- BPM</span>
-                </div>
+                <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
                 <div class="flex items-center space-x-2 mt-1">
                     <span id="mini-current" class="text-[10px] text-gray-400 font-mono w-8 shrink-0">0:00</span>
                     <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.01" class="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
@@ -3038,14 +3029,25 @@
                 currentSinglePlayerIndex = 0; 
                 const p = players[0];
                 p.loop = false;
-                p.src = track.url;
+                if (!track.url && track.file) {
+                    track.url = URL.createObjectURL(track.file);
+                }
+                if (p.src !== track.url) {
+                    p.src = track.url;
+                }
                 p.currentTime = 0;
                 singleGainNodes[0].gain.value = parseFloat(ui.single.vol.value);
                 singleGainNodes[1].gain.value = 0;
 
                 showNotification(`▶ 再生中: ${track.name}`);
-                if(autoPlay) p.play().catch(e => console.log(e));
-                else {
+                if(autoPlay) {
+                    isSinglePlaying = true;
+                    updateSingleUIState();
+                    updateVisualUIState(true);
+                    p.play().catch(e => {
+                        console.warn("p.play error:", e);
+                    });
+                } else {
                     isSinglePlaying = false;
                     updateSingleUIState();
                     updateVisualUIState(false);
@@ -3747,44 +3749,12 @@
             }
             ui.single.status.textContent = statusStr;
 
-            // Single View BPM Badge
-            const singleBpmBadge = document.getElementById('single-bpm-badge');
-            const singleBpmVal = document.getElementById('single-bpm-val');
-            if (singleBpmBadge && singleBpmVal) {
-                if (t.bpm) {
-                    singleBpmVal.textContent = `${t.bpm} BPM`;
-                    singleBpmBadge.classList.remove('hidden');
-                    singleBpmBadge.classList.add('flex');
-                } else {
-                    singleBpmBadge.classList.add('hidden');
-                    singleBpmBadge.classList.remove('flex');
-                }
-            }
-
-            // FX View Title & BPM Badge
+            // FX View Title
             const fxTitle = document.getElementById('fx-title');
-            const fxBpmBadge = document.getElementById('fx-bpm-badge');
             if (fxTitle) fxTitle.textContent = t.name;
-            if (fxBpmBadge) {
-                if (t.bpm) {
-                    fxBpmBadge.textContent = `🥁 ${t.bpm} BPM`;
-                    fxBpmBadge.classList.remove('hidden');
-                } else {
-                    fxBpmBadge.classList.add('hidden');
-                }
-            }
 
-            // Mini View Title & BPM Badge
+            // Mini View Title
             if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
-            const miniBpmBadge = document.getElementById('mini-bpm-badge');
-            if (miniBpmBadge) {
-                if (t.bpm) {
-                    miniBpmBadge.textContent = `🥁 ${t.bpm} BPM`;
-                    miniBpmBadge.classList.remove('hidden');
-                } else {
-                    miniBpmBadge.classList.add('hidden');
-                }
-            }
 
             // Artwork Update
             const artworkEl = ui.single.artwork;
@@ -3919,7 +3889,6 @@
                 };
                 
                 const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-1 shrink-0">MIDI</span>' : '';
-                const bpmInfo = track.bpm ? `<span class="text-[9px] text-cyan-400 border border-cyan-500/30 px-1 rounded ml-1 font-bold shrink-0">${track.bpm}BPM</span>` : '';
                 const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-6 h-6 rounded object-cover mr-2 shrink-0">` : '';
                 const artistSub = track.artist ? `<div class="text-[10px] text-gray-500 truncate">${track.artist}</div>` : '';
 
@@ -3930,7 +3899,7 @@
                         ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
                         <div class="min-w-0 flex-1">
                             <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
-                                <span class="truncate">${track.name}</span> ${extInfo} ${bpmInfo}
+                                <span class="truncate">${track.name}</span> ${extInfo}
                             </div>
                             ${artistSub}
                         </div>
@@ -4395,7 +4364,7 @@
                 r.onerror = e => reject(e); 
             }); 
         }
-        async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); t.objectStore(STORE_NAME).getAll().onsuccess = e => { 
+        async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); const store = t.objectStore(STORE_NAME); const req = store.getAll(); req.onsuccess = e => { 
             const res=e.target.result; 
             if(res && res.length) playlist = res.map(i => ({
                 id:i.id, name:i.name.replace(/\.[^/.]+$/, ""), 
@@ -4460,9 +4429,17 @@
         function extractMetadataWithJsMediaTags(file) {
             return new Promise((resolve) => {
                 if (typeof jsmediatags === 'undefined' || !file) return resolve(null);
+                let done = false;
+                const timer = setTimeout(() => {
+                    if (!done) { done = true; resolve(null); }
+                }, 1500);
+
                 try {
                     jsmediatags.read(file, {
                         onSuccess: function(tag) {
+                            if (done) return;
+                            done = true;
+                            clearTimeout(timer);
                             const tags = tag.tags || {};
                             let title = tags.title || '';
                             let artist = tags.artist || '';
@@ -4483,10 +4460,15 @@
                             resolve({ title, artist, album, coverUrl });
                         },
                         onError: function(err) {
+                            if (done) return;
+                            done = true;
+                            clearTimeout(timer);
                             resolve(null);
                         }
                     });
-                } catch(e) { resolve(null); }
+                } catch(e) { 
+                    if (!done) { done = true; clearTimeout(timer); resolve(null); }
+                }
             });
         }
 
