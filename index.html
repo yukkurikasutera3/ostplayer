@@ -5179,14 +5179,31 @@
                     req.onsuccess = async (e) => {
                         const res = e.target.result;
                         if (res && res.blob) {
+                            const badgeIcon = document.getElementById('sf2-badge-icon');
+                            const badgeText = document.getElementById('sf2-badge-text');
+                            const resetBtn = document.getElementById('sf2-reset-btn');
+                            
+                            const sfName = res.name || '保存済みSF2';
+                            const sizeMB = (res.blob.size / (1024 * 1024)).toFixed(1);
+                            
+                            if (badgeText) badgeText.textContent = `⏳ 読み込み中 (${sizeMB}MB)...`;
+                            if (badgeIcon) badgeIcon.textContent = `⏳`;
+                            
                             try {
-                                const sizeMB = (res.blob.size / (1024 * 1024)).toFixed(1);
-                                showNotification(`保存済みSoundFont (${res.name || 'カスタムSF2'} - ${sizeMB} MB) を読み込み中...`);
+                                showNotification(`保存済みSoundFont (${sfName} - ${sizeMB} MB) を読み込み中...`);
                                 activeSoundFontBuffer = await res.blob.arrayBuffer();
                                 await initSpessaSynth(activeSoundFontBuffer);
-                                showNotification(`カスタムSoundFont (${res.name || 'SF2'}) を適用しました`);
+                                
+                                if (badgeText) badgeText.textContent = `SF: ${sfName}`;
+                                if (badgeIcon) badgeIcon.textContent = `🎵`;
+                                if (resetBtn) resetBtn.classList.remove('hidden');
+                                
+                                showNotification(`✨ カスタムSoundFont (${sfName}) を適用しました`);
                             } catch(err) {
                                 console.error("SoundFont load error:", err);
+                                if (badgeText) badgeText.textContent = `SF: デフォルト (Built-in)`;
+                                if (badgeIcon) badgeIcon.textContent = `⚡`;
+                                if (resetBtn) resetBtn.classList.add('hidden');
                                 showNotification("保存済みSoundFontの読み込みに失敗しました（デフォルト音源で起動します）");
                             }
                         }
