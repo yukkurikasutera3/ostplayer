@@ -5185,12 +5185,18 @@
             const presetMap = {
                 'timgm': {
                     name: 'TimGM6mb.sf2',
-                    url: 'https://cdn.jsdelivr.net/gh/craffel/pretty-midi@master/pretty_midi/TimGM6mb.sf2',
+                    urls: [
+                        'https://raw.githubusercontent.com/craffel/pretty-midi/master/pretty_midi/TimGM6mb.sf2',
+                        'https://cdn.jsdelivr.net/gh/craffel/pretty-midi@master/pretty_midi/TimGM6mb.sf2'
+                    ],
                     label: 'TimGM6mb (軽量 6MB)'
                 },
                 'generaluser': {
                     name: 'GeneralUserGS.sf3',
-                    url: 'https://cdn.jsdelivr.net/gh/spessasus/SpessaSynth@master/soundfonts/GeneralUserGS.sf3',
+                    urls: [
+                        'https://raw.githubusercontent.com/spessasus/SpessaSynth/master/soundfonts/GeneralUserGS.sf3',
+                        'https://cdn.jsdelivr.net/gh/spessasus/SpessaSynth@master/soundfonts/GeneralUserGS.sf3'
+                    ],
                     label: 'GeneralUser GS (30MB)'
                 }
             };
@@ -5200,11 +5206,31 @@
             
             showNotification(`🌐 オンライン SoundFont (${preset.label}) をダウンロード中...`);
             
+            let buffer = null;
+            let lastErr = null;
+
+            for (const url of preset.urls) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    buffer = await response.arrayBuffer();
+                    if (buffer && buffer.byteLength > 100000) {
+                        break;
+                    }
+                } catch(err) {
+                    console.warn(`SoundFont mirror fetch failed (${url}):`, err);
+                    lastErr = err;
+                }
+            }
+            
+            if (!buffer || buffer.byteLength < 100000) {
+                showNotification(`SoundFont のダウンロードに失敗しました (${lastErr ? lastErr.message : '通信エラー'})。別のネットワークでお試しいただくか、ローカルファイルをご選択ください。`);
+                const select = document.getElementById('sf2-preset-select');
+                if (select) select.value = 'builtin';
+                return;
+            }
+            
             try {
-                const response = await fetch(preset.url);
-                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-                const buffer = await response.arrayBuffer();
-                
                 activeSoundFontBuffer = buffer;
                 showNotification(`SoundFont (${preset.name}) を合成エンジンに適用中...`);
                 await initSpessaSynth(activeSoundFontBuffer);
@@ -5222,8 +5248,8 @@
                 
                 showNotification(`✨ SoundFont (${preset.label}) の適用完了！`);
             } catch(err) {
-                console.error("Online SoundFont download error:", err);
-                showNotification(`SoundFont のダウンロードに失敗しました: ${err.message || err}`);
+                console.error("Online SoundFont application error:", err);
+                showNotification(`SoundFont の合成適用に失敗しました: ${err.message || err}`);
             }
         }
         window.loadOnlineSoundFont = loadOnlineSoundFont;
