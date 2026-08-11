@@ -3209,11 +3209,8 @@
 
         // --- SoundFont (SGM) 1-Second Ultra-Fast Offline WAV Exporter ---
         async function exportMidiFastWav(track) {
-            if (!track || !track.file) return;
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
-            
-            isExportingWav = true;
             exportStartTime = performance.now();
             updateExportProgress(0, 'WAV書き出し準備中...', `MIDIトラック (${track.name})`);
 
@@ -3289,9 +3286,6 @@
                         URL.revokeObjectURL(url);
                     }, 1000);
 
-                    isExportingWav = false;
-                    bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
-
                     updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                     showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
                     hideExportProgressWidget(2500);
@@ -3332,17 +3326,12 @@
                     URL.revokeObjectURL(url);
                 }, 1000);
 
-                isExportingWav = false;
-                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
-
                 updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                 showNotification(`✨ 書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
                 hideExportProgressWidget(2500);
 
             } catch (err) {
                 console.error("Ultra-fast WAV export error:", err);
-                isExportingWav = false;
-                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
                 hideExportProgressWidget(500);
                 showNotification(`書き出しエラー: ${err.message || '不明なエラー'}`);
             }
@@ -4788,10 +4777,7 @@
             });
         }
 
-        let isExportingWav = false;
-
         function renderBgVisualizer() {
-            if (isExportingWav) return;
             bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
             
             const canvas = document.getElementById('bg-visualizer-canvas');
