@@ -565,9 +565,13 @@
                             <input type="range" id="fx-trem" min="0" max="1" step="0.05" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-trem">
                         </div>
                         <div class="bg-gray-900/50 rounded-lg p-2">
-                            <div class="flex justify-between mb-1">
+                            <div class="flex justify-between items-center mb-1">
                                 <span class="text-[10px] text-cyan-300 font-bold uppercase">Speed</span>
-                                <span id="spd-val" class="text-[10px] text-gray-500">1.0</span>
+                                <div class="flex items-center space-x-1">
+                                    <input type="checkbox" id="fx-pitch-preserve" class="cursor-pointer" checked title="Pitch Lock (Time Stretch)">
+                                    <span class="text-[9px] text-gray-400" title="チェック時: 音程を維持 / 未チェック: 音程変化">Lock</span>
+                                    <span id="spd-val" class="text-[10px] text-gray-400 ml-1">1.0</span>
+                                </div>
                             </div>
                             <input type="range" id="fx-spd" min="0.5" max="2.0" step="0.05" value="1.0" class="w-full h-1 bg-gray-600 rounded cursor-pointer fx-slider-spd">
                         </div>
@@ -584,6 +588,27 @@
                                 <span id="highpass-val" class="text-[10px] text-gray-500">20Hz</span>
                             </div>
                             <input type="range" id="fx-highpass" min="20" max="5000" step="50" value="20" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- 3D Spatial Audio / 8D Panner Panel -->
+                    <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-indigo-900/50 flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0 md:space-x-4">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center space-x-1">
+                                    <span>🌀</span><span>3D Spatial Audio / 8D Orbit</span>
+                                </span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="fx-8d-toggle" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <span class="ml-2 text-[10px] font-bold text-indigo-300">8D Auto-Orbit</span>
+                                </label>
+                            </div>
+                            <p class="text-[10px] text-gray-400">音源が頭の周囲を3D旋回します（ヘッドホン推奨）。2Dパッドで直接位置指定可能。</p>
+                        </div>
+                        <div class="relative w-20 h-20 bg-gray-950 rounded-full border border-indigo-500/40 flex items-center justify-center cursor-crosshair shrink-0 select-none" id="panner-2d-pad" title="ドラッグして3D音源位置を自由変更">
+                            <div class="w-2 h-2 bg-gray-500 rounded-full" title="聴き手（中央）"></div>
+                            <div id="panner-source-dot" class="absolute w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style="left: 50%; top: 20%;"></div>
                         </div>
                     </div>
                 </div>
@@ -732,10 +757,16 @@
                 <select id="playlist-select" class="bg-gray-800 text-xs text-gray-300 border border-gray-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 flex-1 cursor-pointer">
                     <option value="All Tracks">All Tracks</option>
                 </select>
-                <button id="add-playlist-btn" class="text-[10px] text-blue-400 hover:text-blue-300 border border-blue-400/30 px-2 py-1 rounded bg-blue-400/5 hover:bg-blue-400/10 transition shrink-0" title="新しいプレイリストを作成">
+                <button id="add-playlist-btn" class="text-[10px] text-blue-400 hover:text-blue-300 border border-blue-400/30 px-1.5 py-1 rounded bg-blue-400/5 hover:bg-blue-400/10 transition shrink-0" title="新しいプレイリストを作成">
                     + 作成
                 </button>
-                <button id="delete-playlist-btn" class="text-[10px] text-red-400 hover:text-red-300 border border-red-400/30 px-2 py-1 rounded bg-red-400/5 hover:bg-red-400/10 transition shrink-0 hidden" title="現在のプレイリストを削除">
+                <button id="rename-playlist-btn" onclick="renameCurrentPlaylist()" class="text-[10px] text-amber-400 hover:text-amber-300 border border-amber-400/30 px-1.5 py-1 rounded bg-amber-400/5 hover:bg-amber-400/10 transition shrink-0 hidden" title="現在のプレイリスト名を変更">
+                    ✏️ リネーム
+                </button>
+                <button id="duplicate-playlist-btn" onclick="duplicateCurrentPlaylist()" class="text-[10px] text-purple-400 hover:text-purple-300 border border-purple-400/30 px-1.5 py-1 rounded bg-purple-400/5 hover:bg-purple-400/10 transition shrink-0" title="現在のプレイリストを複製">
+                    📋 複製
+                </button>
+                <button id="delete-playlist-btn" class="text-[10px] text-red-400 hover:text-red-300 border border-red-400/30 px-1.5 py-1 rounded bg-red-400/5 hover:bg-red-400/10 transition shrink-0 hidden" title="現在のプレイリストを削除">
                     削除
                 </button>
             </div>
@@ -3682,8 +3713,30 @@
             if(singleTrackIndex === -1) return;
             const t = playlist[singleTrackIndex];
             ui.single.title.textContent = t.name;
-            ui.single.status.textContent = "Ready";
-            ui.single.artwork.style.borderColor = `hsl(${Math.random()*360}, 70%, 50%)`;
+            let statusStr = "Ready";
+            if (t.artist || t.album) {
+                statusStr = [t.artist, t.album].filter(Boolean).join(' — ');
+            }
+            if (t.bpm) {
+                statusStr += ` • ${t.bpm} BPM`;
+            }
+            ui.single.status.textContent = statusStr;
+
+            const artworkEl = ui.single.artwork;
+            if (artworkEl) {
+                const svgIcon = artworkEl.querySelector('svg');
+                if (t.coverUrl) {
+                    artworkEl.style.backgroundImage = `url("${t.coverUrl}")`;
+                    artworkEl.style.backgroundSize = 'cover';
+                    artworkEl.style.backgroundPosition = 'center';
+                    if (svgIcon) svgIcon.classList.add('hidden');
+                } else {
+                    artworkEl.style.backgroundImage = '';
+                    if (svgIcon) svgIcon.classList.remove('hidden');
+                    artworkEl.style.borderColor = `hsl(${Math.random()*360}, 70%, 50%)`;
+                }
+            }
+            
             if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
         }
 
@@ -3733,6 +3786,8 @@
 
         function toggleShuffle() { isShuffling=!isShuffling; ui.single.shuffle.classList.toggle('text-blue-400'); ui.single.shuffle.classList.toggle('text-gray-500'); }
 
+        let draggedTrackIdx = null;
+
         function updatePlaylistUI() {
             ui.playlist.innerHTML = '';
             const query = (playlistSearchQuery || '').trim().toLowerCase();
@@ -3740,7 +3795,7 @@
             const filteredTracks = playlist.map((track, idx) => ({ ...track, originalIndex: idx }))
                 .filter(item => {
                     const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
-                    const matchQuery = !query || item.name.toLowerCase().includes(query);
+                    const matchQuery = !query || item.name.toLowerCase().includes(query) || (item.artist && item.artist.toLowerCase().includes(query));
                     const matchType = playlistFilterType === 'all' || (playlistFilterType === 'midi' && item.isMidi) || (playlistFilterType === 'audio' && !item.isMidi);
                     return matchPlaylist && matchQuery && matchType;
                 });
@@ -3758,7 +3813,37 @@
                 const isActive = (currentMode === 'single' && idx === singleTrackIndex) || (currentMode === 'fx' && idx === fxTrackIndex) || (currentMode === 'visual' && idx === singleTrackIndex);
                 
                 const div = document.createElement('div');
-                div.className = `flex items-center justify-between p-2 rounded group transition cursor-pointer ${isActive ? 'bg-gray-800 border-l-2 border-blue-500' : 'hover:bg-gray-800 border-l-2 border-transparent'}`;
+                div.className = `flex items-center justify-between p-2 rounded group transition cursor-pointer select-none ${isActive ? 'bg-gray-800 border-l-2 border-blue-500' : 'hover:bg-gray-800 border-l-2 border-transparent'}`;
+                div.draggable = true;
+
+                div.addEventListener('dragstart', (e) => {
+                    draggedTrackIdx = idx;
+                    e.dataTransfer.effectAllowed = 'move';
+                    div.classList.add('opacity-40');
+                });
+                div.addEventListener('dragend', () => {
+                    draggedTrackIdx = null;
+                    div.classList.remove('opacity-40');
+                    document.querySelectorAll('#playlist > div').forEach(el => el.classList.remove('border-t-2', 'border-blue-500'));
+                });
+                div.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    div.classList.add('border-t-2', 'border-blue-500');
+                });
+                div.addEventListener('dragleave', () => {
+                    div.classList.remove('border-t-2', 'border-blue-500');
+                });
+                div.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    div.classList.remove('border-t-2', 'border-blue-500');
+                    if (draggedTrackIdx !== null && draggedTrackIdx !== idx) {
+                        const movedItem = playlist.splice(draggedTrackIdx, 1)[0];
+                        playlist.splice(idx, 0, movedItem);
+                        updatePlaylistUI();
+                    }
+                });
+
                 div.onclick = (e) => {
                     if(e.target.closest('.delete-btn') || e.target.closest('.move-btn')) return;
                     if(currentMode === 'single' || currentMode === 'visual') loadSingleTrack(idx);
@@ -3767,20 +3852,28 @@
                     else loadFxTrack(idx);
                 };
                 
-                const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-2">MIDI</span>' : '';
+                const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-1 shrink-0">MIDI</span>' : '';
+                const bpmInfo = track.bpm ? `<span class="text-[9px] text-cyan-400 border border-cyan-500/30 px-1 rounded ml-1 font-bold shrink-0">${track.bpm}BPM</span>` : '';
+                const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-6 h-6 rounded object-cover mr-2 shrink-0">` : '';
+                const artistSub = track.artist ? `<div class="text-[10px] text-gray-500 truncate">${track.artist}</div>` : '';
 
                 div.innerHTML = `
-                    <div class="flex-1 min-w-0 mr-3 flex items-center">
-                        ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>' : '<span class="w-4 text-xs text-gray-600 mr-2 text-center">'+(displayIdx+1)+'</span>'}
-                        <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
-                            ${track.name} ${extInfo}
+                    <div class="flex-1 min-w-0 mr-2 flex items-center">
+                        <span class="text-gray-600 mr-1.5 cursor-grab text-xs shrink-0" title="ドラッグして並び替え">⋮⋮</span>
+                        ${coverImg}
+                        ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
+                                <span class="truncate">${track.name}</span> ${extInfo} ${bpmInfo}
+                            </div>
+                            ${artistSub}
                         </div>
                     </div>
-                    <div class="flex items-center">
-                        <button class="move-btn text-gray-400 hover:text-blue-400 p-1 opacity-70 hover:opacity-100 transition mr-1" title="プレイリスト間移動" onclick="event.stopPropagation(); openMoveModal(${idx})">
+                    <div class="flex items-center shrink-0">
+                        <button class="move-btn text-gray-400 hover:text-blue-400 p-1 opacity-70 hover:opacity-100 transition mr-1" title="プレイリスト間移動">
                             <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         </button>
-                        <button class="delete-btn text-gray-400 hover:text-red-400 p-1 opacity-70 hover:opacity-100 transition" title="この曲を削除" onclick="event.stopPropagation(); confirmDelete(${idx})">
+                        <button class="delete-btn text-gray-400 hover:text-red-400 p-1 opacity-70 hover:opacity-100 transition" title="この曲を削除">
                             <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
@@ -4296,6 +4389,267 @@
             }
         }
         window.loadSoundFontFile = loadSoundFontFile;
+
+        // --- 1. ID3 Tag & APIC Cover Art Reader ---
+        async function parseAudioMetadata(file) {
+            if (!file) return { title: '', artist: '', album: '', coverUrl: null };
+            try {
+                const buffer = await file.slice(0, 128 * 1024).arrayBuffer();
+                const data = new Uint8Array(buffer);
+                let title = '', artist = '', album = '', coverUrl = null;
+
+                if (data[0] === 0x49 && data[1] === 0x44 && data[2] === 0x33) {
+                    const version = data[3];
+                    const size = ((data[6] & 0x7f) << 21) | ((data[7] & 0x7f) << 14) | ((data[8] & 0x7f) << 7) | (data[9] & 0x7f);
+                    let offset = 10;
+                    const tagEnd = Math.min(data.length, 10 + size);
+
+                    while (offset + 10 < tagEnd) {
+                        let frameID = '';
+                        for (let i = 0; i < 4; i++) frameID += String.fromCharCode(data[offset + i]);
+                        if (frameID[0] === '\0' || !/^[A-Z0-9]{4}$/.test(frameID)) break;
+
+                        let frameSize = 0;
+                        if (version === 4) {
+                            frameSize = ((data[offset+4] & 0x7f) << 21) | ((data[offset+5] & 0x7f) << 14) | ((data[offset+6] & 0x7f) << 7) | (data[offset+7] & 0x7f);
+                        } else {
+                            frameSize = (data[offset+4] << 24) | (data[offset+5] << 16) | (data[offset+6] << 8) | data[offset+7];
+                        }
+
+                        if (frameSize <= 0 || offset + 10 + frameSize > data.length) break;
+                        const frameData = data.subarray(offset + 10, offset + 10 + frameSize);
+                        offset += 10 + frameSize;
+
+                        if (frameID === 'TIT2') title = decodeID3String(frameData);
+                        else if (frameID === 'TPE1') artist = decodeID3String(frameData);
+                        else if (frameID === 'TALB') album = decodeID3String(frameData);
+                        else if (frameID === 'APIC') coverUrl = decodeID3Picture(frameData);
+                    }
+                }
+                return { title, artist, album, coverUrl };
+            } catch(e) {
+                return { title: '', artist: '', album: '', coverUrl: null };
+            }
+        }
+
+        function decodeID3String(uint8Array) {
+            if (uint8Array.length <= 1) return '';
+            const encoding = uint8Array[0];
+            const content = uint8Array.subarray(1);
+            try {
+                if (encoding === 0 || encoding === 3) {
+                    return new TextDecoder(encoding === 3 ? 'utf-8' : 'iso-8859-1').decode(content).replace(/\0/g, '').trim();
+                } else if (encoding === 1 || encoding === 2) {
+                    return new TextDecoder('utf-16').decode(content).replace(/\0/g, '').trim();
+                }
+            } catch(e){}
+            return '';
+        }
+
+        function decodeID3Picture(uint8Array) {
+            try {
+                const encoding = uint8Array[0];
+                let offset = 1;
+                let mimeType = 'image/jpeg';
+                let mimeEnd = offset;
+                while (mimeEnd < uint8Array.length && uint8Array[mimeEnd] !== 0) mimeEnd++;
+                if (mimeEnd > offset) {
+                    mimeType = new TextDecoder('ascii').decode(uint8Array.subarray(offset, mimeEnd));
+                }
+                offset = mimeEnd + 1;
+                offset += 1;
+                if (encoding === 1 || encoding === 2) {
+                    while (offset + 1 < uint8Array.length && !(uint8Array[offset] === 0 && uint8Array[offset+1] === 0)) offset += 2;
+                    offset += 2;
+                } else {
+                    while (offset < uint8Array.length && uint8Array[offset] !== 0) offset++;
+                    offset += 1;
+                }
+                const imageData = uint8Array.subarray(offset);
+                if (imageData.length > 0) {
+                    const blob = new Blob([imageData], { type: mimeType });
+                    return URL.createObjectURL(blob);
+                }
+            } catch(e){}
+            return null;
+        }
+
+        // --- 2. BPM Detector ---
+        async function detectBPM(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100 * 20, 44100);
+                const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+                const channelData = audioBuffer.getChannelData(0);
+                const frameSize = Math.floor(audioBuffer.sampleRate * 0.05);
+                const numFrames = Math.floor(channelData.length / frameSize);
+                const energies = new Float32Array(numFrames);
+
+                for (let i = 0; i < numFrames; i++) {
+                    let sum = 0;
+                    const start = i * frameSize;
+                    for (let j = 0; j < frameSize; j++) sum += Math.abs(channelData[start + j]);
+                    energies[i] = sum / frameSize;
+                }
+
+                const peaks = [];
+                for (let i = 1; i < numFrames - 1; i++) {
+                    if (energies[i] > energies[i-1] * 1.35 && energies[i] > energies[i+1] && energies[i] > 0.04) {
+                        peaks.push(i * 0.05);
+                    }
+                }
+                if (peaks.length < 4) return null;
+
+                const intervals = [];
+                for (let i = 0; i < peaks.length; i++) {
+                    for (let j = i + 1; j < Math.min(i + 8, peaks.length); j++) {
+                        const diff = peaks[j] - peaks[i];
+                        if (diff >= 0.33 && diff <= 1.0) intervals.push(diff);
+                    }
+                }
+                if (intervals.length === 0) return null;
+
+                const buckets = {};
+                for (const interval of intervals) {
+                    const bucket = Math.round(interval * 100) / 100;
+                    buckets[bucket] = (buckets[bucket] || 0) + 1;
+                }
+
+                let bestBucket = null;
+                let maxCount = 0;
+                for (const b in buckets) {
+                    if (buckets[b] > maxCount) {
+                        maxCount = buckets[b];
+                        bestBucket = parseFloat(b);
+                    }
+                }
+                if (!bestBucket) return null;
+
+                let bpm = Math.round(60 / bestBucket);
+                if (bpm < 70) bpm *= 2;
+                if (bpm > 180) bpm /= 2;
+                return Math.round(bpm);
+            } catch(e) {
+                return null;
+            }
+        }
+
+        // --- 3. Playlist Rename & Duplicate ---
+        function renameCurrentPlaylist() {
+            if (activePlaylist === 'All Tracks') {
+                showNotification("All Tracks プレイリストは変更できません");
+                return;
+            }
+            const newName = prompt("新しいプレイリスト名を入力してください:", activePlaylist);
+            if (!newName || !newName.trim() || newName.trim() === activePlaylist) return;
+            const trimmed = newName.trim();
+            if (customPlaylists.includes(trimmed)) {
+                showNotification("同名のプレイリストが既に存在します");
+                return;
+            }
+            
+            const idx = customPlaylists.indexOf(activePlaylist);
+            if (idx !== -1) customPlaylists[idx] = trimmed;
+            localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+            
+            playlist.forEach(track => {
+                if (track.playlistName === activePlaylist) {
+                    track.playlistName = trimmed;
+                    if (track.id !== undefined) updateTrackPlaylistInDB(track.id, trimmed);
+                }
+            });
+            
+            activePlaylist = trimmed;
+            updatePlaylistDropdown();
+            updatePlaylistUI();
+            showNotification(`プレイリスト名を「${trimmed}」に変更しました`);
+        }
+        window.renameCurrentPlaylist = renameCurrentPlaylist;
+
+        function duplicateCurrentPlaylist() {
+            const dupName = prompt("複製後のプレイリスト名を入力してください:", activePlaylist + " (Copy)");
+            if (!dupName || !dupName.trim()) return;
+            const trimmed = dupName.trim();
+            if (!customPlaylists.includes(trimmed) && trimmed !== 'All Tracks') {
+                customPlaylists.push(trimmed);
+                localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+            }
+            
+            const sourceTracks = playlist.filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+            sourceTracks.forEach(async (t) => {
+                let newId = Date.now() + Math.floor(Math.random() * 100000);
+                if (db && t.file) {
+                    try {
+                        newId = await saveTrackToDB(t.file, trimmed);
+                    } catch(e){}
+                }
+                playlist.push({
+                    ...t,
+                    id: newId,
+                    playlistName: trimmed
+                });
+                updatePlaylistUI();
+            });
+            
+            activePlaylist = trimmed;
+            updatePlaylistDropdown();
+            updatePlaylistUI();
+            showNotification(`「${trimmed}」に複製しました (${sourceTracks.length} 曲)`);
+        }
+        window.duplicateCurrentPlaylist = duplicateCurrentPlaylist;
+
+        // --- 4. 3D Spatial Audio & 8D Orbit ---
+        let panner3DNode = null;
+        let is8DOrbiting = false;
+        let orbitAngle = 0;
+
+        function init3DPannerNode() {
+            if (!audioContext) return;
+            if (!panner3DNode && typeof audioContext.createPanner === 'function') {
+                try {
+                    panner3DNode = audioContext.createPanner();
+                    panner3DNode.panningModel = 'HRTF';
+                    panner3DNode.distanceModel = 'inverse';
+                    set3DPannerPos(0, 0, -2);
+                } catch(e){}
+            }
+        }
+
+        function set3DPannerPos(x, y, z) {
+            if (!panner3DNode || !audioContext) return;
+            try {
+                if (panner3DNode.positionX) {
+                    panner3DNode.positionX.setTargetAtTime(x, audioContext.currentTime, 0.05);
+                    panner3DNode.positionY.setTargetAtTime(y, audioContext.currentTime, 0.05);
+                    panner3DNode.positionZ.setTargetAtTime(z, audioContext.currentTime, 0.05);
+                } else if (typeof panner3DNode.setPosition === 'function') {
+                    panner3DNode.setPosition(x, y, z);
+                }
+            } catch(e){}
+        }
+
+        function start8DOrbitLoop() {
+            const orbitStep = () => {
+                if (is8DOrbiting && panner3DNode && audioContext) {
+                    orbitAngle += 0.035;
+                    const radius = 3.0;
+                    const x = Math.sin(orbitAngle) * radius;
+                    const z = Math.cos(orbitAngle) * radius;
+                    set3DPannerPos(x, 0, z);
+                    
+                    const dot = document.getElementById('panner-source-dot');
+                    if (dot) {
+                        const px = 50 + (x / radius) * 35;
+                        const py = 50 + (z / radius) * 35;
+                        dot.style.left = `${px}%`;
+                        dot.style.top = `${py}%`;
+                    }
+                }
+                requestAnimationFrame(orbitStep);
+            };
+            requestAnimationFrame(orbitStep);
+        }
+        start8DOrbitLoop();
 
         async function resetSoundFont() {
             if (db) {
