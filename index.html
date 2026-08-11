@@ -3211,7 +3211,12 @@
 
             isExportingWav = true;
             exportStartTime = performance.now();
+            
+            const widget = document.getElementById('export-progress-widget');
+            if (widget) widget.classList.remove('hidden');
+            
             updateExportProgress(0, 'WAV書き出し準備中...', `MIDIトラック (${track.name})`);
+            showNotification(`⚡ SoundFont (${sfName}) で (${track.name}) をWAV書き出し中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
@@ -3230,16 +3235,17 @@
                 // If SoundFont (SGM / custom SF2) is active, use SpessaSynth Core for 1-second offline render!
                 if (isSpessaSynthLoaded && activeSoundFontBuffer) {
                     updateExportProgress(10, 'SoundFont 高速合成中...', `SoundFont (${sfName}) 準備中 (10%)`);
-                    
+                    await new Promise(r => setTimeout(r, 80));
+
                     const Core = await import('./spessasynth_core.js');
                     const sampleRate = 44100;
                     
-                    updateExportProgress(20, 'SoundFont 音色読み込み中...', `SoundFont (${sfName}) を設定中 (20%)`);
+                    updateExportProgress(25, 'SoundFont 音色読み込み中...', `SoundFont (${sfName}) を設定中 (25%)`);
                     const synth = new Core.SpessaSynthProcessor(sampleRate, { eventsEnabled: false });
                     const loadedFont = Core.SoundBankLoader.fromArrayBuffer(activeSoundFontBuffer.slice(0));
                     synth.soundBankManager.addSoundBank(loadedFont, "main");
                     
-                    updateExportProgress(35, 'MIDIトラック解析中...', `SMFデータ解析中 (35%)`);
+                    updateExportProgress(40, 'MIDIトラック解析中...', `SMFデータ解析中 (40%)`);
                     const parsedMid = Core.BasicMIDI.fromArrayBuffer(arrayBuffer, track.name || "");
                     const durationSec = Math.max(3, parsedMid.duration || 180);
                     const totalSamples = Math.ceil(sampleRate * durationSec);
@@ -3248,8 +3254,9 @@
                     seq.loadNewSongList([parsedMid]);
                     seq.play();
 
-                    updateExportProgress(45, 'SoundFont レンダリング中...', `高速音声合成中 (45%)`);
-                    
+                    updateExportProgress(50, 'SoundFont レンダリング中...', `高速音声合成中 (50%)`);
+                    await new Promise(r => setTimeout(r, 80));
+
                     const dryL = new Float32Array(totalSamples);
                     const dryR = new Float32Array(totalSamples);
                     const BLOCK_SIZE = 128;
@@ -3265,7 +3272,7 @@
 
                         if (index - lastProgressUpdate > chunkIntervalSamples) {
                             lastProgressUpdate = index;
-                            const pct = 45 + Math.floor((index / totalSamples) * 45);
+                            const pct = 50 + Math.floor((index / totalSamples) * 40);
                             const synthSec = index / sampleRate;
                             updateExportProgress(pct, 'SoundFont レンダリング中...', `音声合成中 (${formatTime(synthSec)} / ${formatTime(durationSec)}) (${pct}%)`);
                             await new Promise(r => setTimeout(r, 0));
@@ -3273,6 +3280,7 @@
                     }
 
                     updateExportProgress(92, 'WAV変換中...', '16-bit PCM WAVデータに変換中 (92%)');
+                    await new Promise(r => setTimeout(r, 80));
 
                     const audioBuf = audioContext.createBuffer(2, totalSamples, sampleRate);
                     audioBuf.getChannelData(0).set(dryL);
