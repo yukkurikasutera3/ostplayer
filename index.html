@@ -3126,7 +3126,24 @@
             }, delayMs);
         }
 
-        // --- SoundFont (SGM) Direct Raw PCM Capture & High-Speed WAV Exporter ---
+        // --- Pitch & Tempo Resampler for Accelerated Recording ---
+        async function resampleAudioBuffer(buffer, speedRatio) {
+            if (!buffer || speedRatio === 1) return buffer;
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const newLength = Math.max(1, Math.floor(buffer.length * speedRatio));
+            
+            const offlineCtx = new OfflineAudioContext(numChannels, newLength, sampleRate);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = buffer;
+            source.playbackRate.value = 1 / speedRatio;
+            source.connect(offlineCtx.destination);
+            source.start(0);
+            
+            return await offlineCtx.startRendering();
+        }
+
+        // --- SoundFont Direct Raw PCM Capture & High-Speed WAV Exporter ---
         let activeExportProcessor = null;
         let recordedLeftChunks = [];
         let recordedRightChunks = [];
