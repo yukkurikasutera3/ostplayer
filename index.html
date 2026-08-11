@@ -3220,35 +3220,46 @@
                 if (exportProgressInterval) clearInterval(exportProgressInterval);
                 if (stopBtn) stopBtn.classList.add('hidden');
 
+                // Disconnect raw PCM processor
+                if (activeExportProcessor) {
+                    try {
+                        masterGainNode.disconnect(activeExportProcessor);
+                        activeExportProcessor.disconnect();
+                    } catch(e){}
+                    activeExportProcessor = null;
+                }
+
                 // Restore speaker volume and normal 1.0x playback speed
-                if (masterGainNode) {
-                    masterGainNode.gain.setValueAtTime(isMuted ? 0 : (originalSpeakerGain > 0 ? originalSpeakerGain : 1.0), audioContext.currentTime);
+                if (speakerGainNode) {
+                    speakerGainNode.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime);
                 }
                 if (synth.sequencer) {
                     try { synth.sequencer.playbackRate = 1.0; } catch(e){}
                 }
 
-                updateExportProgress(80, 'WAV変換中...', '録音データのデコード中...');
+                updateExportProgress(82, 'WAV変換中...', 'PCMサンプルの結合中 (82%)');
+                await new Promise(r => setTimeout(r, 100));
 
-                if (activeExportRecorder && activeExportRecorder.state !== 'inactive') {
-                    try { activeExportRecorder.requestData(); } catch(e){}
-                    try { activeExportRecorder.stop(); } catch(e){}
-                }
-
-                await new Promise(r => setTimeout(r, 400));
-
-                let webmBlob = new Blob(activeExportChunks, { type: 'audio/webm' });
-                
                 try {
                     let restoredBuffer = null;
-                    if (webmBlob.size > 0) {
-                        const webmArrayBuf = await webmBlob.arrayBuffer();
-                        const rawDecoded = await audioContext.decodeAudioData(webmArrayBuf);
-                        updateExportProgress(88, 'WAV変換中...', '倍速録音データを標準速度(1.0x)へピッチ復元中...');
-                        restoredBuffer = speedBoost !== 1.0 ? await resampleAudioBuffer(rawDecoded, speedBoost) : rawDecoded;
+                    const totalSamples = recordedLeftChunks.reduce((acc, c) => acc + c.length, 0);
+
+                    if (totalSamples > 0) {
+                        const rawCaptured = audioContext.createBuffer(2, totalSamples, audioContext.sampleRate);
+                        const lCh = rawCaptured.getChannelData(0);
+                        const rCh = rawCaptured.getChannelData(1);
+                        let offset = 0;
+                        for (let i = 0; i < recordedLeftChunks.length; i++) {
+                            lCh.set(recordedLeftChunks[i], offset);
+                            rCh.set(recordedRightChunks[i], offset);
+                            offset += recordedLeftChunks[i].length;
+                        }
+
+                        updateExportProgress(88, 'WAV変換中...', '倍速録音データのピッチ・テンポ復元中 (88%)');
+                        restoredBuffer = speedBoost !== 1.0 ? await resampleAudioBuffer(rawCaptured, speedBoost) : rawCaptured;
                     } else {
                         // Fail-safe direct offline render fallback
-                        updateExportProgress(85, 'WAV変換中...', 'ダイレクトオフラインレンダリング中...');
+                        updateExportProgress(85, 'WAV変換中...', 'ダイレクトオフラインレンダリング中 (85%)');
                         const offlineCtx = new OfflineAudioContext(2, 44100 * Math.max(5, Math.ceil(totalDuration)), 44100);
                         const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
                         renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
@@ -3257,7 +3268,7 @@
                         restoredBuffer = await offlineCtx.startRendering();
                     }
                     
-                    updateExportProgress(92, 'WAV変換中...', '16-bit PCM WAVデータに変換中...');
+                    updateExportProgress(94, 'WAV変換中...', '16-bit PCM WAVデータに変換中 (94%)');
                     const wavBlob = await asyncBufferToWav(restoredBuffer, updateExportProgress);
 
                     const url = URL.createObjectURL(wavBlob);
@@ -3310,7 +3321,7 @@
                 updateExportProgress(
                     pct,
                     'SoundFont 高速WAV変換中...',
-                    `SGM音源演奏を合成中 (${formatTime(Math.min(currentTime, totalDuration))} / ${formatTime(totalDuration)})`,
+                    `SoundFont (${sfName}) 演奏合成中 (${formatTime(Math.min(currentTime, totalDuration))} / ${formatTime(totalDuration)})`,
                     remainingSec
                 );
 
