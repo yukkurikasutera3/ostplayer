@@ -616,7 +616,7 @@
                         </div>
                         <div class="relative w-20 h-20 bg-gray-950 rounded-full border border-indigo-500/40 flex items-center justify-center cursor-crosshair shrink-0 select-none" id="panner-2d-pad" title="ドラッグして3D音源位置を自由変更">
                             <div class="w-2 h-2 bg-gray-500 rounded-full" title="聴き手（中央）"></div>
-                            <div id="panner-source-dot" class="absolute w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style="left: 50%; top: 20%;"></div>
+                            <div id="panner-source-dot" class="absolute w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style="left: 50%; top: 50%;"></div>
                         </div>
                     </div>
                 </div>
@@ -4820,7 +4820,7 @@
                     panner3DNode = audioContext.createPanner();
                     panner3DNode.panningModel = 'HRTF';
                     panner3DNode.distanceModel = 'inverse';
-                    set3DPannerPos(0, 0, -2);
+                    set3DPannerPos(0, 0, 0);
                 } catch(e){}
             }
         }
@@ -4844,12 +4844,12 @@
             const orbit8dInput = document.getElementById('fx-8d-toggle');
             if (orbit8dInput) orbit8dInput.checked = false;
 
-            set3DPannerPos(0, 0, -2);
+            set3DPannerPos(0, 0, 0);
             
             const dot = document.getElementById('panner-source-dot');
             if (dot) {
                 dot.style.left = '50%';
-                dot.style.top = '20%';
+                dot.style.top = '50%';
             }
         }
         window.resetPannerPosition = resetPannerPosition;
