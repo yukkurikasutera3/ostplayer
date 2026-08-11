@@ -5314,9 +5314,13 @@
                 if (this.sequencer) {
                     try {
                         curSec = this.sequencer.currentTime || 0;
-                        this.sequencer.stop();
+                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                        else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
                     } catch(e){}
                     this.sequencer = null;
+                }
+                if (this.synth && typeof this.synth.stopAll === 'function') {
+                    try { this.synth.stopAll(true); } catch(e){}
                 }
                 if (this.midiData) {
                     this.sequencer = new window.SpessaSynth.Sequencer(this.synth);
@@ -5336,6 +5340,14 @@
             
             loadMIDI(uint8Array) {
                 if (!uint8Array) return;
+                if (this.sequencer) {
+                    try {
+                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                    } catch(e){}
+                }
+                if (this.synth && typeof this.synth.stopAll === 'function') {
+                    try { this.synth.stopAll(true); } catch(e){}
+                }
                 this.midiData = uint8Array.buffer ? uint8Array.buffer.slice(0) : uint8Array.slice(0);
                 this.rebindSequencer();
             }
@@ -5349,12 +5361,26 @@
                 }
             }
             
+            pauseMIDI() {
+                if (this.sequencer) {
+                    try {
+                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                    } catch(e){}
+                }
+                this.isMidiPlaying = false;
+            }
+            
             stopMIDI() {
                 if (this.sequencer) {
                     try {
-                        this.sequencer.stop();
-                        this.isMidiPlaying = false;
+                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                        else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
+                        try { this.sequencer.currentTime = 0; } catch(err){}
                     } catch(e){}
+                }
+                this.isMidiPlaying = false;
+                if (this.synth && typeof this.synth.stopAll === 'function') {
+                    try { this.synth.stopAll(true); } catch(e){}
                 }
             }
             
