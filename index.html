@@ -1052,6 +1052,8 @@
         let wetGainNode = null;
         
         let tremoloDepthNode = null;
+        let masterLowpassNode = null;
+        let masterHighpassNode = null;
         
         // FX Presets
         const fxPresets = {
@@ -1338,20 +1340,100 @@
             const highpassInput = document.getElementById('fx-highpass');
             if (lowpassInput) {
                 lowpassInput.addEventListener('input', (e) => {
+                    initAudio();
                     const freq = parseFloat(e.target.value);
                     if (masterLowpassNode && audioContext) masterLowpassNode.frequency.setValueAtTime(freq, audioContext.currentTime);
                     const valText = document.getElementById('lowpass-val');
                     if (valText) valText.textContent = freq >= 1000 ? (freq/1000).toFixed(1) + 'kHz' : freq + 'Hz';
-                    ui.fx.preset.value = 'custom';
+                    if (ui.fx && ui.fx.preset) ui.fx.preset.value = 'custom';
                 });
             }
             if (highpassInput) {
                 highpassInput.addEventListener('input', (e) => {
+                    initAudio();
                     const freq = parseFloat(e.target.value);
                     if (masterHighpassNode && audioContext) masterHighpassNode.frequency.setValueAtTime(freq, audioContext.currentTime);
                     const valText = document.getElementById('highpass-val');
                     if (valText) valText.textContent = freq >= 1000 ? (freq/1000).toFixed(1) + 'kHz' : freq + 'Hz';
-                    ui.fx.preset.value = 'custom';
+                    if (ui.fx && ui.fx.preset) ui.fx.preset.value = 'custom';
+                });
+            }
+
+            // 8D Orbit & 3D Spatial Audio Pad Events
+            const orbit8dInput = document.getElementById('fx-8d-toggle');
+            if (orbit8dInput) {
+                orbit8dInput.addEventListener('change', (e) => {
+                    initAudio();
+                    is8DOrbiting = e.target.checked;
+                });
+            }
+
+            const pitchLockInput = document.getElementById('fx-pitch-preserve');
+            if (pitchLockInput) {
+                pitchLockInput.addEventListener('change', (e) => {
+                    const checked = e.target.checked;
+                    players.forEach(p => { p.preservesPitch = checked; });
+                });
+            }
+
+            const pad = document.getElementById('panner-2d-pad');
+            if (pad) {
+                let isDraggingPad = false;
+
+                const handlePadMove = (e) => {
+                    initAudio();
+                    const rect = pad.getBoundingClientRect();
+                    if (!rect.width || !rect.height) return;
+
+                    const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+                    const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+                    
+                    const nx = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                    const ny = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+                    
+                    const x = (nx - 0.5) * 6;
+                    const z = (ny - 0.5) * 6;
+                    
+                    is8DOrbiting = false;
+                    if (orbit8dInput) orbit8dInput.checked = false;
+                    
+                    set3DPannerPos(x, 0, z);
+                    
+                    const dot = document.getElementById('panner-source-dot');
+                    if (dot) {
+                        dot.style.left = `${nx * 100}%`;
+                        dot.style.top = `${ny * 100}%`;
+                    }
+                };
+
+                pad.addEventListener('mousedown', (e) => {
+                    isDraggingPad = true;
+                    handlePadMove(e);
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (isDraggingPad) {
+                        handlePadMove(e);
+                    }
+                });
+
+                window.addEventListener('mouseup', () => {
+                    isDraggingPad = false;
+                });
+
+                pad.addEventListener('touchstart', (e) => {
+                    isDraggingPad = true;
+                    handlePadMove(e);
+                }, { passive: true });
+
+                window.addEventListener('touchmove', (e) => {
+                    if (isDraggingPad) {
+                        handlePadMove(e);
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchend', () => {
+                    isDraggingPad = false;
                 });
             }
 
@@ -2516,12 +2598,35 @@
             analyser.fftSize = 256;
             
             masterGainNode = audioContext.createGain();
-            analyser.connect(masterGainNode);
-            masterGainNode.connect(audioContext.destination);
-            if (isMuted) masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+
+            // Create Master Filters & 3D Spatial Panner
+            masterLowpassNode = audioContext.createBiquadFilter();
+            masterLowpassNode.type = 'lowpass';
+            masterLowpassNode.frequency.value = 20000;
+
+            masterHighpassNode = audioContext.createBiquadFilter();
+            masterHighpassNode.type = 'highpass';
+            masterHighpassNode.frequency.value = 20;
 
             recDestNode = audioContext.createMediaStreamDestination();
-            analyser.connect(recDestNode);
+
+            init3DPannerNode();
+
+            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Master Gain -> Destination & Rec
+            analyser.connect(masterLowpassNode);
+            masterLowpassNode.connect(masterHighpassNode);
+
+            if (panner3DNode) {
+                masterHighpassNode.connect(panner3DNode);
+                panner3DNode.connect(masterGainNode);
+                panner3DNode.connect(recDestNode);
+            } else {
+                masterHighpassNode.connect(masterGainNode);
+                masterHighpassNode.connect(recDestNode);
+            }
+
+            masterGainNode.connect(audioContext.destination);
+            if (isMuted) masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
 
             // Create FX Nodes
             const freqs = [60, 250, 1000, 4000, 12000];
