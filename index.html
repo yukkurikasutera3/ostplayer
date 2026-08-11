@@ -1250,21 +1250,53 @@
             // Mode Switch (Direct Selection)
             window.setPlayerMode = (mode) => {
                 if (currentMode === mode) return;
-                stopAllAudio();
+                
+                const isSingleOrFxOrVisual = (m) => m === 'single' || m === 'fx' || m === 'visual';
+                const wasSingleOrFxOrVisual = isSingleOrFxOrVisual(currentMode);
+                const isNowSingleOrFxOrVisual = isSingleOrFxOrVisual(mode);
+
+                if (!wasSingleOrFxOrVisual || !isNowSingleOrFxOrVisual) {
+                    stopAllAudio();
+                }
+                
                 currentMode = mode;
+                
+                if (fxTrackIndex === -1 && singleTrackIndex !== -1) {
+                    fxTrackIndex = singleTrackIndex;
+                } else if (singleTrackIndex === -1 && fxTrackIndex !== -1) {
+                    singleTrackIndex = fxTrackIndex;
+                } else if (singleTrackIndex !== -1 && fxTrackIndex !== -1) {
+                    if (mode === 'fx') fxTrackIndex = singleTrackIndex;
+                    else singleTrackIndex = fxTrackIndex;
+                }
                 
                 // Audio Graph Rebuild
                 if (audioContext) {
+                    connectAudioGraph();
                     if (mode === 'fx') {
-                         connectAudioGraph();
                          applyFxPreset(ui.fx.preset.value);
-                    } else {
-                         connectAudioGraph();
                     }
                 }
                 
                 updateModeUI();
                 updatePlaylistUI();
+                updateSingleUIInfo();
+                
+                const p = players[0];
+                const synth = midiPlayers.main;
+                let isPlaying = false;
+                const currentTrackIdx = (mode === 'fx') ? fxTrackIndex : singleTrackIndex;
+                const currentTrack = playlist[currentTrackIdx];
+                
+                if (currentTrack && currentTrack.isMidi && synth) {
+                    const status = synth.getPlayStatus();
+                    isPlaying = status && status.play;
+                } else if (p && !p.paused && p.currentTime > 0) {
+                    isPlaying = true;
+                }
+                
+                updateSingleUIState();
+                updateFxUIState(isPlaying);
             };
 
             // Single Events
@@ -3003,31 +3035,33 @@
             if(audioContext.state === 'suspended') audioContext.resume();
             
             stopAllAudio();
-            connectAudioGraph();
             
             fxTrackIndex = index;
+            singleTrackIndex = index;
             const track = playlist[index];
-            if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
-            if (ui.fx && ui.fx.status) ui.fx.status.textContent = "Ready";
-            applyFxPreset(ui.fx.preset.value);
             
+            connectAudioGraph();
             updatePlaylistUI();
             updateSingleUIInfo();
 
             if (track.isMidi) {
-                if (ui.fx && ui.fx.title) ui.fx.title.textContent += " (MIDI)";
+                if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name + " (MIDI)";
+                if (ui.fx && ui.fx.status) ui.fx.status.textContent = "Ready";
                 const synth = getMidiSynth('main');
                 const buf = await track.file.arrayBuffer();
                 await loadMidiData(synth, buf, singleGainNodes[0]);
                 toggleFxPlay();
             } else {
+                if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
                 const p = players[0]; 
                 p.loop = false; 
                 if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
                 p.src = track.url;
                 p.currentTime = 0;
                 updateFxVolume(); 
-                p.play().catch(e=>console.log(e));
+                p.play().then(() => {
+                    updateFxUIState(true);
+                }).catch(e=>console.log(e));
             }
         }
         
@@ -3074,14 +3108,29 @@
         function handleFxTimeUpdate(i) {
             if(i !== 0) return;
             const p = players[0];
-            if(isNaN(p.duration)) return;
-            ui.fx.time.textContent = formatTime(p.currentTime);
-            ui.fx.dur.textContent = formatTime(p.duration);
-            if(document.activeElement !== ui.fx.seek) ui.fx.seek.value = (p.currentTime / p.duration) * 100;
+            const synth = midiPlayers.main;
+            const currentTrack = playlist[fxTrackIndex !== -1 ? fxTrackIndex : singleTrackIndex];
+
+            if (currentTrack && currentTrack.isMidi && synth) {
+                const status = synth.getPlayStatus();
+                if (status && status.maxTime > 0) {
+                    ui.fx.time.textContent = formatTime(status.currentTime);
+                    ui.fx.dur.textContent = formatTime(status.maxTime);
+                    if(document.activeElement !== ui.fx.seek) {
+                        ui.fx.seek.value = (status.currentTime / status.maxTime) * 100;
+                    }
+                }
+            } else if (p && !isNaN(p.duration) && p.duration > 0) {
+                ui.fx.time.textContent = formatTime(p.currentTime);
+                ui.fx.dur.textContent = formatTime(p.duration);
+                if(document.activeElement !== ui.fx.seek) {
+                    ui.fx.seek.value = (p.currentTime / p.duration) * 100;
+                }
+            }
         }
         
         function updateFxUIState(isPlaying) {
-            if(ui.fx.playIcon && ui.fx.pauseIcon) {
+            if(ui.fx && ui.fx.playIcon && ui.fx.pauseIcon) {
                 if(isPlaying) {
                     ui.fx.playIcon.classList.add('hidden'); ui.fx.pauseIcon.classList.remove('hidden');
                     if(ui.fx.status) ui.fx.status.textContent = "FX Active";
@@ -3124,6 +3173,7 @@
             connectAudioGraph(); 
             
             singleTrackIndex = index;
+            fxTrackIndex = index;
             updatePlaylistUI();
             updateSingleUIInfo();
             resetMidiMixerState();
