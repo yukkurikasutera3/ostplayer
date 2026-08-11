@@ -3143,7 +3143,8 @@
                 if(!synth) return;
                 const status = synth.getPlayStatus();
                 if(status.play) {
-                    synth.stopMIDI();
+                    if (typeof synth.pauseMIDI === 'function') synth.pauseMIDI();
+                    else synth.stopMIDI();
                     isFxPlaying = false;
                 } else {
                     synth.playMIDI();
@@ -3343,7 +3344,8 @@
                 if(!synth) return;
                 const status = synth.getPlayStatus();
                 if(status.play) {
-                    synth.stopMIDI();
+                    if (typeof synth.pauseMIDI === 'function') synth.pauseMIDI();
+                    else synth.stopMIDI();
                     isSinglePlaying = false;
                 } else {
                     synth.playMIDI();
@@ -3611,7 +3613,10 @@
                 const synth = getMidiSynth(deckKey);
                 if(!synth) return;
                 const status = synth.getPlayStatus();
-                if(status.play) { synth.stopMIDI(); } 
+                if(status.play) { 
+                    if (typeof synth.pauseMIDI === 'function') synth.pauseMIDI();
+                    else synth.stopMIDI();
+                } 
                 else { synth.playMIDI(); }
                 updateDualUIState(i); // Update UI manually for MIDI
             } else {
