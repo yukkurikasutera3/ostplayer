@@ -5180,13 +5180,25 @@
             
             isSpessaSynthLoaded = true;
 
-            // Re-bind active MIDI deck wrappers
+            // Re-bind active MIDI deck wrappers with new synthesizer instance and rebuild Sequencers
             Object.values(spessaSynthWrappers).forEach(w => {
                 if (w) {
                     w.synth = spessaSynthInstance;
                     w.setAudioContext(audioContext, masterGainNode || audioContext.destination);
+                    w.rebindSequencer();
                 }
             });
+            
+            // Also check deck objects in multi-deck mode
+            if (typeof decks !== 'undefined' && Array.isArray(decks)) {
+                decks.forEach(d => {
+                    if (d && d.spessaSynth) {
+                        d.spessaSynth.synth = spessaSynthInstance;
+                        d.spessaSynth.setAudioContext(audioContext, masterGainNode || audioContext.destination);
+                        d.spessaSynth.rebindSequencer();
+                    }
+                });
+            }
         }
 
         class SpessaSynthPlayerWrapper {
@@ -5196,61 +5208,101 @@
                 this.midiData = null;
                 this.volume = 0.5;
                 this.isMidiPlaying = false;
+                this.gainNode = null;
             }
             
             setAudioContext(ctx, destNode) {
+                if (!ctx) return;
+                if (!this.gainNode) {
+                    this.gainNode = ctx.createGain();
+                }
+                this.gainNode.gain.setValueAtTime(this.volume, ctx.currentTime);
+                try {
+                    this.gainNode.disconnect();
+                } catch(e){}
+                if (destNode) {
+                    this.gainNode.connect(destNode);
+                } else {
+                    this.gainNode.connect(ctx.destination);
+                }
+
                 if (this.synth) {
                     try {
                         this.synth.disconnect();
-                        if (destNode) this.synth.connect(destNode);
-                        else this.synth.connect(ctx.destination);
+                        this.synth.connect(this.gainNode);
                     } catch(e) {}
                 }
             }
-            
-            loadMIDI(uint8Array) {
-                this.midiData = uint8Array.buffer;
+
+            bindEvents() {
+                if (!this.sequencer) return;
+                this.sequencer.onNoteOn = (channel, note, velocity) => {
+                    if (velocity > 0) {
+                        requestAnimationFrame(() => {
+                            const led = document.getElementById(`midi-led-${channel}`);
+                            if (led) {
+                                led.classList.remove('bg-gray-700');
+                                led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                                
+                                if (activeLedTimeouts[channel]) clearTimeout(activeLedTimeouts[channel]);
+                                activeLedTimeouts[channel] = setTimeout(() => {
+                                    led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                                    led.classList.add('bg-gray-700');
+                                }, 100);
+                            }
+                        });
+                    }
+                };
+            }
+
+            rebindSequencer() {
+                if (!this.synth || !window.SpessaSynth || !window.SpessaSynth.Sequencer) return;
+                const wasPlaying = this.isMidiPlaying;
+                let curSec = 0;
                 if (this.sequencer) {
-                    this.sequencer.stop();
+                    try {
+                        curSec = this.sequencer.currentTime || 0;
+                        this.sequencer.stop();
+                    } catch(e){}
+                    this.sequencer = null;
                 }
-                const Spessa = window.SpessaSynth;
-                if (Spessa && Spessa.Sequencer) {
-                    this.sequencer = new Spessa.Sequencer(this.synth);
+                if (this.midiData) {
+                    this.sequencer = new window.SpessaSynth.Sequencer(this.synth);
                     this.sequencer.loadNewSongList([{
                         binary: this.midiData,
                         fileName: "song.mid"
                     }]);
-                    this.sequencer.onNoteOn = (channel, note, velocity) => {
-                        if (velocity > 0) {
-                            requestAnimationFrame(() => {
-                                const led = document.getElementById(`midi-led-${channel}`);
-                                if (led) {
-                                    led.classList.remove('bg-gray-700');
-                                    led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                                    
-                                    if (activeLedTimeouts[channel]) clearTimeout(activeLedTimeouts[channel]);
-                                    activeLedTimeouts[channel] = setTimeout(() => {
-                                        led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                                        led.classList.add('bg-gray-700');
-                                    }, 100);
-                                }
-                            });
-                        }
-                    };
+                    this.bindEvents();
+                    if (curSec > 0) {
+                        try { this.sequencer.currentTime = curSec; } catch(e){}
+                    }
+                    if (wasPlaying) {
+                        try { this.sequencer.play(); this.isMidiPlaying = true; } catch(e){}
+                    }
                 }
+            }
+            
+            loadMIDI(uint8Array) {
+                if (!uint8Array) return;
+                this.midiData = uint8Array.buffer ? uint8Array.buffer.slice(0) : uint8Array.slice(0);
+                this.rebindSequencer();
             }
             
             playMIDI() {
                 if (this.sequencer) {
-                    this.sequencer.play();
-                    this.isMidiPlaying = true;
+                    try {
+                        this.sequencer.play();
+                        this.isMidiPlaying = true;
+                    } catch(e){}
                 }
             }
             
             stopMIDI() {
                 if (this.sequencer) {
-                    this.sequencer.stop();
-                    this.isMidiPlaying = false;
+                    try {
+                        this.sequencer.stop();
+                        this.isMidiPlaying = false;
+                    } catch(e){}
                 }
             }
             
@@ -5274,8 +5326,8 @@
             
             setMasterVol(vol) {
                 this.volume = vol;
-                if (this.synth) {
-                    this.synth.volume = vol;
+                if (this.gainNode && audioContext) {
+                    this.gainNode.gain.setValueAtTime(vol, audioContext.currentTime);
                 }
             }
             
@@ -5285,23 +5337,25 @@
                 const cmd = status & 0xf0;
                 const ch = status & 0x0f;
                 
-                if (cmd === 0xb0) {
-                    this.synth.controllerChange(ch, msg[1], msg[2]);
-                } else if (cmd === 0xc0) {
-                    this.synth.programChange(ch, msg[1]);
-                } else if (cmd === 0x90) {
-                    this.synth.noteOn(ch, msg[1], msg[2]);
-                } else if (cmd === 0x80) {
-                    this.synth.noteOff(ch, msg[1]);
-                }
+                try {
+                    if (cmd === 0xb0) {
+                        this.synth.controllerChange(ch, msg[1], msg[2]);
+                    } else if (cmd === 0xc0) {
+                        this.synth.programChange(ch, msg[1]);
+                    } else if (cmd === 0x90) {
+                        this.synth.noteOn(ch, msg[1], msg[2]);
+                    } else if (cmd === 0x80) {
+                        this.synth.noteOff(ch, msg[1]);
+                    }
+                } catch(e){}
             }
             
             getPlayStatus() {
                 if (!this.sequencer) return { play: false, currentTime: 0, maxTime: 0 };
                 return {
                     play: this.isMidiPlaying && !this.sequencer.isPaused,
-                    currentTime: this.sequencer.currentTime,
-                    maxTime: this.sequencer.duration
+                    currentTime: this.sequencer.currentTime || 0,
+                    maxTime: this.sequencer.duration || 0
                 };
             }
         }
