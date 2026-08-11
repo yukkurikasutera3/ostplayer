@@ -1,0 +1,24 @@
+{
+  "name": "ost-player",
+  "version": "2.5.0",
+  "description": "High-performance multi-mode audio player with 3D spatial sound and SoundFont synthesis",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"/dist\""
+  },
+  "keywords": [
+    "audio",
+    "player",
+    "midi",
+    "soundfont",
+    "visualizer",
+    "electron"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-packager": "^17.1.2"
+  }
+}
