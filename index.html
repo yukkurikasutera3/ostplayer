@@ -3007,12 +3007,15 @@
             
             fxTrackIndex = index;
             const track = playlist[index];
-            ui.fx.title.textContent = track.name;
-            ui.fx.status.textContent = "Ready";
+            if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
+            if (ui.fx && ui.fx.status) ui.fx.status.textContent = "Ready";
             applyFxPreset(ui.fx.preset.value);
             
+            updatePlaylistUI();
+            updateSingleUIInfo();
+
             if (track.isMidi) {
-                ui.fx.title.textContent += " (MIDI)";
+                if (ui.fx && ui.fx.title) ui.fx.title.textContent += " (MIDI)";
                 const synth = getMidiSynth('main');
                 const buf = await track.file.arrayBuffer();
                 await loadMidiData(synth, buf, singleGainNodes[0]);
@@ -3020,6 +3023,7 @@
             } else {
                 const p = players[0]; 
                 p.loop = false; 
+                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
                 p.src = track.url;
                 p.currentTime = 0;
                 updateFxVolume(); 
@@ -3463,16 +3467,17 @@
             deckUI.seek.value = 0;
 
             connectAudioGraph();
+            updatePlaylistUI();
 
             if (track.isMidi) {
                 const synth = getMidiSynth(deckKey);
-                // Connect to appropriate gain node
                 const buf = await track.file.arrayBuffer();
                 await loadMidiData(synth, buf, singleGainNodes[activeDualDeckIndex]);
                 deckUI.title.textContent += " (MIDI)";
             } else {
                 const p = players[activeDualDeckIndex];
                 p.loop = true;
+                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
                 p.src = track.url;
                 p.currentTime = 0;
             }
@@ -3720,14 +3725,16 @@
             if(!deck.gainNode) setupDeckAudio(deck);
             
             deck.track = track;
-            
+            updatePlaylistUI();
+
             if (track.isMidi) {
                 const synth = getMidiSynth(deck);
                 const buf = await track.file.arrayBuffer();
                 await loadMidiData(synth, buf, deck.gainNode);
                 deck.ui.title.textContent = track.name + " (MIDI)";
-                deck.player.src = ""; // Clear audio
+                deck.player.src = "";
             } else {
+                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
                 deck.player.src = track.url;
                 deck.player.currentTime = 0;
                 deck.ui.title.textContent = track.name;
@@ -3964,10 +3971,41 @@
             filteredTracks.forEach((item, displayIdx) => {
                 const idx = item.originalIndex;
                 const track = playlist[idx];
-                const isActive = (currentMode === 'single' && idx === singleTrackIndex) || (currentMode === 'fx' && idx === fxTrackIndex) || (currentMode === 'visual' && idx === singleTrackIndex);
                 
+                let isActive = false;
+                let activeBadges = '';
+
+                if (currentMode === 'single' || currentMode === 'visual') {
+                    if (idx === singleTrackIndex) {
+                        isActive = true;
+                    }
+                } else if (currentMode === 'fx') {
+                    if (idx === fxTrackIndex) {
+                        isActive = true;
+                        activeBadges += '<span class="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-1 rounded ml-1 shrink-0 font-bold">FX Active</span>';
+                    }
+                } else if (currentMode === 'dual') {
+                    if (dualTracks[0] && (dualTracks[0] === track || (dualTracks[0].id !== undefined && dualTracks[0].id === track.id))) {
+                        isActive = true;
+                        activeBadges += '<span class="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1 rounded ml-1 shrink-0 font-bold">Deck A</span>';
+                    }
+                    if (dualTracks[1] && (dualTracks[1] === track || (dualTracks[1].id !== undefined && dualTracks[1].id === track.id))) {
+                        isActive = true;
+                        activeBadges += '<span class="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1 rounded ml-1 shrink-0 font-bold">Deck B</span>';
+                    }
+                } else if (currentMode === 'multi') {
+                    const matchedDecks = decks.filter(d => d.track && (d.track === track || (d.track.id !== undefined && d.track.id === track.id)));
+                    if (matchedDecks.length > 0) {
+                        isActive = true;
+                        matchedDecks.forEach(d => {
+                            const deckNum = decks.indexOf(d) + 1;
+                            activeBadges += `<span class="text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-1 rounded ml-1 shrink-0 font-bold">Deck ${deckNum}</span>`;
+                        });
+                    }
+                }
+
                 const div = document.createElement('div');
-                div.className = `flex items-center justify-between p-2 rounded group transition cursor-pointer select-none ${isActive ? 'bg-gray-800 border-l-2 border-blue-500' : 'hover:bg-gray-800 border-l-2 border-transparent'}`;
+                div.className = `flex items-center justify-between p-2 rounded group transition cursor-pointer select-none ${isActive ? 'bg-blue-950/50 border-l-4 border-blue-500' : 'hover:bg-gray-800 border-l-2 border-transparent'}`;
                 div.draggable = true;
 
                 div.addEventListener('dragstart', (e) => {
@@ -3995,8 +4033,15 @@
                     e.preventDefault();
                     div.classList.remove('border-t-2', 'border-blue-500');
                     if (draggedTrackIdx !== null && draggedTrackIdx !== idx) {
+                        const singleObj = playlist[singleTrackIndex];
+                        const fxObj = playlist[fxTrackIndex];
+
                         const movedItem = playlist.splice(draggedTrackIdx, 1)[0];
                         playlist.splice(idx, 0, movedItem);
+
+                        if (singleObj) singleTrackIndex = playlist.indexOf(singleObj);
+                        if (fxObj) fxTrackIndex = playlist.indexOf(fxObj);
+
                         updatePlaylistUI();
                     }
                 });
@@ -4020,7 +4065,7 @@
                         ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
                         <div class="min-w-0 flex-1">
                             <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
-                                <span class="truncate">${track.name}</span> ${extInfo}
+                                <span class="truncate">${track.name}</span> ${extInfo} ${activeBadges}
                             </div>
                             ${artistSub}
                         </div>
