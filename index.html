@@ -601,11 +601,16 @@
                                 <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center space-x-1">
                                     <span>🌀</span><span>3D Spatial Audio / 8D Orbit</span>
                                 </span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="fx-8d-toggle" class="sr-only peer">
-                                    <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    <span class="ml-2 text-[10px] font-bold text-indigo-300">8D Auto-Orbit</span>
-                                </label>
+                                <div class="flex flex-col items-end space-y-1 shrink-0">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="fx-8d-toggle" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        <span class="ml-2 text-[10px] font-bold text-indigo-300">8D Auto-Orbit</span>
+                                    </label>
+                                    <button id="panner-reset-btn" class="text-[9px] bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/40 px-2 py-0.5 rounded transition flex items-center space-x-1 shadow-sm select-none" title="音源位置を正面の初期位置にリセット">
+                                        <span>↺</span><span>初期位置に戻す</span>
+                                    </button>
+                                </div>
                             </div>
                             <p class="text-[10px] text-gray-400">音源が頭の周囲を3D旋回します（ヘッドホン推奨）。2Dパッドで直接位置指定可能。</p>
                         </div>
@@ -1365,6 +1370,14 @@
                 orbit8dInput.addEventListener('change', (e) => {
                     initAudio();
                     is8DOrbiting = e.target.checked;
+                });
+            }
+
+            const resetPannerBtn = document.getElementById('panner-reset-btn');
+            if (resetPannerBtn) {
+                resetPannerBtn.addEventListener('click', () => {
+                    resetPannerPosition();
+                    showNotification("3D音源位置を初期位置にリセットしました");
                 });
             }
 
@@ -4824,6 +4837,22 @@
                 }
             } catch(e){}
         }
+
+        function resetPannerPosition() {
+            is8DOrbiting = false;
+            orbitAngle = 0;
+            const orbit8dInput = document.getElementById('fx-8d-toggle');
+            if (orbit8dInput) orbit8dInput.checked = false;
+
+            set3DPannerPos(0, 0, -2);
+            
+            const dot = document.getElementById('panner-source-dot');
+            if (dot) {
+                dot.style.left = '50%';
+                dot.style.top = '20%';
+            }
+        }
+        window.resetPannerPosition = resetPannerPosition;
 
         function start8DOrbitLoop() {
             const orbitStep = () => {
