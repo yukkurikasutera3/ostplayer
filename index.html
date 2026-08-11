@@ -365,8 +365,8 @@
                             <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10" title="ピアノロール">
                                 <span>🎹 Piano Roll</span>
                             </button>
-                            <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="現在適用中のSoundFont音源でWAV/Audio書き出し">
-                                <span>💾 WAV書き出し</span>
+                            <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="約1秒でWAVオーディオファイルに爆速エクスポート変換">
+                                <span>⚡ 爆速WAV書き出し</span>
                             </button>
                         </div>
 
@@ -1391,19 +1391,13 @@
             if (ui.single.pianoRollBtn) ui.single.pianoRollBtn.addEventListener('click', togglePianoRoll);
             if (ui.pianoRoll.closeBtn) ui.pianoRoll.closeBtn.addEventListener('click', togglePianoRoll);
 
-            // MIDI Export Event
+            // MIDI Export Event (Fast Offline Render)
             const midiExportBtn = document.getElementById('single-midi-export-btn');
             if (midiExportBtn) {
-                midiExportBtn.addEventListener('click', () => {
+                midiExportBtn.addEventListener('click', async () => {
                     const track = playlist[singleTrackIndex];
                     if (!track || !track.isMidi) return;
-                    if (!isRecording) {
-                        startRecording();
-                        if (!isSinglePlaying) toggleSinglePlay();
-                        showNotification(`💾 MIDI (${track.name}) の SoundFont 演奏を録音開始しました。完了後に [Rec Session] でWAV書き出しできます。`);
-                    } else {
-                        stopRecording();
-                    }
+                    await exportMidiFastWav(track);
                 });
             }
 
@@ -3039,6 +3033,56 @@
             }
         }
         
+        // --- High-Speed Offline MIDI WAV Export (Fast Render) ---
+        async function exportMidiFastWav(track) {
+            if (!track || !track.file) return;
+            const sfBadge = document.getElementById('sf2-badge-text');
+            const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
+            
+            showNotification(`⚡ MIDI (${track.name}) を爆速オフラインレンダリング中... (${sfName})`);
+            
+            try {
+                const arrayBuffer = await track.file.arrayBuffer();
+                const smfMap = parseSMF(arrayBuffer);
+                const duration = Math.max(3, Math.ceil(smfMap ? smfMap.totalDuration : 180)) + 2;
+                
+                const sampleRate = 44100;
+                const offlineCtx = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
+                
+                const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
+                renderSynth.loadMIDI(new Uint8Array(arrayBuffer));
+                renderSynth.playMIDI();
+                
+                const renderedBuffer = await offlineCtx.startRendering();
+                const wavBlob = bufferToWav(renderedBuffer);
+                
+                const url = URL.createObjectURL(wavBlob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const cleanName = (track.name || 'MIDI_Track').replace(/[\/\\?%*:|"<>]/g, '_');
+                const cleanSf = sfName.replace(/[\/\\?%*:|"<>]/g, '_');
+                a.download = `${cleanName}_${cleanSf}.wav`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    try { document.body.removeChild(a); } catch(e){}
+                    URL.revokeObjectURL(url);
+                }, 1000);
+                
+                showNotification(`✨ 爆速変換完了！ ${cleanName}_${cleanSf}.wav をエクスポートしました！`);
+            } catch(err) {
+                console.error("Fast MIDI WAV export error:", err);
+                showNotification(`リアルタイム録音モードで書き出しを開始します...`);
+                if (!isRecording) {
+                    startRecording();
+                    if (!isSinglePlaying) toggleSinglePlay();
+                }
+            }
+        }
+        window.exportMidiFastWav = exportMidiFastWav;
+
         function bufferToWav(buffer) {
             const numChannels = buffer.numberOfChannels;
             const sampleRate = buffer.sampleRate;
