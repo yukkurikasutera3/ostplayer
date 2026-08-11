@@ -479,7 +479,7 @@
                     
                     <div class="flex items-center space-x-1 w-24">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                        <input type="range" id="fx-vol" min="0" max="1" step="0.01" value="0.5" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
+                        <input type="range" id="fx-vol" min="0" max="1" step="0.01" value="1" class="w-full h-1 bg-gray-600 rounded cursor-pointer">
                     </div>
 
                     <div class="flex-1">
@@ -2706,8 +2706,9 @@
             reverbNode.buffer = createReverbBuffer(2.0, 2.0);
             
             dryGainNode = audioContext.createGain();
+            dryGainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
             wetGainNode = audioContext.createGain();
-            wetGainNode.gain.value = 0;
+            wetGainNode.gain.setValueAtTime(0, audioContext.currentTime);
 
             // Init Players
             players.forEach((p, i) => {
@@ -3065,9 +3066,14 @@
             }
         }
         
-        function updateFxVolume() {
-            const vol = parseFloat(ui.fx.vol.value);
-            if(singleGainNodes[0]) singleGainNodes[0].gain.setTargetAtTime(vol, audioContext.currentTime, 0.1);
+        function updateFxVolume(val) {
+            const vol = (typeof val === 'number' || typeof val === 'string') ? parseFloat(val) : parseFloat(ui.fx.vol.value);
+            ui.fx.vol.value = vol;
+            ui.single.vol.value = vol;
+            if (ui.mini && ui.mini.vol) ui.mini.vol.value = vol;
+            singleGainNodes.forEach(g => {
+                if (g && audioContext) g.gain.setTargetAtTime(vol, audioContext.currentTime, 0.05);
+            });
             const synth = midiPlayers.main;
             if(synth) synth.setMasterVol(vol);
         }
@@ -3369,7 +3375,10 @@
             const vol = (typeof val === 'number' || typeof val === 'string') ? parseFloat(val) : parseFloat(ui.single.vol.value);
             ui.single.vol.value = vol;
             if (ui.mini && ui.mini.vol) ui.mini.vol.value = vol;
-            singleGainNodes.forEach(g => g.gain.setTargetAtTime(vol, audioContext.currentTime, 0.1));
+            if (ui.fx && ui.fx.vol) ui.fx.vol.value = vol;
+            singleGainNodes.forEach(g => {
+                if (g && audioContext) g.gain.setTargetAtTime(vol, audioContext.currentTime, 0.05);
+            });
             const synth = midiPlayers.main;
             if(synth) synth.setMasterVol(vol);
         }
