@@ -9,6 +9,9 @@
     <!-- MIDI Synth Library (WebAudioTinySynth) -->
     <script src="https://g200kg.github.io/webaudio-tinysynth/webaudio-tinysynth.js"></script>
 
+    <!-- Audio Metadata Parser (jsmediatags for reliable cover art & ID3 tags) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
     <style>
         :root {
             --theme-bg-main: #111827;
@@ -273,6 +276,11 @@
                     </div>
                     <h2 id="single-title" class="text-2xl font-bold truncate text-white mb-2 px-4">No Track Selected</h2>
                     <p id="single-status" class="text-sm text-gray-400">リストから曲を選択してください</p>
+                    <div id="single-bpm-container" class="mt-2 flex items-center justify-center space-x-2">
+                        <span id="single-bpm-badge" class="hidden bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs px-3 py-1 rounded-full font-bold shadow-sm items-center space-x-1.5">
+                            <span>🥁</span><span id="single-bpm-val">-- BPM</span>
+                        </span>
+                    </div>
                 </div>
 
                 <!-- MIDI Mixer Panel (Collapsible) -->
@@ -460,15 +468,15 @@
             </div>
 
             <!-- === FX VIEW === -->
-            <div id="fx-view" class="flex-1 flex flex-col justify-between hidden-mode">
+            <div id="fx-view" class="flex-1 flex flex-col justify-between hidden-mode min-h-0 overflow-hidden">
                 <!-- Simple Player Clone -->
-                <div class="text-center py-2">
-                    <h2 id="fx-title" class="text-lg font-bold truncate text-purple-400 px-4">No Track Selected</h2>
-                    <p id="fx-status" class="text-xs text-gray-400">Equalizer & Effects</p>
+                <div class="text-center py-2 flex items-center justify-center space-x-2 shrink-0">
+                    <h2 id="fx-title" class="text-lg font-bold truncate text-purple-400 px-2 max-w-[280px]">No Track Selected</h2>
+                    <span id="fx-bpm-badge" class="hidden bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0">🥁 -- BPM</span>
                 </div>
                 
                 <!-- Music Control -->
-                <div class="bg-gray-800/50 p-2 rounded-lg mb-2 flex items-center space-x-3 border border-gray-700">
+                <div class="bg-gray-800/50 p-2 rounded-lg mb-2 flex items-center space-x-3 border border-gray-700 shrink-0">
                     <button id="fx-play" class="text-purple-400 hover:text-purple-300 p-2 rounded-full border border-purple-500/50 hover:bg-purple-500/20 transition">
                         <svg id="fx-play-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                         <svg id="fx-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
@@ -495,7 +503,7 @@
                     </button>
                 </div>
 
-                <div class="bg-gray-800/80 p-4 rounded-xl border border-purple-900/50 flex-1 flex flex-col overflow-y-auto">
+                <div class="bg-gray-800/80 p-4 rounded-xl border border-purple-900/50 flex-1 flex flex-col overflow-y-auto min-h-0 pb-6">
                     <!-- EQ & Effects Controls -->
                     <div class="mb-4 bg-gray-900/50 p-2 rounded-lg">
                         <div class="flex justify-between items-center mb-2">
@@ -703,7 +711,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
             </button>
             <div class="flex-1 min-w-0">
-                <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
+                <div class="flex items-center space-x-1.5">
+                    <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
+                    <span id="mini-bpm-badge" class="hidden text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-1.5 py-0.2 rounded-full font-bold shrink-0">🥁 -- BPM</span>
+                </div>
                 <div class="flex items-center space-x-2 mt-1">
                     <span id="mini-current" class="text-[10px] text-gray-400 font-mono w-8 shrink-0">0:00</span>
                     <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.01" class="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
@@ -1480,10 +1491,27 @@
             }
             
             // Drag Drop
+            window.isInternalDragging = false;
+
             const drop = document.getElementById('drop-zone-overlay');
-            document.body.addEventListener('dragenter', (e) => { e.preventDefault(); drop.classList.remove('opacity-0', 'pointer-events-none'); });
-            document.body.addEventListener('dragover', (e) => e.preventDefault());
-            drop.addEventListener('dragleave', () => drop.classList.add('opacity-0', 'pointer-events-none'));
+            document.body.addEventListener('dragenter', (e) => { 
+                e.preventDefault(); 
+                if (window.isInternalDragging) return;
+                if (e.dataTransfer && e.dataTransfer.types && (Array.from(e.dataTransfer.types).includes('Files') || Array.from(e.dataTransfer.types).includes('application/x-moz-file'))) {
+                    drop.classList.remove('opacity-0', 'pointer-events-none');
+                }
+            });
+            document.body.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (window.isInternalDragging) {
+                    drop.classList.add('opacity-0', 'pointer-events-none');
+                }
+            });
+            drop.addEventListener('dragleave', (e) => {
+                if (e.target === drop || !drop.contains(e.relatedTarget)) {
+                    drop.classList.add('opacity-0', 'pointer-events-none');
+                }
+            });
             drop.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 drop.classList.add('opacity-0', 'pointer-events-none');
@@ -3717,11 +3745,48 @@
             if (t.artist || t.album) {
                 statusStr = [t.artist, t.album].filter(Boolean).join(' — ');
             }
-            if (t.bpm) {
-                statusStr += ` • ${t.bpm} BPM`;
-            }
             ui.single.status.textContent = statusStr;
 
+            // Single View BPM Badge
+            const singleBpmBadge = document.getElementById('single-bpm-badge');
+            const singleBpmVal = document.getElementById('single-bpm-val');
+            if (singleBpmBadge && singleBpmVal) {
+                if (t.bpm) {
+                    singleBpmVal.textContent = `${t.bpm} BPM`;
+                    singleBpmBadge.classList.remove('hidden');
+                    singleBpmBadge.classList.add('flex');
+                } else {
+                    singleBpmBadge.classList.add('hidden');
+                    singleBpmBadge.classList.remove('flex');
+                }
+            }
+
+            // FX View Title & BPM Badge
+            const fxTitle = document.getElementById('fx-title');
+            const fxBpmBadge = document.getElementById('fx-bpm-badge');
+            if (fxTitle) fxTitle.textContent = t.name;
+            if (fxBpmBadge) {
+                if (t.bpm) {
+                    fxBpmBadge.textContent = `🥁 ${t.bpm} BPM`;
+                    fxBpmBadge.classList.remove('hidden');
+                } else {
+                    fxBpmBadge.classList.add('hidden');
+                }
+            }
+
+            // Mini View Title & BPM Badge
+            if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
+            const miniBpmBadge = document.getElementById('mini-bpm-badge');
+            if (miniBpmBadge) {
+                if (t.bpm) {
+                    miniBpmBadge.textContent = `🥁 ${t.bpm} BPM`;
+                    miniBpmBadge.classList.remove('hidden');
+                } else {
+                    miniBpmBadge.classList.add('hidden');
+                }
+            }
+
+            // Artwork Update
             const artworkEl = ui.single.artwork;
             if (artworkEl) {
                 const svgIcon = artworkEl.querySelector('svg');
@@ -3736,8 +3801,6 @@
                     artworkEl.style.borderColor = `hsl(${Math.random()*360}, 70%, 50%)`;
                 }
             }
-            
-            if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
         }
 
         function updateSingleUIState() {
@@ -3817,11 +3880,14 @@
                 div.draggable = true;
 
                 div.addEventListener('dragstart', (e) => {
+                    window.isInternalDragging = true;
                     draggedTrackIdx = idx;
                     e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', idx);
                     div.classList.add('opacity-40');
                 });
                 div.addEventListener('dragend', () => {
+                    window.isInternalDragging = false;
                     draggedTrackIdx = null;
                     div.classList.remove('opacity-40');
                     document.querySelectorAll('#playlist > div').forEach(el => el.classList.remove('border-t-2', 'border-blue-500'));
@@ -4391,10 +4457,51 @@
         window.loadSoundFontFile = loadSoundFontFile;
 
         // --- 1. ID3 Tag & APIC Cover Art Reader ---
+        function extractMetadataWithJsMediaTags(file) {
+            return new Promise((resolve) => {
+                if (typeof jsmediatags === 'undefined' || !file) return resolve(null);
+                try {
+                    jsmediatags.read(file, {
+                        onSuccess: function(tag) {
+                            const tags = tag.tags || {};
+                            let title = tags.title || '';
+                            let artist = tags.artist || '';
+                            let album = tags.album || '';
+                            let coverUrl = null;
+
+                            if (tags.picture) {
+                                try {
+                                    const picture = tags.picture;
+                                    let base64String = "";
+                                    const data = picture.data;
+                                    for (let i = 0; i < data.length; i++) {
+                                        base64String += String.fromCharCode(data[i]);
+                                    }
+                                    coverUrl = "data:" + picture.format + ";base64," + window.btoa(base64String);
+                                } catch(e) {}
+                            }
+                            resolve({ title, artist, album, coverUrl });
+                        },
+                        onError: function(err) {
+                            resolve(null);
+                        }
+                    });
+                } catch(e) { resolve(null); }
+            });
+        }
+
         async function parseAudioMetadata(file) {
             if (!file) return { title: '', artist: '', album: '', coverUrl: null };
+            const jsm = await extractMetadataWithJsMediaTags(file);
+            if (jsm && (jsm.coverUrl || jsm.title || jsm.artist)) {
+                return jsm;
+            }
+            return parseCustomID3Metadata(file);
+        }
+
+        async function parseCustomID3Metadata(file) {
             try {
-                const buffer = await file.slice(0, 128 * 1024).arrayBuffer();
+                const buffer = await file.slice(0, 512 * 1024).arrayBuffer();
                 const data = new Uint8Array(buffer);
                 let title = '', artist = '', album = '', coverUrl = null;
 
