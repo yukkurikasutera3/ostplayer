@@ -207,6 +207,14 @@
         .midi-led {
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
+        /* Mini Player Mode */
+        .mini-mode #main-app-container {
+            height: auto !important;
+            max-height: none !important;
+        }
+        .mini-mode #player-left-panel { display: none !important; }
+        .mini-mode #mini-player-view { display: flex !important; }
+        .mini-mode .md\:w-4\/12 { width: 100% !important; max-width: 100% !important; }
     </style>
 </head>
 <body id="app-body" class="theme-cyberpunk bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300">
@@ -219,7 +227,7 @@
     <div id="main-app-container" class="w-full max-w-6xl bg-gray-800/90 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-700 h-[850px] md:h-[750px] relative z-10">
         
         <!-- 左側: プレイヤーエリア -->
-        <div class="w-full md:w-8/12 p-5 flex flex-col bg-gray-800/90 backdrop-blur-sm z-10 relative border-r border-gray-700">
+        <div id="player-left-panel" class="w-full md:w-8/12 p-5 flex flex-col bg-gray-800/90 backdrop-blur-sm z-10 relative border-r border-gray-700">
             
             <!-- モード切替ヘッダー -->
             <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-700 shrink-0">
@@ -245,6 +253,10 @@
                     <!-- 独立したHelpボタン -->
                     <button id="help-mode-btn" onclick="setPlayerMode('help')" class="ml-1 px-3 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
                         Help
+                    </button>
+                    <!-- ミニプレイヤー切替 -->
+                    <button id="mini-toggle-btn" onclick="toggleMiniPlayer()" class="ml-1 px-2 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white hover:bg-cyan-900/50 transition-colors select-none focus:outline-none shrink-0" title="ミニプレイヤー切替">
+                        📐
                     </button>
                 </div>
                 <!-- ビジュアライザー (Small) - 幅調整 -->
@@ -274,6 +286,19 @@
                     </div>
                     <div id="midi-channels-container">
                         <!-- JSで16チャンネル分生成 -->
+                    </div>
+                </div>
+
+                <!-- Piano Roll Panel (Collapsible) -->
+                <div id="piano-roll-panel" class="hidden bg-gray-900/95 border border-cyan-500/30 rounded-xl p-4 mt-2 max-h-[340px] mb-4">
+                    <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-800">
+                        <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center">
+                            <span class="mr-1.5">🎹</span> Piano Roll Visualizer
+                        </h4>
+                        <button id="close-piano-roll-btn" class="text-gray-500 hover:text-white text-xs">✕ 閉じる</button>
+                    </div>
+                    <div class="w-full h-44 bg-gray-950 rounded-lg overflow-hidden border border-gray-800 relative">
+                        <canvas id="piano-roll-canvas" class="w-full h-full block"></canvas>
                     </div>
                 </div>
 
@@ -321,6 +346,9 @@
                             <button id="single-midi-mixer-btn" class="hidden text-yellow-500 hover:text-yellow-400 transition flex items-center text-xs space-x-1 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10" title="MIDIミキサー">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
                                 <span>MIDI Mixer</span>
+                            </button>
+                            <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10" title="ピアノロール">
+                                <span>🎹 Piano Roll</span>
                             </button>
                         </div>
 
@@ -637,6 +665,35 @@
             </div>
         </div>
 
+        <!-- === MINI PLAYER VIEW (hidden by default, shown in mini-mode) === -->
+        <div id="mini-player-view" class="hidden w-full bg-gray-800/95 backdrop-blur-sm p-3 border-b border-gray-700 items-center space-x-3">
+            <button id="mini-prev" class="text-gray-400 hover:text-white transition shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+            </button>
+            <button id="mini-play" class="bg-blue-600 hover:bg-blue-500 text-white rounded-full p-2 shadow-lg transition shrink-0">
+                <svg id="mini-play-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg id="mini-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
+            <button id="mini-next" class="text-gray-400 hover:text-white transition shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+            </button>
+            <div class="flex-1 min-w-0">
+                <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
+                <div class="flex items-center space-x-2 mt-1">
+                    <span id="mini-current" class="text-[10px] text-gray-400 font-mono w-8 shrink-0">0:00</span>
+                    <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.01" class="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                    <span id="mini-duration" class="text-[10px] text-gray-400 font-mono w-8 shrink-0 text-right">0:00</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                <input type="range" id="mini-vol" min="0" max="1" step="0.01" value="0.3" class="w-16 h-1 bg-gray-600 rounded">
+            </div>
+            <button onclick="toggleMiniPlayer()" class="text-cyan-400 hover:text-white text-xs px-2 py-1 rounded border border-cyan-500/50 hover:bg-cyan-900/50 transition shrink-0" title="通常表示に戻す">
+                ↗ 展開
+            </button>
+        </div>
+
         <!-- 右側: プレイリスト (共通) -->
         <div class="w-full md:w-4/12 bg-gray-900/90 backdrop-blur-sm flex flex-col h-full overflow-hidden border-l border-gray-700/50">
             <!-- Header Title Row -->
@@ -654,12 +711,20 @@
             </div>
 
             <!-- Sub Header: Search Bar & JSON Tools -->
-            <div class="px-3 py-1.5 bg-gray-950/80 border-b border-gray-800 flex items-center space-x-2 shrink-0">
-                <input type="text" id="playlist-search-input" placeholder="🔍 曲名で検索..." class="flex-1 min-w-0 bg-gray-900/90 text-xs text-gray-200 border border-gray-700/80 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
-                <div class="flex items-center space-x-1 shrink-0 text-[10px] whitespace-nowrap">
-                    <button id="export-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="プレイリストをJSON出力">JSON出</button>
-                    <input type="file" id="json-input" accept=".json" class="hidden">
-                    <button id="import-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="JSONプレイリスト読込">JSON入</button>
+            <div class="px-3 py-1.5 bg-gray-950/80 border-b border-gray-800 flex flex-col space-y-1 shrink-0">
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="playlist-search-input" placeholder="🔍 曲名で検索..." class="flex-1 min-w-0 bg-gray-900/90 text-xs text-gray-200 border border-gray-700/80 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
+                    <div class="flex items-center space-x-1 shrink-0 text-[10px] whitespace-nowrap">
+                        <button id="export-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="プレイリストをJSON出力">JSON出</button>
+                        <input type="file" id="json-input" accept=".json" class="hidden">
+                        <button id="import-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="JSONプレイリスト読込">JSON入</button>
+                    </div>
+                </div>
+                <!-- Type Filter Buttons -->
+                <div class="flex items-center space-x-1 text-[10px]">
+                    <button id="filter-all-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-blue-500 bg-blue-500/20 text-blue-300" data-filter="all">All</button>
+                    <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50" data-filter="midi">🎹 MIDI</button>
+                    <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50" data-filter="audio">🎵 Audio</button>
                 </div>
             </div>
             <!-- Playlists Section -->
@@ -879,6 +944,7 @@
         let customPlaylists = JSON.parse(localStorage.getItem('customPlaylists') || '[]');
         let activePlaylist = 'All Tracks';
         let playlistSearchQuery = '';
+        let playlistFilterType = 'all'; // 'all' | 'midi' | 'audio'
         let pendingMoveIndex = -1;
         
         // Single Mode State
@@ -1002,7 +1068,30 @@
                 loopText: document.getElementById('loop-text'),
                 shuffle: document.getElementById('shuffle-btn'),
                 xfadeCheck: document.getElementById('single-crossfade-toggle'),
-                xfadeSlider: document.getElementById('single-crossfade-slider')
+                xfadeSlider: document.getElementById('single-crossfade-slider'),
+                pianoRollBtn: document.getElementById('single-piano-roll-btn')
+            },
+
+            // Mini UI
+            mini: {
+                view: document.getElementById('mini-player-view'),
+                title: document.getElementById('mini-title'),
+                time: document.getElementById('mini-current'),
+                dur: document.getElementById('mini-duration'),
+                seek: document.getElementById('mini-seek'),
+                play: document.getElementById('mini-play'),
+                prev: document.getElementById('mini-prev'),
+                next: document.getElementById('mini-next'),
+                vol: document.getElementById('mini-vol'),
+                playIcon: document.getElementById('mini-play-icon'),
+                pauseIcon: document.getElementById('mini-pause-icon')
+            },
+
+            // Piano Roll UI
+            pianoRoll: {
+                panel: document.getElementById('piano-roll-panel'),
+                canvas: document.getElementById('piano-roll-canvas'),
+                closeBtn: document.getElementById('close-piano-roll-btn')
             },
 
             // Dual UI
@@ -1151,6 +1240,17 @@
             });
             ui.single.xfadeSlider.addEventListener('input', (e) => autoCrossfadeDur = parseInt(e.target.value));
 
+            // Mini Events
+            if (ui.mini.play) ui.mini.play.addEventListener('click', toggleSinglePlay);
+            if (ui.mini.prev) ui.mini.prev.addEventListener('click', () => changeSingleTrack(-1));
+            if (ui.mini.next) ui.mini.next.addEventListener('click', () => changeSingleTrack(1));
+            if (ui.mini.seek) ui.mini.seek.addEventListener('input', (e) => seekSingle(e.target.value));
+            if (ui.mini.vol) ui.mini.vol.addEventListener('input', (e) => updateSingleVolume(e.target.value));
+
+            // Piano Roll Events
+            if (ui.single.pianoRollBtn) ui.single.pianoRollBtn.addEventListener('click', togglePianoRoll);
+            if (ui.pianoRoll.closeBtn) ui.pianoRoll.closeBtn.addEventListener('click', togglePianoRoll);
+
             // Dual Events
             ui.dual.deckA.play.addEventListener('click', (e) => { e.stopPropagation(); toggleDualPlay(0); });
             ui.dual.deckA.stop.addEventListener('click', (e) => { e.stopPropagation(); stopDualDeck(0); });
@@ -1229,6 +1329,22 @@
                     updatePlaylistUI();
                 });
             }
+
+            // Type Filter Button Events
+            document.querySelectorAll('.filter-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    playlistFilterType = btn.dataset.filter;
+                    document.querySelectorAll('.filter-type-btn').forEach(b => {
+                        b.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-blue-300', 'border-yellow-500', 'bg-yellow-500/20', 'text-yellow-300', 'border-green-500', 'bg-green-500/20', 'text-green-300');
+                        b.classList.add('border-gray-700', 'bg-gray-800', 'text-gray-400');
+                    });
+                    const colorMap = { all: 'blue', midi: 'yellow', audio: 'green' };
+                    const c = colorMap[playlistFilterType];
+                    btn.classList.remove('border-gray-700', 'bg-gray-800', 'text-gray-400');
+                    btn.classList.add(`border-${c}-500`, `bg-${c}-500/20`, `text-${c}-300`);
+                    updatePlaylistUI();
+                });
+            });
 
             // JSON Export & Import Events
             const exportJsonBtn = document.getElementById('export-json-btn');
@@ -2028,10 +2144,25 @@
                             offset += len;
                         } else {
                             const cmd = status & 0xf0;
+                            const ch = status & 0x0f;
                             let dataLen = 2;
                             if (cmd === 0xc0 || cmd === 0xd0) dataLen = 1;
+                            
+                            if (cmd === 0x90 && dataLen > 1) {
+                                const note = data[offset];
+                                const vel = data[offset+1];
+                                if (vel > 0) {
+                                    allEvents.push({ tick: currentTick, type: 'noteOn', ch, note, vel });
+                                } else {
+                                    allEvents.push({ tick: currentTick, type: 'noteOff', ch, note });
+                                }
+                            } else if (cmd === 0x80) {
+                                const note = data[offset];
+                                allEvents.push({ tick: currentTick, type: 'noteOff', ch, note });
+                            } else {
+                                allEvents.push({ tick: currentTick, type: 'midi' });
+                            }
                             offset += dataLen;
-                            allEvents.push({ tick: currentTick, type: 'midi' });
                         }
                     }
                     offset = trackEnd;
@@ -2060,25 +2191,50 @@
                     }
                 }
 
+                function calcTickToSec(targetTick) {
+                    let sec = 0;
+                    let lastT = 0;
+                    let tempo = 500000;
+                    for (const pt of timePoints) {
+                        if (pt.tick > targetTick) break;
+                        sec = pt.timeSec;
+                        lastT = pt.tick;
+                        tempo = pt.usPerQN;
+                    }
+                    if (targetTick > lastT) {
+                        sec += ((targetTick - lastT) / ppqn) * (tempo / 1000000);
+                    }
+                    return sec;
+                }
+
+                const notes = [];
+                const activeNotes = {};
+                for (const ev of allEvents) {
+                    if (ev.type === 'noteOn') {
+                        const key = `${ev.ch}_${ev.note}`;
+                        const startSec = calcTickToSec(ev.tick);
+                        activeNotes[key] = { ch: ev.ch, note: ev.note, startSec, endSec: startSec + 0.1, vel: ev.vel };
+                    } else if (ev.type === 'noteOff') {
+                        const key = `${ev.ch}_${ev.note}`;
+                        if (activeNotes[key]) {
+                            activeNotes[key].endSec = Math.max(activeNotes[key].startSec + 0.05, calcTickToSec(ev.tick));
+                            notes.push(activeNotes[key]);
+                            delete activeNotes[key];
+                        }
+                    }
+                }
+                for (const k in activeNotes) {
+                    notes.push(activeNotes[k]);
+                }
+
                 return {
                     totalDuration: currentSec,
                     maxTick: maxTick,
                     ppqn: ppqn,
                     timePoints: timePoints,
+                    notes: notes,
                     tickToSec(targetTick) {
-                        let sec = 0;
-                        let lastT = 0;
-                        let tempo = 500000;
-                        for (const pt of timePoints) {
-                            if (pt.tick > targetTick) break;
-                            sec = pt.timeSec;
-                            lastT = pt.tick;
-                            tempo = pt.usPerQN;
-                        }
-                        if (targetTick > lastT) {
-                            sec += ((targetTick - lastT) / ppqn) * (tempo / 1000000);
-                        }
-                        return sec;
+                        return calcTickToSec(targetTick);
                     },
                     secToTick(targetSec) {
                         let tick = 0;
@@ -2182,11 +2338,27 @@
                     if (synth) {
                         const status = synth.getPlayStatus();
                         if (status && status.play) {
-                             ui.single.time.textContent = formatTime(status.currentTime);
-                             ui.single.dur.textContent = formatTime(status.maxTime);
-                             if(document.activeElement !== ui.single.seek && status.maxTime > 0) {
-                                 ui.single.seek.value = (status.currentTime / status.maxTime) * 100;
+                             const formattedCur = formatTime(status.currentTime);
+                             const formattedMax = formatTime(status.maxTime);
+                             ui.single.time.textContent = formattedCur;
+                             ui.single.dur.textContent = formattedMax;
+                             if (ui.mini) {
+                                 ui.mini.time.textContent = formattedCur;
+                                 ui.mini.dur.textContent = formattedMax;
                              }
+                             const pct = status.maxTime > 0 ? (status.currentTime / status.maxTime) * 100 : 0;
+                             if(document.activeElement !== ui.single.seek && status.maxTime > 0) {
+                                 ui.single.seek.value = pct;
+                             }
+                             if(ui.mini && document.activeElement !== ui.mini.seek && status.maxTime > 0) {
+                                 ui.mini.seek.value = pct;
+                             }
+
+                             // Draw Piano Roll if open
+                             if (isPianoRollOpen && ui.pianoRoll.canvas && synth._smfMap && synth._smfMap.notes) {
+                                 drawPianoRoll(ui.pianoRoll.canvas, synth._smfMap.notes, status.currentTime, status.maxTime);
+                             }
+
                              // End check
                              if (status.maxTime > 0 && status.currentTime >= status.maxTime) {
                                  if(loopMode !== 0) { synth.playMIDI(); }
@@ -2789,6 +2961,7 @@
                 
                 initMidiMixerUI();
                 document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
+                document.getElementById('single-piano-roll-btn').classList.remove('hidden');
                 
                 ui.single.title.textContent = track.name + " (MIDI)";
                 showNotification(`▶ 再生中: ${track.name}`);
@@ -2796,8 +2969,11 @@
 
             } else {
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
+                document.getElementById('single-piano-roll-btn').classList.add('hidden');
                 document.getElementById('midi-mixer-panel').classList.add('hidden');
+                document.getElementById('piano-roll-panel').classList.add('hidden');
                 document.getElementById('single-artwork-area').classList.remove('hidden');
+                isPianoRollOpen = false;
                 
                 // --- AUDIO PLAYBACK ---
                 currentSinglePlayerIndex = 0; 
@@ -2901,9 +3077,17 @@
             if (i !== currentSinglePlayerIndex) return;
             const p = players[i];
             if(isNaN(p.duration)) return;
-            ui.single.time.textContent = formatTime(p.currentTime);
-            ui.single.dur.textContent = formatTime(p.duration);
-            if(document.activeElement !== ui.single.seek) ui.single.seek.value = (p.currentTime / p.duration) * 100;
+            const formattedCur = formatTime(p.currentTime);
+            const formattedDur = formatTime(p.duration);
+            ui.single.time.textContent = formattedCur;
+            ui.single.dur.textContent = formattedDur;
+            if (ui.mini) {
+                ui.mini.time.textContent = formattedCur;
+                ui.mini.dur.textContent = formattedDur;
+            }
+            const pct = (p.currentTime / p.duration) * 100;
+            if(document.activeElement !== ui.single.seek) ui.single.seek.value = pct;
+            if(ui.mini && document.activeElement !== ui.mini.seek) ui.mini.seek.value = pct;
             
             if(isAutoCrossfade && !isAutoCrossfading && !p.paused && currentMode === 'single') {
                 if((p.duration - p.currentTime) <= autoCrossfadeDur && (p.duration - p.currentTime) > 0.5) {
@@ -2932,21 +3116,132 @@
             }
         }
         
-        function seekSingle() {
+        function seekSingle(val) {
+            const seekVal = (typeof val === 'number' || typeof val === 'string') ? parseFloat(val) : parseFloat(ui.single.seek.value);
+            ui.single.seek.value = seekVal;
+            if (ui.mini && ui.mini.seek) ui.mini.seek.value = seekVal;
             const track = playlist[singleTrackIndex];
             if (track && track.isMidi) {
-                seekMidi(midiPlayers.main, ui.single.seek.value);
+                seekMidi(midiPlayers.main, seekVal);
             } else {
                 let p = players[currentSinglePlayerIndex];
-                if(p.duration) p.currentTime = (ui.single.seek.value / 100) * p.duration;
+                if(p.duration) p.currentTime = (seekVal / 100) * p.duration;
             }
         }
         
-        function updateSingleVolume() {
-            const vol = parseFloat(ui.single.vol.value);
+        function updateSingleVolume(val) {
+            const vol = (typeof val === 'number' || typeof val === 'string') ? parseFloat(val) : parseFloat(ui.single.vol.value);
+            ui.single.vol.value = vol;
+            if (ui.mini && ui.mini.vol) ui.mini.vol.value = vol;
             singleGainNodes.forEach(g => g.gain.setTargetAtTime(vol, audioContext.currentTime, 0.1));
             const synth = midiPlayers.main;
             if(synth) synth.setMasterVol(vol);
+        }
+
+        // --- Mini Player Toggle ---
+        let isMiniMode = false;
+        function toggleMiniPlayer() {
+            isMiniMode = !isMiniMode;
+            document.body.classList.toggle('mini-mode', isMiniMode);
+        }
+        window.toggleMiniPlayer = toggleMiniPlayer;
+
+        // --- Piano Roll Logic ---
+        let isPianoRollOpen = false;
+        function togglePianoRoll() {
+            isPianoRollOpen = !isPianoRollOpen;
+            const panel = document.getElementById('piano-roll-panel');
+            const artwork = document.getElementById('single-artwork-area');
+            if (panel) {
+                if (isPianoRollOpen) {
+                    panel.classList.remove('hidden');
+                    document.getElementById('midi-mixer-panel').classList.add('hidden');
+                    if (artwork) artwork.classList.add('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                    if (artwork) artwork.classList.remove('hidden');
+                }
+            }
+        }
+        window.togglePianoRoll = togglePianoRoll;
+
+        function drawPianoRoll(canvas, notes, currentSec, totalSec) {
+            if (!canvas || !notes || notes.length === 0) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            
+            if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+                canvas.width = Math.floor(rect.width * dpr);
+                canvas.height = Math.floor(rect.height * dpr);
+            }
+            ctx.save();
+            ctx.scale(dpr, dpr);
+            const W = rect.width;
+            const H = rect.height;
+
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, W, H);
+
+            const viewSecBefore = 1.0;
+            const viewSecAfter = 5.0;
+            const totalViewSec = viewSecBefore + viewSecAfter;
+            const startSec = currentSec - viewSecBefore;
+            const endSec = currentSec + viewSecAfter;
+
+            const minNote = 21;
+            const maxNote = 108;
+            const noteHeight = H / (maxNote - minNote + 1);
+
+            // Grid lines for C notes
+            ctx.lineWidth = 0.5;
+            for (let n = minNote; n <= maxNote; n++) {
+                if (n % 12 === 0) {
+                    const y = H - (n - minNote + 1) * noteHeight;
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(W, y);
+                    ctx.stroke();
+                }
+            }
+
+            const visibleNotes = notes.filter(n => n.endSec >= startSec && n.startSec <= endSec);
+
+            for (const n of visibleNotes) {
+                const x1 = ((n.startSec - startSec) / totalViewSec) * W;
+                const x2 = ((n.endSec - startSec) / totalViewSec) * W;
+                const w = Math.max(3, x2 - x1);
+                const y = H - (n.note - minNote + 1) * noteHeight;
+                const h = Math.max(2, noteHeight - 0.5);
+
+                const isActive = (n.startSec <= currentSec && n.endSec >= currentSec);
+                const hue = (n.ch * 22.5) % 360;
+                
+                if (isActive) {
+                    ctx.fillStyle = `hsl(${hue}, 100%, 75%)`;
+                    ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
+                    ctx.shadowBlur = 8;
+                } else {
+                    ctx.fillStyle = `hsl(${hue}, 70%, 45%)`;
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.fillRect(x1, y, w, h);
+            }
+            ctx.shadowBlur = 0;
+
+            // Playhead line
+            const playheadX = (viewSecBefore / totalViewSec) * W;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(playheadX, 0);
+            ctx.lineTo(playheadX, H);
+            ctx.stroke();
+
+            ctx.restore();
         }
 
         function updateVisualUIState(isPlaying) {
@@ -3389,6 +3684,7 @@
             ui.single.title.textContent = t.name;
             ui.single.status.textContent = "Ready";
             ui.single.artwork.style.borderColor = `hsl(${Math.random()*360}, 70%, 50%)`;
+            if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
         }
 
         function updateSingleUIState() {
@@ -3397,11 +3693,19 @@
                 ui.single.pauseIcon.classList.remove('hidden');
                 ui.single.artwork.style.animationPlayState = 'running';
                 ui.single.status.textContent = "Now Playing";
+                if (ui.mini && ui.mini.playIcon) {
+                    ui.mini.playIcon.classList.add('hidden');
+                    ui.mini.pauseIcon.classList.remove('hidden');
+                }
             } else {
                 ui.single.playIcon.classList.remove('hidden');
                 ui.single.pauseIcon.classList.add('hidden');
                 ui.single.artwork.style.animationPlayState = 'paused';
                 ui.single.status.textContent = "Paused";
+                if (ui.mini && ui.mini.playIcon) {
+                    ui.mini.playIcon.classList.remove('hidden');
+                    ui.mini.pauseIcon.classList.add('hidden');
+                }
             }
         }
 
@@ -3437,7 +3741,8 @@
                 .filter(item => {
                     const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
                     const matchQuery = !query || item.name.toLowerCase().includes(query);
-                    return matchPlaylist && matchQuery;
+                    const matchType = playlistFilterType === 'all' || (playlistFilterType === 'midi' && item.isMidi) || (playlistFilterType === 'audio' && !item.isMidi);
+                    return matchPlaylist && matchQuery && matchType;
                 });
                 
             ui.trackCount.textContent = `(${filteredTracks.length})`;
