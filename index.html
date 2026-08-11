@@ -3239,8 +3239,11 @@
                 activeExportProcessor = null;
             }
 
-            // Speed ratio: 8.0x accelerated PCM capture
-            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 8.0 : 1.0;
+            // Pause background canvas visualizer rendering to dedicate 100% CPU to audio synthesis
+            isExportingWav = true;
+
+            // Speed ratio: 12.0x accelerated PCM capture (silent to speaker, visualizers paused)
+            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 12.0 : 1.0;
             
             // Mute speaker output while keeping raw PCM capture 100% active
             if (speakerGainNode && speedBoost > 1.0) {
@@ -3288,7 +3291,7 @@
 
             if (synth.playMIDI) synth.playMIDI();
 
-            showNotification(`🚀 SoundFont (消音8倍速) で (${track.name}) を高音質WAV変換中...`);
+            showNotification(`🚀 SoundFont (ビジュアライザ無効・消音12倍速) で (${track.name}) を爆速WAV変換中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
@@ -3300,6 +3303,10 @@
                 isFinalizing = true;
                 if (exportProgressInterval) clearInterval(exportProgressInterval);
                 if (stopBtn) stopBtn.classList.add('hidden');
+
+                // Resume background visualizer animation
+                isExportingWav = false;
+                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
 
                 // Disconnect raw PCM processor
                 if (activeExportProcessor) {
@@ -4852,7 +4859,10 @@
             });
         }
 
+        let isExportingWav = false;
+
         function renderBgVisualizer() {
+            if (isExportingWav) return;
             bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
             
             const canvas = document.getElementById('bg-visualizer-canvas');
