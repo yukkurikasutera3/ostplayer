@@ -690,16 +690,6 @@
                         <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.5 Full Update</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-yellow-900/50">
-                            <div class="flex items-center justify-between text-yellow-300 font-bold mb-1.5 border-b border-yellow-900/40 pb-1">
-                                <span>🌐 オンライン SoundFont プリセット (v2.6)</span>
-                                <span class="text-[10px] text-gray-400 font-normal">2026-08-11</span>
-                            </div>
-                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
-                                <li><strong>1クリック SoundFont 取得:</strong> GeneralUser GS (30MB 高音質 GS/GM) や TimGM6mb (6MB 軽量 GM) などのプロ仕様 SoundFont をワンクリックで高速ダウンロード＆即時適用。</li>
-                                <li><strong>IndexedDB 自動キャッシュ:</strong> ダウンロードした SoundFont はブラウザに自動保存され、次回起動時もローカルから超高速で復元。</li>
-                            </ul>
-                        </div>
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-purple-900/50">
                             <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-indigo-900/40 pb-1">
                                 <span>🎉 最新アップデート (v2.5)</span>
@@ -730,23 +720,17 @@
                 </div>
             </div>
             
-            <div class="mt-4 flex flex-wrap md:flex-nowrap justify-between items-center text-xs text-gray-500 gap-2">
-                <span class="whitespace-nowrap truncate shrink-0">※ ファイルやフォルダをドラッグ&ドロップして追加</span>
-                <div class="flex items-center space-x-2 shrink-0 flex-wrap md:flex-nowrap gap-y-1">
-                    <!-- SoundFont Online Preset Selector -->
-                    <select id="sf2-preset-select" onchange="loadOnlineSoundFont(this.value)" class="px-2.5 py-1 rounded-full border border-yellow-500/50 text-[10px] font-bold text-yellow-300 bg-gray-900 hover:bg-gray-800 transition-colors select-none focus:outline-none cursor-pointer whitespace-nowrap shrink-0" title="SoundFont プリセットを選択・オンライン取得">
-                        <option value="builtin">⚡ SF: デフォルト (Built-in Synth)</option>
-                        <option value="timgm">🚀 SF: TimGM6mb (軽量 6MB GM 音源)</option>
-                        <option value="custom">📁 SF: ローカル.sf2/.sf3を選択...</option>
-                    </select>
+            <div class="mt-4 flex justify-between items-center text-xs text-gray-500">
+                <span>※ ファイルやフォルダをドラッグ&ドロップして追加</span>
+                <div class="flex items-center space-x-2">
                     <!-- Changelog / Help Button -->
-                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1 whitespace-nowrap shrink-0 min-w-max" title="更新履歴とヘルプを表示">
-                        <span>📜</span><span class="whitespace-nowrap">更新履歴</span>
+                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="更新履歴とヘルプを表示">
+                        <span>📜</span><span>更新履歴</span>
                     </button>
                     <!-- Record Session Button -->
-                    <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1 whitespace-nowrap shrink-0 min-w-max" title="セッションを録音する">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" id="record-dot"></span>
-                        <span id="record-text" class="whitespace-nowrap">Rec Session</span>
+                    <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="セッションを録音する">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
+                        <span id="record-text">Rec Session</span>
                     </button>
                     <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff" class="hidden">
                     <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
@@ -4691,9 +4675,6 @@
                 await initSpessaSynth(activeSoundFontBuffer);
                 showNotification(`✨ Custom SoundFont (${name} - ${sizeMB} MB) を適用しました！`);
 
-                const select = document.getElementById('sf2-preset-select');
-                if (select) select.value = 'custom';
-
                 // 3. Save to IndexedDB asynchronously in background so DB locks/quotas never block playback
                 if (db) {
                     try {
@@ -5051,8 +5032,6 @@
             activeSoundFontBuffer = null;
             spessaSynthInstance = null;
             isSpessaSynthLoaded = false;
-            const select = document.getElementById('sf2-preset-select');
-            if (select) select.value = 'builtin';
             showNotification("SoundFontをリセットしました（デフォルト音源を使用します）");
         }
         window.resetSoundFont = resetSoundFont;
@@ -5148,11 +5127,6 @@
                                 showNotification(`保存済みSoundFont (${res.name || 'カスタムSF2'} - ${sizeMB} MB) を読み込み中...`);
                                 activeSoundFontBuffer = await res.blob.arrayBuffer();
                                 await initSpessaSynth(activeSoundFontBuffer);
-                                const select = document.getElementById('sf2-preset-select');
-                                if (select && res.name) {
-                                    if (res.name === 'TimGM6mb.sf2') select.value = 'timgm';
-                                    else select.value = 'custom';
-                                }
                                 showNotification(`カスタムSoundFont (${res.name || 'SF2'}) を適用しました`);
                             } catch(err) {
                                 console.error("SoundFont load error:", err);
@@ -5167,88 +5141,6 @@
                 }
             });
         }
-
-        // --- Online SoundFont Presets ---
-        async function loadOnlineSoundFont(presetKey) {
-            if (presetKey === 'builtin') {
-                await resetSoundFont();
-                return;
-            }
-            if (presetKey === 'custom') {
-                const input = document.getElementById('sf2-input');
-                if (input) input.click();
-                return;
-            }
-            
-            const presetMap = {
-                'timgm': {
-                    name: 'TimGM6mb.sf2',
-                    urls: [
-                        'https://raw.githubusercontent.com/craffel/pretty-midi/master/pretty_midi/TimGM6mb.sf2',
-                        'https://raw.githubusercontent.com/deepin-community/timgm6mb-soundfont/master/TimGM6mb.sf2',
-                        'https://cdn.jsdelivr.net/gh/craffel/pretty-midi@master/pretty_midi/TimGM6mb.sf2'
-                    ],
-                    label: 'TimGM6mb (軽量 6MB GM)'
-                }
-            };
-            
-            const preset = presetMap[presetKey];
-            if (!preset) return;
-            
-            showNotification(`🌐 オンライン SoundFont (${preset.label}) をダウンロード中...`);
-            
-            let buffer = null;
-            let lastErr = null;
-
-            for (const url of preset.urls) {
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const arrayBuf = await response.arrayBuffer();
-                    if (arrayBuf && arrayBuf.byteLength > 5000000) {
-                        buffer = arrayBuf;
-                        break;
-                    }
-                } catch(err) {
-                    console.warn(`SoundFont mirror fetch failed (${url}):`, err);
-                    lastErr = err;
-                }
-            }
-            
-            if (!buffer || buffer.byteLength < 5000000) {
-                showNotification(`SoundFont のダウンロードに失敗しました (${lastErr ? lastErr.message : '通信エラー'})。`);
-                const select = document.getElementById('sf2-preset-select');
-                if (select) select.value = 'builtin';
-                return;
-            }
-            
-            try {
-                const sizeMB = (buffer.byteLength / (1024 * 1024)).toFixed(1);
-                showNotification(`SoundFont (${preset.name} - ${sizeMB} MB) を合成エンジンに適用中...`);
-                
-                activeSoundFontBuffer = buffer.slice(0);
-                await initSpessaSynth(buffer.slice(0));
-                
-                if (db) {
-                    try {
-                        const blob = new Blob([buffer.slice(0)], { type: 'application/octet-stream' });
-                        const t = db.transaction(['soundfonts'], 'readwrite');
-                        t.objectStore('soundfonts').put({ id: 'active-sf2', name: preset.name, blob: blob });
-                    } catch(e) {}
-                }
-                
-                const select = document.getElementById('sf2-preset-select');
-                if (select) select.value = presetKey;
-                
-                showNotification(`✨ SoundFont (${preset.label}) の適用完了！`);
-            } catch(err) {
-                console.error("Online SoundFont application error:", err);
-                showNotification(`SoundFont の合成適用に失敗しました: ${err.message || err}`);
-                const select = document.getElementById('sf2-preset-select');
-                if (select) select.value = 'builtin';
-            }
-        }
-        window.loadOnlineSoundFont = loadOnlineSoundFont;
 
         let isAudioWorkletModuleAdded = false;
 
