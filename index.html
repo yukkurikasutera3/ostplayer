@@ -3164,9 +3164,15 @@
                 try { activeExportRecorder.stop(); } catch(e){}
             }
 
-            // Speed ratio: 6x accelerated recording
-            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 6.0 : 1.0;
+            // Speed ratio: 16x super-boost accelerated recording (silent to speaker)
+            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 16.0 : 1.0;
+            const originalSpeakerGain = masterGainNode ? masterGainNode.gain.value : 1.0;
             
+            // Mute speaker output so user hears no sound during 16x export
+            if (masterGainNode && speedBoost > 1.0) {
+                masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            }
+
             activeExportChunks = [];
             try {
                 activeExportRecorder = new MediaRecorder(recDestNode.stream, { mimeType: 'audio/webm;codecs=opus' });
@@ -3198,7 +3204,7 @@
             if (synth.playMIDI) synth.playMIDI();
 
             activeExportRecorder.start(200);
-            showNotification(`⚡ SoundFont (${sfName}) で (${track.name}) を高速WAV変換中...`);
+            showNotification(`🚀 SoundFont (消音16倍速) で (${track.name}) を爆速WAV変換中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
@@ -3211,7 +3217,10 @@
                 if (exportProgressInterval) clearInterval(exportProgressInterval);
                 if (stopBtn) stopBtn.classList.add('hidden');
 
-                // Restore normal 1.0x playback speed
+                // Restore speaker volume and normal 1.0x playback speed
+                if (masterGainNode) {
+                    masterGainNode.gain.setValueAtTime(isMuted ? 0 : (originalSpeakerGain > 0 ? originalSpeakerGain : 1.0), audioContext.currentTime);
+                }
                 if (synth.sequencer) {
                     try { synth.sequencer.playbackRate = 1.0; } catch(e){}
                 }
@@ -3261,12 +3270,7 @@
                     hideExportProgressWidget(2500);
                 } catch (err) {
                     console.error("WAV conversion error:", err);
-                    showNotification("WAV変換に失敗したため、WebM形式で保存します");
-                    const url = URL.createObjectURL(webmBlob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${track.name}.webm`;
-                    a.click();
+                    showNotification("WAV変換処理中にエラーが発生しました");
                     hideExportProgressWidget(1000);
                 }
             };
