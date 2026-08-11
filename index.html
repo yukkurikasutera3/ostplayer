@@ -976,6 +976,23 @@
         </div>
     </div>
     
+    <!-- Export Progress Floating Widget -->
+    <div id="export-progress-widget" class="fixed bottom-6 right-6 bg-gray-900/95 border border-emerald-500/60 p-4 rounded-xl shadow-2xl z-50 flex flex-col space-y-2.5 min-w-[300px] backdrop-blur-md hidden transition-all duration-300">
+        <div class="flex justify-between items-center text-xs font-bold text-emerald-400">
+            <span id="export-widget-title" class="flex items-center space-x-1.5">
+                <span class="animate-spin">⏳</span>
+                <span>WAV書き出し中...</span>
+            </span>
+            <span id="export-widget-percent" class="font-mono text-emerald-300">0%</span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-700">
+            <div id="export-widget-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-full w-0 transition-all duration-150 shadow-[0_0_10px_#10b981]"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] text-gray-400 font-mono">
+            <span id="export-widget-detail">SoundFont オフラインレンダリング中</span>
+        </div>
+    </div>
+    
     <!-- Recording Result Modal -->
     <div id="recording-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden transition-opacity duration-200">
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl flex flex-col space-y-4">
@@ -2936,11 +2953,10 @@
                 
                 // Decode or Render MIDI
                 if (track.isMidi) {
-                    // MIDI Export is complex (need to render TinySynth offline), skipping for basic impl
-                    // Fallback alert
-                    alert("MIDIファイルのエクスポートは現在サポートされていません");
-                    throw new Error("MIDI Export not supported");
+                    await exportMidiFastWav(track);
+                    return;
                 } else {
+                    updateExportProgress(15, 'FX WAV書き出し中...', 'オーディオデコード中...');
                     audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                 }
                 
@@ -3011,19 +3027,28 @@
                 wet.connect(offlineCtx.destination);
                 delayGain.connect(offlineCtx.destination);
                 
+                updateExportProgress(50, 'FX WAV書き出し中...', 'エフェクトグラフ レンダリング中...');
                 source.start();
                 
                 const renderedBuffer = await offlineCtx.startRendering();
+                updateExportProgress(92, 'FX WAV書き出し中...', 'WAVデータ変換中...');
                 const wavBlob = bufferToWav(renderedBuffer);
                 const url = URL.createObjectURL(wavBlob);
                 
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `FX_${track.name}.wav`;
+                const cleanName = (track.name || 'FX_Track').replace(/[\/\\?%*:|"<>]/g, '_');
+                a.download = `FX_${cleanName}.wav`;
                 document.body.appendChild(a);
                 a.click();
-                URL.revokeObjectURL(url);
+                setTimeout(() => {
+                    try { document.body.removeChild(a); } catch(e){}
+                    URL.revokeObjectURL(url);
+                }, 1000);
+                
+                updateExportProgress(100, '書き出し完了！', `FX_${cleanName}.wav を保存しました`);
+                hideExportProgressWidget(2500);
                 
             } catch(e) {
                 console.error(e);
@@ -3033,28 +3058,79 @@
             }
         }
         
+        // --- Export Progress Helper Functions ---
+        function updateExportProgress(percent, title, detail) {
+            const widget = document.getElementById('export-progress-widget');
+            const titleEl = document.getElementById('export-widget-title');
+            const percentEl = document.getElementById('export-widget-percent');
+            const barEl = document.getElementById('export-widget-bar');
+            const detailEl = document.getElementById('export-widget-detail');
+            
+            if (!widget) return;
+            widget.classList.remove('hidden');
+            
+            const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+            if (percentEl) percentEl.textContent = `${clamped}%`;
+            if (barEl) barEl.style.width = `${clamped}%`;
+            if (title && titleEl) {
+                if (clamped >= 100) {
+                    titleEl.innerHTML = `<span>✨</span><span>${title}</span>`;
+                } else {
+                    titleEl.innerHTML = `<span class="animate-spin">⏳</span><span>${title}</span>`;
+                }
+            }
+            if (detail && detailEl) detailEl.textContent = detail;
+        }
+
+        function hideExportProgressWidget(delayMs = 2000) {
+            setTimeout(() => {
+                const widget = document.getElementById('export-progress-widget');
+                if (widget) widget.classList.add('hidden');
+            }, delayMs);
+        }
+
         // --- High-Speed Offline MIDI WAV Export (Fast Render) ---
         async function exportMidiFastWav(track) {
             if (!track || !track.file) return;
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
+            updateExportProgress(5, 'WAV書き出し中...', `MIDIトラック (${track.name}) を準備中...`);
             showNotification(`💾 MIDI (${track.name}) をWAVへ書き出し中... (${sfName})`);
             
+            let progressTimer = null;
+            let currentPct = 10;
+
             try {
                 const arrayBuffer = await track.file.arrayBuffer();
+                updateExportProgress(20, 'WAV書き出し中...', 'SMF解析 & 演奏時間マッピング中...');
+                
                 const smfMap = parseSMF(arrayBuffer);
                 const duration = Math.max(3, Math.ceil(smfMap ? smfMap.totalDuration : 180)) + 2;
                 
                 const sampleRate = 44100;
                 const offlineCtx = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
                 
+                updateExportProgress(35, 'WAV書き出し中...', `SoundFont (${sfName}) レンダリング中...`);
+                
                 const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
                 renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
                 renderSynth.loadMIDI(new Uint8Array(arrayBuffer));
                 renderSynth.playMIDI();
                 
+                // Simulate smooth progress update while offline rendering
+                progressTimer = setInterval(() => {
+                    if (currentPct < 85) {
+                        currentPct += Math.floor(Math.random() * 12) + 5;
+                        updateExportProgress(currentPct, 'WAV書き出し中...', `音声を合成中... (${Math.round(currentPct)}%)`);
+                    }
+                }, 100);
+
                 const renderedBuffer = await offlineCtx.startRendering();
+                clearInterval(progressTimer);
+                progressTimer = null;
+
+                updateExportProgress(92, 'WAV書き出し中...', 'WAVヘッダー & PCMデータをエンコード中...');
                 const wavBlob = bufferToWav(renderedBuffer);
                 
                 const url = URL.createObjectURL(wavBlob);
@@ -3071,9 +3147,14 @@
                     URL.revokeObjectURL(url);
                 }, 1000);
                 
+                updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                 showNotification(`✨ 書き出し完了！ ${cleanName}_${cleanSf}.wav をエクスポートしました！`);
+                hideExportProgressWidget(2500);
+
             } catch(err) {
+                if (progressTimer) clearInterval(progressTimer);
                 console.error("Fast MIDI WAV export error:", err);
+                hideExportProgressWidget(500);
                 showNotification(`リアルタイム録音モードで書き出しを開始します...`);
                 if (!isRecording) {
                     startRecording();
