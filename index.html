@@ -3235,7 +3235,7 @@
                     await synth.soundBankManager.addSoundBank(activeSoundFontBuffer.slice(0), "main");
                     
                     updateExportProgress(35, 'MIDIトラック解析中...', `SMFデータ解析中 (35%)`);
-                    const parsedMid = new Core.BasicMIDI(arrayBuffer);
+                    const parsedMid = Core.BasicMIDI.fromArrayBuffer(arrayBuffer, track.name || "");
                     const durationSec = Math.max(3, parsedMid.duration || 180);
                     const totalSamples = Math.ceil(sampleRate * durationSec);
                     
@@ -3344,7 +3344,7 @@
                 isExportingWav = false;
                 bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
                 hideExportProgressWidget(500);
-                showNotification("書き出し処理中にエラーが発生しました");
+                showNotification(`書き出しエラー: ${err.message || '不明なエラー'}`);
             }
         }
         window.exportMidiFastWav = exportMidiFastWav;
