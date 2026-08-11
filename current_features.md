@@ -22,10 +22,7 @@ OST Player に現在実装されている全機能および画面構成要素の
 * **デュアルMIDIエンジン**:
   * **WebAudioTinySynth**: 軽量即時再生エンジン
   * **SpessaSynth**: 高音質 SoundFont 対応 WebWorklet エンジン
-* **SoundFont (SF2 / SF3) サポート**:
-  * **🌐 1クリック オンライン SoundFont プリセット**: GeneralUser GS (30MB 高音質 GS/GM) や TimGM6mb (6MB 軽量 GM) などのプロ仕様 SoundFont をワンクリックで高速ダウンロード＆即時適用。
-  * **カスタム SoundFont 読み込み**: ローカルの `.sf2` / `.sf3` ファイルの読み込み・適用。
-  * **IndexedDB 永続保存**: 適用した SoundFont をブラウザに自動キャッシュ保存し、次回起動時もローカルから超高速復元。
+* **SoundFont (SF2 / SF3) 対応**: カスタム SoundFont ファイルの読み込み・適用・IndexedDBへの永続保存・デフォルトリセット。
 * **MIDI チャンネルミキサー (16CH)**:
   * チャンネル別のミュート（Mute）/ ソロ（Solo）/ 音量（Vol）/ パン（Pan）調整
   * 音符発音時にリアルタイム点灯する LED インジケーター (Ch 1〜16)
