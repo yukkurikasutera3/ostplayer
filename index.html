@@ -3232,25 +3232,31 @@
                 updateExportProgress(80, 'WAV変換中...', '録音データのデコード中...');
 
                 if (activeExportRecorder && activeExportRecorder.state !== 'inactive') {
-                    activeExportRecorder.stop();
+                    try { activeExportRecorder.requestData(); } catch(e){}
+                    try { activeExportRecorder.stop(); } catch(e){}
                 }
 
                 await new Promise(r => setTimeout(r, 400));
 
-                const webmBlob = new Blob(activeExportChunks, { type: 'audio/webm' });
-                if (webmBlob.size === 0) {
-                    showNotification("録音データが空でした");
-                    hideExportProgressWidget(500);
-                    return;
-                }
-
+                let webmBlob = new Blob(activeExportChunks, { type: 'audio/webm' });
+                
                 try {
-                    const webmArrayBuf = await webmBlob.arrayBuffer();
-                    const rawDecoded = await audioContext.decodeAudioData(webmArrayBuf);
-                    
-                    updateExportProgress(88, 'WAV変換中...', '倍速録音データを標準速度(1.0x)へピッチ復元中...');
-                    
-                    const restoredBuffer = speedBoost !== 1.0 ? await resampleAudioBuffer(rawDecoded, speedBoost) : rawDecoded;
+                    let restoredBuffer = null;
+                    if (webmBlob.size > 0) {
+                        const webmArrayBuf = await webmBlob.arrayBuffer();
+                        const rawDecoded = await audioContext.decodeAudioData(webmArrayBuf);
+                        updateExportProgress(88, 'WAV変換中...', '倍速録音データを標準速度(1.0x)へピッチ復元中...');
+                        restoredBuffer = speedBoost !== 1.0 ? await resampleAudioBuffer(rawDecoded, speedBoost) : rawDecoded;
+                    } else {
+                        // Fail-safe direct offline render fallback
+                        updateExportProgress(85, 'WAV変換中...', 'ダイレクトオフラインレンダリング中...');
+                        const offlineCtx = new OfflineAudioContext(2, 44100 * Math.max(5, Math.ceil(totalDuration)), 44100);
+                        const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                        renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
+                        renderSynth.loadMIDI(new Uint8Array(arrayBuffer));
+                        renderSynth.playMIDI();
+                        restoredBuffer = await offlineCtx.startRendering();
+                    }
                     
                     updateExportProgress(92, 'WAV変換中...', '16-bit PCM WAVデータに変換中...');
                     const wavBlob = await asyncBufferToWav(restoredBuffer, updateExportProgress);
