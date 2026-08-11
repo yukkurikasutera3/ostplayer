@@ -3207,160 +3207,73 @@
             return await offlineCtx.startRendering();
         }
 
-        // --- SoundFont Direct Raw PCM Capture & High-Speed WAV Exporter ---
-        let activeExportProcessor = null;
-        let recordedLeftChunks = [];
-        let recordedRightChunks = [];
-        let exportProgressInterval = null;
-
+        // --- SoundFont (SGM) 1-Second Ultra-Fast Offline WAV Exporter ---
         async function exportMidiFastWav(track) {
             if (!track || !track.file) return;
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
-            initAudio();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-
+            isExportingWav = true;
             exportStartTime = performance.now();
             updateExportProgress(0, 'WAV書き出し準備中...', `MIDIトラック (${track.name})`);
-
-            const synth = getMidiSynth('main');
-            if (!synth) {
-                showNotification("エラー: MIDIシンセを初期化できませんでした");
-                return;
-            }
-
-            if (exportProgressInterval) clearInterval(exportProgressInterval);
-            if (activeExportProcessor) {
-                try {
-                    masterGainNode.disconnect(activeExportProcessor);
-                    activeExportProcessor.disconnect();
-                } catch(e){}
-                activeExportProcessor = null;
-            }
-
-            // Pause background canvas visualizer rendering to dedicate 100% CPU to audio synthesis
-            isExportingWav = true;
-
-            // Pause background canvas visualizer rendering to dedicate 100% CPU to audio synthesis
-            isExportingWav = true;
-
-            // Speed ratio: 1.0x (Pristine 1.0x pitch & tempo fidelity, silent to speaker, visualizers paused)
-            const speedBoost = 1.0;
-            
-            // Mute speaker output while keeping raw PCM capture 100% active
-            if (speakerGainNode) {
-                speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            }
-
-            recordedLeftChunks = [];
-            recordedRightChunks = [];
-
-            // Direct Raw PCM Capture Node (No WebM, No Opus, No decodeAudioData error!)
-            const bufferSize = 4096;
-            activeExportProcessor = audioContext.createScriptProcessor(bufferSize, 2, 2);
-            activeExportProcessor.onaudioprocess = (e) => {
-                const l = e.inputBuffer.getChannelData(0);
-                const r = e.inputBuffer.getChannelData(1);
-                recordedLeftChunks.push(new Float32Array(l));
-                recordedRightChunks.push(new Float32Array(r));
-            };
-
-            masterGainNode.connect(activeExportProcessor);
-            activeExportProcessor.connect(audioContext.destination);
-
-            if (synth.stopMIDI) synth.stopMIDI();
-            const arrayBuffer = await track.file.arrayBuffer();
-
-            // Calculate exact MIDI total duration using SMF parser
-            const smfMap = parseSMF(arrayBuffer);
-            let totalDuration = 0;
-            if (smfMap && smfMap.totalDuration > 0) {
-                totalDuration = smfMap.totalDuration;
-            } else if (synth.sequencer && synth.sequencer.midiData && synth.sequencer.midiData.duration) {
-                totalDuration = synth.sequencer.midiData.duration;
-            } else if (track.duration && track.duration > 0) {
-                totalDuration = track.duration;
-            } else {
-                totalDuration = 300;
-            }
-
-            await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
-
-            // Set accelerated speed if SpessaSynth
-            if (speedBoost > 1.0 && synth.sequencer) {
-                try { synth.sequencer.playbackRate = speedBoost; } catch(e){}
-            }
-
-            if (synth.playMIDI) synth.playMIDI();
-
-            showNotification(`⚡ SoundFont (${sfName}) で (${track.name}) を高音質WAVキャプチャ中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
 
-            let isFinalizing = false;
-
-            const finalizeExport = async () => {
-                if (isFinalizing) return;
-                isFinalizing = true;
-                if (exportProgressInterval) clearInterval(exportProgressInterval);
-                if (stopBtn) stopBtn.classList.add('hidden');
-
-                // Resume background visualizer animation
-                isExportingWav = false;
-                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
-
-                // Disconnect raw PCM processor
-                if (activeExportProcessor) {
-                    try {
-                        masterGainNode.disconnect(activeExportProcessor);
-                        activeExportProcessor.disconnect();
-                    } catch(e){}
-                    activeExportProcessor = null;
-                }
-
-                // Restore speaker volume and normal 1.0x playback speed
-                if (speakerGainNode) {
-                    speakerGainNode.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime);
-                }
-                if (synth.sequencer) {
-                    try { synth.sequencer.playbackRate = 1.0; } catch(e){}
-                }
-
-                updateExportProgress(82, 'WAV変換中...', 'PCMサンプルの結合中 (82%)');
-                await new Promise(r => setTimeout(r, 100));
-
-                try {
-                    let restoredBuffer = null;
-                    const totalSamples = recordedLeftChunks.reduce((acc, c) => acc + c.length, 0);
-
-                    if (totalSamples > 0) {
-                        const rawCaptured = audioContext.createBuffer(2, totalSamples, audioContext.sampleRate);
-                        const lCh = rawCaptured.getChannelData(0);
-                        const rCh = rawCaptured.getChannelData(1);
-                        let offset = 0;
-                        for (let i = 0; i < recordedLeftChunks.length; i++) {
-                            lCh.set(recordedLeftChunks[i], offset);
-                            rCh.set(recordedRightChunks[i], offset);
-                            offset += recordedLeftChunks[i].length;
-                        }
-
-                        updateExportProgress(88, 'WAV変換中...', '倍速録音データのピッチ・テンポ復元中 (88%)');
-                        restoredBuffer = speedBoost !== 1.0 ? await resampleAudioBuffer(rawCaptured, speedBoost) : rawCaptured;
-                    } else {
-                        // Fail-safe direct offline render fallback
-                        updateExportProgress(85, 'WAV変換中...', 'ダイレクトオフラインレンダリング中 (85%)');
-                        const offlineCtx = new OfflineAudioContext(2, 44100 * Math.max(5, Math.ceil(totalDuration)), 44100);
-                        const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
-                        renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
-                        renderSynth.loadMIDI(new Uint8Array(arrayBuffer));
-                        renderSynth.playMIDI();
-                        restoredBuffer = await offlineCtx.startRendering();
-                    }
+            try {
+                const arrayBuffer = await track.file.arrayBuffer();
+                
+                // If SoundFont (SGM / custom SF2) is active, use SpessaSynth Core for 1-second offline render!
+                if (isSpessaSynthLoaded && activeSoundFontBuffer) {
+                    updateExportProgress(10, 'SoundFont 高速合成中...', `SoundFont (${sfName}) 準備中 (10%)`);
                     
-                    updateExportProgress(94, 'WAV変換中...', '16-bit PCM WAVデータに変換中 (94%)');
-                    const wavBlob = await asyncBufferToWav(restoredBuffer, updateExportProgress);
+                    const Core = await import('./spessasynth_core.js');
+                    const sampleRate = 44100;
+                    
+                    updateExportProgress(20, 'SoundFont 音色読み込み中...', `SoundFont (${sfName}) を設定中 (20%)`);
+                    const synth = new Core.SpessaSynthProcessor(sampleRate, { eventsEnabled: false });
+                    await synth.soundBankManager.addSoundBank(activeSoundFontBuffer.slice(0), "main");
+                    
+                    updateExportProgress(35, 'MIDIトラック解析中...', `SMFデータ解析中 (35%)`);
+                    const parsedMid = new Core.BasicMIDI(arrayBuffer);
+                    const durationSec = Math.max(3, parsedMid.duration || 180);
+                    const totalSamples = Math.ceil(sampleRate * durationSec);
+                    
+                    const seq = new Core.SpessaSynthSequencer(synth);
+                    seq.loadNewSongList([parsedMid]);
+                    seq.play();
+
+                    updateExportProgress(45, 'SoundFont レンダリング中...', `高速音声合成中 (45%)`);
+                    
+                    const dryL = new Float32Array(totalSamples);
+                    const dryR = new Float32Array(totalSamples);
+                    const BLOCK_SIZE = 128;
+                    let index = 0;
+                    
+                    const chunkIntervalSamples = sampleRate * 2; // update progress every 2 seconds of audio
+                    let lastProgressUpdate = 0;
+
+                    while (index < totalSamples - BLOCK_SIZE) {
+                        seq.processTick();
+                        synth.process(dryL, dryR, index, BLOCK_SIZE);
+                        index += BLOCK_SIZE;
+
+                        if (index - lastProgressUpdate > chunkIntervalSamples) {
+                            lastProgressUpdate = index;
+                            const pct = 45 + Math.floor((index / totalSamples) * 45);
+                            const synthSec = index / sampleRate;
+                            updateExportProgress(pct, 'SoundFont レンダリング中...', `音声合成中 (${formatTime(synthSec)} / ${formatTime(durationSec)}) (${pct}%)`);
+                            await new Promise(r => setTimeout(r, 0));
+                        }
+                    }
+
+                    updateExportProgress(92, 'WAV変換中...', '16-bit PCM WAVデータに変換中 (92%)');
+
+                    const audioBuf = audioContext.createBuffer(2, totalSamples, sampleRate);
+                    audioBuf.getChannelData(0).set(dryL);
+                    audioBuf.getChannelData(1).set(dryR);
+
+                    const wavBlob = await asyncBufferToWav(audioBuf, updateExportProgress);
 
                     const url = URL.createObjectURL(wavBlob);
                     const a = document.createElement('a');
@@ -3376,50 +3289,63 @@
                         URL.revokeObjectURL(url);
                     }, 1000);
 
+                    isExportingWav = false;
+                    bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+
                     updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
-                    showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav をエクスポートしました！`);
+                    showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
                     hideExportProgressWidget(2500);
-                } catch (err) {
-                    console.error("WAV conversion error:", err);
-                    showNotification("WAV変換処理中にエラーが発生しました");
-                    hideExportProgressWidget(1000);
+                    return;
                 }
-            };
 
-            if (stopBtn) {
-                stopBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    finalizeExport();
-                };
+                // Fallback to WebAudioTinySynth direct offline render
+                updateExportProgress(15, 'WAV書き出し中...', 'SMF解析 & 時間マッピング中...');
+                const smfMap = parseSMF(arrayBuffer);
+                const duration = Math.max(3, Math.ceil(smfMap ? smfMap.totalDuration : 180)) + 2;
+                
+                const sampleRate = 44100;
+                const offlineCtx = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
+                
+                updateExportProgress(35, 'WAV書き出し中...', `デフォルト音源 オフラインレンダリング中...`);
+                
+                const renderSynth = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                renderSynth.setAudioContext(offlineCtx, offlineCtx.destination);
+                renderSynth.loadMIDI(new Uint8Array(arrayBuffer));
+                renderSynth.playMIDI();
+
+                const renderedBuffer = await offlineCtx.startRendering();
+
+                updateExportProgress(90, 'WAV変換中...', 'WAVフォーマットに変換中 (90%)');
+                const wavBlob = await asyncBufferToWav(renderedBuffer, updateExportProgress);
+
+                const url = URL.createObjectURL(wavBlob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const cleanName = (track.name || 'MIDI_Track').replace(/[\/\\?%*:|"<>]/g, '_');
+                const cleanSf = sfName.replace(/[\/\\?%*:|"<>]/g, '_');
+                a.download = `${cleanName}_${cleanSf}.wav`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    try { document.body.removeChild(a); } catch(e){}
+                    URL.revokeObjectURL(url);
+                }, 1000);
+
+                isExportingWav = false;
+                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+
+                updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
+                showNotification(`✨ 書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
+                hideExportProgressWidget(2500);
+
+            } catch (err) {
+                console.error("Ultra-fast WAV export error:", err);
+                isExportingWav = false;
+                bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                hideExportProgressWidget(500);
+                showNotification("書き出し処理中にエラーが発生しました");
             }
-
-            const recStartTime = performance.now();
-            const maxAllowedRealTimeSec = (totalDuration / speedBoost) + 0.8;
-
-            exportProgressInterval = setInterval(() => {
-                const elapsedRealSec = (performance.now() - recStartTime) / 1000;
-                let currentTime = 0;
-                if (synth.currentTime !== undefined) {
-                    currentTime = synth.currentTime;
-                } else if (synth.sequencer && synth.sequencer.currentTime !== undefined) {
-                    currentTime = synth.sequencer.currentTime;
-                }
-
-                const progressRatio = Math.min(1.0, Math.max(currentTime / totalDuration, elapsedRealSec / maxAllowedRealTimeSec));
-                const pct = Math.floor(progressRatio * 80);
-                const remainingSec = Math.max(0, Math.ceil((totalDuration - currentTime) / speedBoost));
-
-                updateExportProgress(
-                    pct,
-                    'SoundFont 高速WAV変換中...',
-                    `SoundFont (${sfName}) 演奏合成中 (${formatTime(Math.min(currentTime, totalDuration))} / ${formatTime(totalDuration)})`,
-                    remainingSec
-                );
-
-                if (currentTime >= totalDuration - 0.2 || elapsedRealSec >= maxAllowedRealTimeSec || !synth.isMidiPlaying) {
-                    finalizeExport();
-                }
-            }, 100);
         }
         window.exportMidiFastWav = exportMidiFastWav;
 
