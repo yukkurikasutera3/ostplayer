@@ -3028,7 +3028,6 @@
                 reverb.connect(wet);
                 trem.connect(delay);
                 delay.connect(delayGain);
-                
                 dry.connect(offlineCtx.destination);
                 wet.connect(offlineCtx.destination);
                 delayGain.connect(offlineCtx.destination);
@@ -3123,25 +3122,10 @@
             }, delayMs);
         }
 
-        // --- SoundFont (SGM) Accelerated MIDI WAV Export & Pitch Restoration ---
-        async function resampleAudioBuffer(buffer, speedRatio) {
-            if (speedRatio === 1) return buffer;
-            const numChannels = buffer.numberOfChannels;
-            const sampleRate = buffer.sampleRate;
-            const newLength = Math.max(1, Math.floor(buffer.length * speedRatio));
-            
-            const offlineCtx = new OfflineAudioContext(numChannels, newLength, sampleRate);
-            const source = offlineCtx.createBufferSource();
-            source.buffer = buffer;
-            source.playbackRate.value = 1 / speedRatio;
-            source.connect(offlineCtx.destination);
-            source.start(0);
-            
-            return await offlineCtx.startRendering();
-        }
-
-        let activeExportRecorder = null;
-        let activeExportChunks = [];
+        // --- SoundFont (SGM) Direct Raw PCM Capture & High-Speed WAV Exporter ---
+        let activeExportProcessor = null;
+        let recordedLeftChunks = [];
+        let recordedRightChunks = [];
         let exportProgressInterval = null;
 
         async function exportMidiFastWav(track) {
@@ -3162,25 +3146,37 @@
             }
 
             if (exportProgressInterval) clearInterval(exportProgressInterval);
-            if (activeExportRecorder && activeExportRecorder.state !== 'inactive') {
-                try { activeExportRecorder.stop(); } catch(e){}
+            if (activeExportProcessor) {
+                try {
+                    masterGainNode.disconnect(activeExportProcessor);
+                    activeExportProcessor.disconnect();
+                } catch(e){}
+                activeExportProcessor = null;
             }
 
-            // Speed ratio: 16x super-boost accelerated recording (silent to speaker)
-            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 16.0 : 1.0;
-            const originalSpeakerGain = masterGainNode ? masterGainNode.gain.value : 1.0;
+            // Speed ratio: 8.0x accelerated PCM capture
+            const speedBoost = (isSpessaSynthLoaded && synth.sequencer) ? 8.0 : 1.0;
             
-            // Mute speaker output so user hears no sound during 16x export
-            if (masterGainNode && speedBoost > 1.0) {
-                masterGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            // Mute speaker output while keeping raw PCM capture 100% active
+            if (speakerGainNode && speedBoost > 1.0) {
+                speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
             }
 
-            activeExportChunks = [];
-            try {
-                activeExportRecorder = new MediaRecorder(recDestNode.stream, { mimeType: 'audio/webm;codecs=opus' });
-            } catch (e) {
-                activeExportRecorder = new MediaRecorder(recDestNode.stream);
-            }
+            recordedLeftChunks = [];
+            recordedRightChunks = [];
+
+            // Direct Raw PCM Capture Node (No WebM, No Opus, No decodeAudioData error!)
+            const bufferSize = 4096;
+            activeExportProcessor = audioContext.createScriptProcessor(bufferSize, 2, 2);
+            activeExportProcessor.onaudioprocess = (e) => {
+                const l = e.inputBuffer.getChannelData(0);
+                const r = e.inputBuffer.getChannelData(1);
+                recordedLeftChunks.push(new Float32Array(l));
+                recordedRightChunks.push(new Float32Array(r));
+            };
+
+            masterGainNode.connect(activeExportProcessor);
+            activeExportProcessor.connect(audioContext.destination);
 
             if (synth.stopMIDI) synth.stopMIDI();
             const arrayBuffer = await track.file.arrayBuffer();
@@ -3207,8 +3203,7 @@
 
             if (synth.playMIDI) synth.playMIDI();
 
-            activeExportRecorder.start(200);
-            showNotification(`🚀 SoundFont (消音16倍速) で (${track.name}) を爆速WAV変換中...`);
+            showNotification(`🚀 SoundFont (消音8倍速) で (${track.name}) を高音質WAV変換中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
