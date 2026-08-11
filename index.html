@@ -365,6 +365,9 @@
                             <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10" title="ピアノロール">
                                 <span>🎹 Piano Roll</span>
                             </button>
+                            <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="現在適用中のSoundFont音源でWAV/Audio書き出し">
+                                <span>💾 WAV書き出し</span>
+                            </button>
                         </div>
 
                         <div class="flex items-center space-x-2 bg-gray-800 rounded-full px-3 py-1">
@@ -699,9 +702,20 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>📜</span><span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.5 Full Update</span>
+                        <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.6.0 Exporter Update</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-indigo-500/50">
+                            <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>🚀 最新アップデート (v2.6.0)</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-08-12</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>💾 MIDI → WAV Audio 変換書き出し:</strong> SGM などの SoundFont で演奏している MIDI トラックを、ワンクリックで高音質 WAV ファイルに変換・エクスポート保存する機能を追加。</li>
+                                <li><strong>⏸️ SpessaSynth シームレス一時停止 (Pause / Resume):</strong> カスタム SoundFont 再生中も演奏位置を維持したまま一時停止・再開をスムーズに行えるよう改修。</li>
+                                <li><strong>⚡ SoundFont 常時表示バッジ:</strong> 現在適用中の SoundFont (SGM / Built-in) をヘッダーに可視化。簡単選択＆即時リセット対応。</li>
+                            </ul>
+                        </div>
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-purple-900/50">
                             <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-indigo-900/40 pb-1">
                                 <span>🎉 最新アップデート (v2.5)</span>
@@ -1376,6 +1390,22 @@
             // Piano Roll Events
             if (ui.single.pianoRollBtn) ui.single.pianoRollBtn.addEventListener('click', togglePianoRoll);
             if (ui.pianoRoll.closeBtn) ui.pianoRoll.closeBtn.addEventListener('click', togglePianoRoll);
+
+            // MIDI Export Event
+            const midiExportBtn = document.getElementById('single-midi-export-btn');
+            if (midiExportBtn) {
+                midiExportBtn.addEventListener('click', () => {
+                    const track = playlist[singleTrackIndex];
+                    if (!track || !track.isMidi) return;
+                    if (!isRecording) {
+                        startRecording();
+                        if (!isSinglePlaying) toggleSinglePlay();
+                        showNotification(`💾 MIDI (${track.name}) の SoundFont 演奏を録音開始しました。完了後に [Rec Session] でWAV書き出しできます。`);
+                    } else {
+                        stopRecording();
+                    }
+                });
+            }
 
             // Dual Events
             ui.dual.deckA.play.addEventListener('click', (e) => { e.stopPropagation(); toggleDualPlay(0); });
@@ -3249,6 +3279,7 @@
                 initMidiMixerUI();
                 document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
                 document.getElementById('single-piano-roll-btn').classList.remove('hidden');
+                document.getElementById('single-midi-export-btn').classList.remove('hidden');
                 
                 ui.single.title.textContent = track.name + " (MIDI)";
                 showNotification(`▶ 再生中: ${track.name}`);
@@ -3257,6 +3288,7 @@
             } else {
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
                 document.getElementById('single-piano-roll-btn').classList.add('hidden');
+                document.getElementById('single-midi-export-btn').classList.add('hidden');
                 document.getElementById('midi-mixer-panel').classList.add('hidden');
                 document.getElementById('piano-roll-panel').classList.add('hidden');
                 document.getElementById('single-artwork-area').classList.remove('hidden');
