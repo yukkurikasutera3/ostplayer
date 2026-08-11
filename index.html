@@ -3180,20 +3180,22 @@
                 activeExportRecorder = new MediaRecorder(recDestNode.stream);
             }
 
-            activeExportRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) activeExportChunks.push(e.data);
-            };
-
-            const totalDuration = track.duration && track.duration > 0 ? track.duration : 180;
-
-            // Load track & start playback
-            const trackIndex = playlist.indexOf(track);
-            if (trackIndex !== -1 && singleTrackIndex !== trackIndex) {
-                singleTrackIndex = trackIndex;
-            }
-            
             if (synth.stopMIDI) synth.stopMIDI();
             const arrayBuffer = await track.file.arrayBuffer();
+
+            // Calculate exact MIDI total duration using SMF parser
+            const smfMap = parseSMF(arrayBuffer);
+            let totalDuration = 0;
+            if (smfMap && smfMap.totalDuration > 0) {
+                totalDuration = smfMap.totalDuration;
+            } else if (synth.sequencer && synth.sequencer.midiData && synth.sequencer.midiData.duration) {
+                totalDuration = synth.sequencer.midiData.duration;
+            } else if (track.duration && track.duration > 0) {
+                totalDuration = track.duration;
+            } else {
+                totalDuration = 300;
+            }
+
             await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
 
             // Set accelerated speed if SpessaSynth
