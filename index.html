@@ -465,8 +465,9 @@
             <!-- === FX VIEW === -->
             <div id="fx-view" class="flex-1 flex flex-col justify-between hidden-mode min-h-0 overflow-hidden">
                 <!-- Simple Player Clone -->
-                <div class="text-center py-2 flex items-center justify-center space-x-2 shrink-0">
+                <div class="text-center py-2 flex flex-col items-center justify-center shrink-0">
                     <h2 id="fx-title" class="text-lg font-bold truncate text-purple-400 px-2 max-w-[280px]">No Track Selected</h2>
+                    <p id="fx-status" class="text-xs text-gray-400">Equalizer & Effects</p>
                 </div>
                 
                 <!-- Music Control -->
@@ -2958,12 +2959,14 @@
         }
         
         function updateFxUIState(isPlaying) {
-            if(isPlaying) {
-                ui.fx.playIcon.classList.add('hidden'); ui.fx.pauseIcon.classList.remove('hidden');
-                ui.fx.status.textContent = "FX Active";
-            } else {
-                ui.fx.playIcon.classList.remove('hidden'); ui.fx.pauseIcon.classList.add('hidden');
-                ui.fx.status.textContent = "Paused";
+            if(ui.fx.playIcon && ui.fx.pauseIcon) {
+                if(isPlaying) {
+                    ui.fx.playIcon.classList.add('hidden'); ui.fx.pauseIcon.classList.remove('hidden');
+                    if(ui.fx.status) ui.fx.status.textContent = "FX Active";
+                } else {
+                    ui.fx.playIcon.classList.remove('hidden'); ui.fx.pauseIcon.classList.add('hidden');
+                    if(ui.fx.status) ui.fx.status.textContent = "Paused";
+                }
             }
         }
         
