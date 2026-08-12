@@ -3207,9 +3207,10 @@
                 try { mainSynth.pauseMIDI(); } catch(e){}
             }
 
-            // Temporarily disconnect speaker output node for 100% silent export
+            // Direct gain muting for 100% clean silence without Web Audio routing errors
+            const previousGain = speakerGainNode ? speakerGainNode.gain.value : 1.0;
             if (speakerGainNode) {
-                try { speakerGainNode.disconnect(audioContext.destination); } catch(e){}
+                try { speakerGainNode.gain.value = 0; } catch(e){}
             }
 
             isExportingWav = true;
@@ -3228,12 +3229,9 @@
                 isExportingWav = false;
                 bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
                 
-                // Reconnect speaker output node seamlessly
+                // Restore speaker gain value seamlessly
                 if (speakerGainNode) {
-                    try {
-                        speakerGainNode.disconnect();
-                        speakerGainNode.connect(audioContext.destination);
-                    } catch(e){}
+                    try { speakerGainNode.gain.value = isMuted ? 0 : previousGain; } catch(e){}
                 }
             };
 

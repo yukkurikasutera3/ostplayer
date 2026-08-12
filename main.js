@@ -23,6 +23,16 @@ function createWindow() {
     // Remove default top menu bar for a clean player aesthetic
     Menu.setApplicationMenu(null);
 
+    // Enable F12 and Ctrl+Shift+I to open DevTools for debugging
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown') {
+            if (input.key === 'F12' || (input.control && input.shift && input.key.toUpperCase() === 'I')) {
+                mainWindow.webContents.toggleDevTools();
+                event.preventDefault();
+            }
+        }
+    });
+
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
     mainWindow.on('closed', () => {
