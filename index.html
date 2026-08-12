@@ -240,15 +240,14 @@
                 <div class="flex items-center space-x-2 w-full">
                     <span class="text-xs font-bold uppercase tracking-wider text-gray-400 shrink-0">Mode</span>
                     
-                    <!-- 6段階スイッチ (再生モード用) -->
+                    <!-- 5段階スイッチ (再生モード用) -->
                     <div class="relative flex-1 bg-gray-900 rounded-full p-1 flex items-center border border-gray-600 select-none max-w-lg">
-                        <div id="mode-indicator" class="w-1/6 h-6 bg-blue-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out absolute left-1 pointer-events-none"></div>
-                        <button onclick="setPlayerMode('single')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Single</button>
-                        <button onclick="setPlayerMode('dual')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Dual</button>
-                        <button onclick="setPlayerMode('multi')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Multi</button>
-                        <button onclick="setPlayerMode('fx')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">FX</button>
-                        <button onclick="setPlayerMode('visual')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Visual</button>
-                        <button onclick="setPlayerMode('studio')" class="w-1/6 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Studio</button>
+                        <div id="mode-indicator" class="w-1/5 h-6 bg-blue-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out absolute left-1 pointer-events-none"></div>
+                        <button onclick="setPlayerMode('single')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Single</button>
+                        <button onclick="setPlayerMode('dual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Dual</button>
+                        <button onclick="setPlayerMode('multi')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Multi</button>
+                        <button onclick="setPlayerMode('fx')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">FX</button>
+                        <button onclick="setPlayerMode('visual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Visual</button>
                     </div>
 
                     <!-- SoundFont Control & Status Badge -->
@@ -638,6 +637,48 @@
                             <div id="panner-source-dot" class="absolute w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style="left: 50%; top: 50%;"></div>
                         </div>
                     </div>
+
+                    <!-- 👾 Retro 8-bit & 16-bit Bitcrusher Panel -->
+                    <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-yellow-500/40 space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-yellow-400 uppercase tracking-wider flex items-center space-x-1">
+                                    <span>👾</span><span>Retro Bitcrusher (8-bit / 16-bit)</span>
+                                </span>
+                                <span class="text-[9px] text-gray-400">ドット絵・レトロゲーム音源エフェクト</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="studio-bitcrusher-enable" class="sr-only peer">
+                                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-yellow-500"></div>
+                            </label>
+                        </div>
+
+                        <!-- Presets -->
+                        <div class="flex flex-wrap gap-1 pt-1">
+                            <button class="studio-crush-preset px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="8" data-rate="11025">NES 8-bit</button>
+                            <button class="studio-crush-preset px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="4" data-rate="8000">GameBoy Color</button>
+                            <button class="studio-crush-preset px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="12" data-rate="22050">SNES 16-bit</button>
+                            <button class="studio-crush-preset px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="6" data-rate="12000">90s Arcade</button>
+                            <button class="studio-crush-preset px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-[10px] font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="16" data-rate="44100">Bypass (Off)</button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-0.5">
+                                    <span class="text-gray-300 font-semibold">Bit Depth</span>
+                                    <span id="studio-bit-val" class="font-mono text-yellow-300 font-bold">16 bit</span>
+                                </div>
+                                <input type="range" id="studio-bit-slider" min="2" max="16" step="1" value="16" class="w-full h-1 bg-gray-600 rounded cursor-pointer accent-yellow-400">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-0.5">
+                                    <span class="text-gray-300 font-semibold">Sample Rate</span>
+                                    <span id="studio-rate-val" class="font-mono text-yellow-300 font-bold">44.1 kHz</span>
+                                </div>
+                                <input type="range" id="studio-rate-slider" min="4000" max="44100" step="500" value="44100" class="w-full h-1 bg-gray-600 rounded cursor-pointer accent-yellow-400">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -659,158 +700,6 @@
                         <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-white text-xs px-3 py-1 rounded-full border border-gray-600" data-type="circle">Circle</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- === STUDIO VIEW === -->
-            <div id="studio-view" class="flex-1 flex flex-col hidden-mode p-4 overflow-y-auto bg-gray-900/90 rounded-xl border border-gray-700/80 custom-scrollbar space-y-4">
-                
-                <!-- Studio Header & Title -->
-                <div class="flex items-center justify-between border-b border-gray-700 pb-3">
-                    <div>
-                        <h2 class="text-lg font-extrabold text-white flex items-center space-x-2">
-                            <span>Studio</span>
-                            <span class="text-xs font-normal text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full">Retro Engine & Exporter</span>
-                        </h2>
-                        <p class="text-xs text-gray-400">レトロ音源エフェクト / Lo-Fiアンビエンス / ボーカルキャンセラー / ビジュアライザー動画書き出し</p>
-                    </div>
-                </div>
-
-                <!-- Studio Section 1: Retro 8-bit & 16-bit Bitcrusher Filter -->
-                <div class="bg-gray-800/80 border border-gray-700 rounded-xl p-3.5 space-y-3">
-                    <div class="flex justify-between items-center border-b border-gray-700/60 pb-2">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm font-bold text-yellow-400">Retro Bitcrusher (8-bit / 16-bit)</span>
-                            <span class="text-[10px] text-gray-400">ドット絵・レトロゲーム音源フィルター</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="studio-bitcrusher-enable" class="sr-only peer">
-                            <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
-                        </label>
-                    </div>
-
-                    <!-- Presets -->
-                    <div class="flex flex-wrap gap-1.5 pt-1">
-                        <button class="studio-crush-preset px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="8" data-rate="11025">NES 8-bit</button>
-                        <button class="studio-crush-preset px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="4" data-rate="8000">GameBoy Color</button>
-                        <button class="studio-crush-preset px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="12" data-rate="22050">SNES 16-bit</button>
-                        <button class="studio-crush-preset px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="6" data-rate="12000">90s Arcade</button>
-                        <button class="studio-crush-preset px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold text-gray-200 border border-gray-600 cursor-pointer" data-bits="16" data-rate="44100">Bypass (Off)</button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                        <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-300 font-semibold">Bit Depth (ビット解像度)</span>
-                                <span id="studio-bit-val" class="font-mono text-yellow-300 font-bold">16 bit</span>
-                            </div>
-                            <input type="range" id="studio-bit-slider" min="2" max="16" step="1" value="16" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-400">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-300 font-semibold">Sample Rate (ダウンサンプリング)</span>
-                                <span id="studio-rate-val" class="font-mono text-yellow-300 font-bold">44.1 kHz</span>
-                            </div>
-                            <input type="range" id="studio-rate-slider" min="4000" max="44100" step="500" value="44100" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-400">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Studio Section 2: Lo-Fi Ambience & Environmental Sound Engine -->
-                <div class="bg-gray-800/80 border border-gray-700 rounded-xl p-3.5 space-y-3">
-                    <div class="flex justify-between items-center border-b border-gray-700/60 pb-2">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm font-bold text-emerald-400">Lo-Fi Ambience Engine</span>
-                            <span class="text-[10px] text-gray-400">レコードノイズ / テープ揺れ / 雨音アンビエンス</span>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                        <!-- Vinyl Crackle -->
-                        <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700/50">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-amber-300">Vinyl Crackle</span>
-                                <input type="checkbox" id="studio-vinyl-enable" class="cursor-pointer">
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-[11px] text-gray-400">
-                                    <span>Crackle Noise Vol</span>
-                                    <span id="studio-vinyl-vol-val" class="font-mono text-amber-300">30%</span>
-                                </div>
-                                <input type="range" id="studio-vinyl-vol" min="0" max="100" value="30" class="w-full h-1 bg-gray-700 rounded appearance-none accent-amber-400">
-                            </div>
-                        </div>
-
-                        <!-- Tape Wow & Flutter -->
-                        <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700/50">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-cyan-300">Tape Wow & Flutter</span>
-                                <input type="checkbox" id="studio-tape-enable" class="cursor-pointer">
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-[11px] text-gray-400">
-                                    <span>Pitch Wobble Depth</span>
-                                    <span id="studio-tape-wobble-val" class="font-mono text-cyan-300">20%</span>
-                                </div>
-                                <input type="range" id="studio-tape-wobble" min="0" max="100" value="20" class="w-full h-1 bg-gray-700 rounded appearance-none accent-cyan-400">
-                            </div>
-                        </div>
-
-                        <!-- Rain Ambience -->
-                        <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700/50">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-blue-300">Rain Ambience</span>
-                                <input type="checkbox" id="studio-rain-enable" class="cursor-pointer">
-                            </div>
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-[11px] text-gray-400">
-                                    <span>Rain Volume</span>
-                                    <span id="studio-rain-vol-val" class="font-mono text-blue-300">40%</span>
-                                </div>
-                                <input type="range" id="studio-rain-vol" min="0" max="100" value="40" class="w-full h-1 bg-gray-700 rounded appearance-none accent-blue-400">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Studio Section 3: Vocal Canceller & Video Exporter Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    
-                    <!-- Vocal Canceller -->
-                    <div class="bg-gray-800/80 border border-gray-700 rounded-xl p-3.5 space-y-2">
-                        <div class="flex justify-between items-center border-b border-gray-700/60 pb-2">
-                            <span class="text-sm font-bold text-purple-300">Vocal Canceller (Inst)</span>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="studio-vocal-cancel-enable" class="sr-only peer">
-                                <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
-                            </label>
-                        </div>
-                        <p class="text-[11px] text-gray-400">ステレオ音声のセンターチャンネル（ボーカル）を低減・カットしてインスト音源化</p>
-                        <div>
-                            <div class="flex justify-between text-xs mb-1">
-                                <span class="text-gray-300 font-semibold">Cut Level (ボーカル低減強度)</span>
-                                <span id="studio-vocal-cut-val" class="font-mono text-purple-300 font-bold">80%</span>
-                            </div>
-                            <input type="range" id="studio-vocal-cut-slider" min="0" max="100" value="80" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-400">
-                        </div>
-                    </div>
-
-                    <!-- Video Exporter -->
-                    <div class="bg-gray-800/80 border border-gray-700 rounded-xl p-3.5 space-y-2.5">
-                        <div class="flex justify-between items-center border-b border-gray-700/60 pb-2">
-                            <span class="text-sm font-bold text-rose-400">Visualizer Video Exporter</span>
-                            <span class="text-[10px] text-gray-400 font-mono">WebM / MP4</span>
-                        </div>
-                        <p class="text-[11px] text-gray-400">演奏中のビジュアライザー＋背景響宴＋楽曲音声をキャプチャして動画保存</p>
-                        <div class="flex items-center space-x-2">
-                            <button id="studio-video-export-btn" class="flex-1 bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white font-extrabold text-xs py-2 px-3 rounded-lg shadow transition transform active:scale-95 flex items-center justify-center space-x-1.5 cursor-pointer border border-rose-400/40">
-                                <span id="studio-video-rec-dot" class="w-2 h-2 rounded-full bg-white"></span>
-                                <span id="studio-video-rec-text">ビジュアライザー動画を録画＆書き出し</span>
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-
             </div>
 
             <!-- === HELP VIEW === -->
@@ -1334,7 +1223,6 @@
             multiView: document.getElementById('multi-view'),
             fxView: document.getElementById('fx-view'),
             visualView: document.getElementById('visual-view'),
-            studioView: document.getElementById('studio-view'),
             helpView: document.getElementById('help-view'),
             headerVisualizer: document.getElementById('header-visualizer-container'),
             decksContainer: document.getElementById('decks-container'),
@@ -4837,7 +4725,7 @@
             ui.helpBtn.classList.add('bg-gray-900', 'text-gray-300', 'border-gray-600');
             
             // Hide all first
-            [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.visualView, ui.studioView, ui.helpView].forEach(v => {
+            [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.visualView, ui.helpView].forEach(v => {
                 if (v) v.classList.add('hidden-mode');
             });
             ui.headerVisualizer.classList.remove('hidden-mode');
@@ -4859,9 +4747,6 @@
                 ui.modeIndicator.style.transform = 'translateX(400%)';
                 ui.visualView.classList.remove('hidden-mode');
                 ui.headerVisualizer.classList.add('hidden-mode');
-            } else if(currentMode === 'studio') {
-                ui.modeIndicator.style.transform = 'translateX(500%)';
-                if (ui.studioView) ui.studioView.classList.remove('hidden-mode');
             } else { // help
                 ui.modeIndicator.classList.add('opacity-0');
                 ui.helpBtn.classList.remove('bg-gray-900', 'text-gray-300', 'border-gray-600');
