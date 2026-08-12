@@ -262,14 +262,13 @@
                 <div class="flex items-center space-x-2 shrink-0">
                     <span class="text-xs font-bold uppercase tracking-wider text-gray-400 shrink-0">Mode</span>
                     
-                    <!-- 5段階スイッチ (固定幅270pxで縮小時の崩れを完璧に防止) -->
+                    <!-- 5段階スイッチ (フィット＆ズレゼロの完全ピルレイアウト) -->
                     <div class="relative w-[270px] shrink-0 bg-gray-900 rounded-full p-1 flex items-center border border-gray-600 select-none">
-                        <div id="mode-indicator" class="w-[calc((100%-8px)/5)] h-6 bg-blue-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out absolute left-1 top-1 pointer-events-none"></div>
-                        <button onclick="setPlayerMode('single')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Single</button>
-                        <button onclick="setPlayerMode('dual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Dual</button>
-                        <button onclick="setPlayerMode('multi')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Multi</button>
-                        <button onclick="setPlayerMode('fx')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">FX</button>
-                        <button onclick="setPlayerMode('visual')" class="w-1/5 text-center text-[10px] z-10 font-bold relative cursor-pointer text-gray-300 hover:text-white focus:outline-none transition-colors">Visual</button>
+                        <button id="btn-mode-single" onclick="setPlayerMode('single')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 bg-blue-600 text-white shadow-md">Single</button>
+                        <button id="btn-mode-dual" onclick="setPlayerMode('dual')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Dual</button>
+                        <button id="btn-mode-multi" onclick="setPlayerMode('multi')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Multi</button>
+                        <button id="btn-mode-fx" onclick="setPlayerMode('fx')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">FX</button>
+                        <button id="btn-mode-visual" onclick="setPlayerMode('visual')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Visual</button>
                     </div>
                 </div>
 
@@ -4762,36 +4761,48 @@
 
         // --- Common Helpers ---
         function updateModeUI() {
-            // Reset styles
-            ui.modeIndicator.classList.remove('opacity-0');
+            // Update button styles (100% pixel-perfect fit, zero misalignment)
+            const modeMap = {
+                single: document.getElementById('btn-mode-single'),
+                dual: document.getElementById('btn-mode-dual'),
+                multi: document.getElementById('btn-mode-multi'),
+                fx: document.getElementById('btn-mode-fx'),
+                visual: document.getElementById('btn-mode-visual')
+            };
+
+            Object.keys(modeMap).forEach(m => {
+                const btn = modeMap[m];
+                if (btn) {
+                    if (currentMode === m) {
+                        btn.className = "w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 bg-blue-600 text-white shadow-md";
+                    } else {
+                        btn.className = "w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent";
+                    }
+                }
+            });
+
             ui.helpBtn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
             ui.helpBtn.classList.add('bg-gray-900', 'text-gray-300', 'border-gray-600');
             
-            // Hide all first
+            // Hide all views first
             [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.visualView, ui.helpView].forEach(v => {
                 if (v) v.classList.add('hidden-mode');
             });
             ui.headerVisualizer.classList.remove('hidden-mode');
 
             if(currentMode === 'single') {
-                ui.modeIndicator.style.transform = 'translateX(0)';
                 ui.singleView.classList.remove('hidden-mode');
             } else if(currentMode === 'dual') {
-                ui.modeIndicator.style.transform = 'translateX(100%)';
                 ui.dualView.classList.remove('hidden-mode');
                 selectDualDeck(activeDualDeckIndex);
             } else if(currentMode === 'multi') {
-                ui.modeIndicator.style.transform = 'translateX(200%)';
                 ui.multiView.classList.remove('hidden-mode');
             } else if(currentMode === 'fx') {
-                ui.modeIndicator.style.transform = 'translateX(300%)';
                 ui.fxView.classList.remove('hidden-mode');
             } else if(currentMode === 'visual') {
-                ui.modeIndicator.style.transform = 'translateX(400%)';
                 ui.visualView.classList.remove('hidden-mode');
                 ui.headerVisualizer.classList.add('hidden-mode');
             } else { // help
-                ui.modeIndicator.classList.add('opacity-0');
                 ui.helpBtn.classList.remove('bg-gray-900', 'text-gray-300', 'border-gray-600');
                 ui.helpBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
                 ui.helpView.classList.remove('hidden-mode');
