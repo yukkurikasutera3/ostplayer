@@ -3202,7 +3202,7 @@
             
             // Pause main player MIDI playback if currently playing
             const mainSynth = getMidiSynth('main');
-            const wasPlayingMain = isPlaying;
+            const wasPlayingMain = typeof isSinglePlaying !== 'undefined' ? isSinglePlaying : false;
             if (mainSynth && mainSynth.pauseMIDI) {
                 try { mainSynth.pauseMIDI(); } catch(e){}
             }
