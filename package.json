@@ -18,7 +18,7 @@
   "author": "Antigravity",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^43.3.0",
+    "electron": "^31.3.0",
     "electron-packager": "^17.1.2"
   }
 }
