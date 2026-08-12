@@ -1911,6 +1911,28 @@
                 });
             }
 
+            // Vocal Canceller Event Listeners
+            const vocalCancelEnable = document.getElementById('studio-vocal-cancel-enable');
+            const vocalCancelSlider = document.getElementById('studio-vocal-cut-slider');
+            const vocalCancelVal = document.getElementById('studio-vocal-cut-val');
+
+            if (vocalCancelEnable) {
+                vocalCancelEnable.addEventListener('change', (e) => {
+                    initAudio();
+                    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+                    isVocalCancelEnabled = e.target.checked;
+                    connectAudioGraph();
+                    showNotification(`ボーカルキャンセラー: ${isVocalCancelEnabled ? '有効 (ON)' : '無効 (OFF)'}`);
+                });
+            }
+            if (vocalCancelSlider) {
+                vocalCancelSlider.addEventListener('input', (e) => {
+                    const v = parseInt(e.target.value);
+                    vocalCancelCutLevel = v / 100;
+                    if (vocalCancelVal) vocalCancelVal.textContent = `${v}%`;
+                });
+            }
+
             // Video Exporter Event
             const studioVidBtn = document.getElementById('studio-video-export-btn');
             if (studioVidBtn) {
