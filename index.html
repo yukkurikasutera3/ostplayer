@@ -3200,19 +3200,6 @@
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
-            // Stop active main player MIDI playback
-            const mainSynth = getMidiSynth('main');
-            if (mainSynth && mainSynth.stopMIDI) {
-                try { mainSynth.stopMIDI(); } catch(e){}
-            }
-            isPlaying = false;
-            updatePlayPauseButtons();
-
-            // Mute speaker output during export
-            if (speakerGainNode) {
-                speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            }
-
             isExportingWav = true;
             exportStartTime = performance.now();
             
@@ -3225,12 +3212,9 @@
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
 
-            const restoreSpeaker = () => {
+            const finishExportState = () => {
                 isExportingWav = false;
                 bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
-                if (speakerGainNode) {
-                    speakerGainNode.gain.setValueAtTime(isMuted ? 0 : 1.0, audioContext.currentTime);
-                }
             };
 
             try {
@@ -3307,7 +3291,7 @@
                     URL.revokeObjectURL(url);
                 }, 1000);
 
-                restoreSpeaker();
+                finishExportState();
 
                 updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
                 showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
@@ -3315,7 +3299,7 @@
 
             } catch (err) {
                 console.error("Ultra-fast WAV export error:", err);
-                restoreSpeaker();
+                finishExportState();
                 hideExportProgressWidget(500);
                 showNotification(`書き出しエラー: ${err.message || '不明なエラー'}`);
             }
