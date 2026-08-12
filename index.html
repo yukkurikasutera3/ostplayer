@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OST Player - Ultimate (Full MIDI Support)</title>
+    <script>
+        const _origWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+            _origWarn.apply(console, args);
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- MIDI Synth Library (WebAudioTinySynth) -->
@@ -143,7 +150,9 @@
         
         /* FX用スライダー (縦向き対応) */
         .eq-slider {
-            -webkit-appearance: slider-vertical;
+            writing-mode: vertical-lr;
+            direction: rtl;
+            appearance: auto;
             width: 8px; height: 100px;
             background: transparent;
         }
@@ -2518,6 +2527,90 @@
         let bitcrusherBits = 16;
         let bitcrusherRate = 44100;
         let isBitcrusherEnabled = false;
+        let bitcrusherNode = null;
+
+        let vocalCancelNode = null;
+        let isVocalCancelEnabled = false;
+        let vocalCancelCutLevel = 0.8;
+
+        function getOrCreateBitcrusherNode() {
+            if (!audioContext) return null;
+            if (bitcrusherNode) return bitcrusherNode;
+            
+            try {
+                const bufferSize = 4096;
+                bitcrusherNode = audioContext.createScriptProcessor(bufferSize, 2, 2);
+                let phaser = 0;
+                let lastL = 0;
+                let lastR = 0;
+
+                bitcrusherNode.onaudioprocess = (e) => {
+                    const inputL = e.inputBuffer.getChannelData(0);
+                    const inputR = e.inputBuffer.getChannelData(1);
+                    const outputL = e.outputBuffer.getChannelData(0);
+                    const outputR = e.outputBuffer.getChannelData(1);
+
+                    if (!isBitcrusherEnabled || (bitcrusherBits >= 16 && bitcrusherRate >= 44100)) {
+                        outputL.set(inputL);
+                        outputR.set(inputR);
+                        return;
+                    }
+
+                    const step = Math.pow(2, Math.max(1, bitcrusherBits - 1));
+                    const ratio = Math.max(0.01, bitcrusherRate / audioContext.sampleRate);
+
+                    for (let i = 0; i < inputL.length; i++) {
+                        phaser += ratio;
+                        if (phaser >= 1.0) {
+                            phaser -= 1.0;
+                            lastL = Math.round(inputL[i] * step) / step;
+                            lastR = Math.round(inputR[i] * step) / step;
+                        }
+                        outputL[i] = lastL;
+                        outputR[i] = lastR;
+                    }
+                };
+            } catch(err) {
+                console.error("Bitcrusher node creation error:", err);
+            }
+
+            return bitcrusherNode;
+        }
+
+        function getOrCreateVocalCancelNode() {
+            if (!audioContext) return null;
+            if (vocalCancelNode) return vocalCancelNode;
+
+            try {
+                const bufferSize = 4096;
+                vocalCancelNode = audioContext.createScriptProcessor(bufferSize, 2, 2);
+                vocalCancelNode.onaudioprocess = (e) => {
+                    const inputL = e.inputBuffer.getChannelData(0);
+                    const inputR = e.inputBuffer.getChannelData(1);
+                    const outputL = e.outputBuffer.getChannelData(0);
+                    const outputR = e.outputBuffer.getChannelData(1);
+
+                    if (!isVocalCancelEnabled) {
+                        outputL.set(inputL);
+                        outputR.set(inputR);
+                        return;
+                    }
+
+                    const cutAmount = vocalCancelCutLevel;
+                    for (let i = 0; i < inputL.length; i++) {
+                        const l = inputL[i];
+                        const r = inputR[i];
+                        const side = (l - r) * 0.5;
+                        outputL[i] = l * (1 - cutAmount) + side * cutAmount;
+                        outputR[i] = r * (1 - cutAmount) - side * cutAmount;
+                    }
+                };
+            } catch(err) {
+                console.error("Vocal cancel node creation error:", err);
+            }
+
+            return vocalCancelNode;
+        }
 
         let vinylNoiseNode = null;
         let vinylGainNode = null;
@@ -3207,15 +3300,25 @@
 
             init3DPannerNode();
 
-            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Master Gain -> (SpeakerGain & RecDest)
+            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Bitcrusher -> VocalCancel -> Master Gain -> (SpeakerGain & RecDest)
             analyser.connect(masterLowpassNode);
             masterLowpassNode.connect(masterHighpassNode);
 
+            let chainNode = masterHighpassNode;
             if (panner3DNode) {
                 masterHighpassNode.connect(panner3DNode);
-                panner3DNode.connect(masterGainNode);
+                chainNode = panner3DNode;
+            }
+
+            const crusher = getOrCreateBitcrusherNode();
+            const vocalNode = getOrCreateVocalCancelNode();
+
+            if (crusher && vocalNode) {
+                chainNode.connect(crusher);
+                crusher.connect(vocalNode);
+                vocalNode.connect(masterGainNode);
             } else {
-                masterHighpassNode.connect(masterGainNode);
+                chainNode.connect(masterGainNode);
             }
 
             masterGainNode.connect(speakerGainNode);
