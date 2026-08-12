@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -13,6 +13,7 @@ function createWindow() {
         backgroundColor: "#0d0f17",
         autoHideMenuBar: true,
         webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true,
             webSecurity: false,
@@ -39,6 +40,20 @@ function createWindow() {
         mainWindow = null;
     });
 }
+
+// IPC Listener for Mini Player Window Toggle
+ipcMain.on('toggle-mini-mode', (event, isMini) => {
+    if (!mainWindow) return;
+    if (isMini) {
+        mainWindow.setMinimumSize(400, 90);
+        mainWindow.setSize(460, 110);
+        mainWindow.setAlwaysOnTop(true);
+    } else {
+        mainWindow.setMinimumSize(950, 700);
+        mainWindow.setSize(1300, 880);
+        mainWindow.setAlwaysOnTop(false);
+    }
+});
 
 app.whenReady().then(createWindow);
 

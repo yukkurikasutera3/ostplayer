@@ -214,13 +214,22 @@
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
         /* Mini Player Mode */
+        body.mini-mode {
+            padding: 0 !important;
+            min-height: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
         .mini-mode #main-app-container {
-            height: auto !important;
-            max-height: none !important;
+            height: 100vh !important;
+            width: 100vw !important;
+            max-width: 100% !important;
+            border-radius: 0 !important;
+            border: none !important;
         }
         .mini-mode #player-left-panel { display: none !important; }
-        .mini-mode #mini-player-view { display: flex !important; }
-        .mini-mode .md\:w-4\/12 { width: 100% !important; max-width: 100% !important; }
+        .mini-mode #mini-player-view { display: flex !important; height: 100% !important; border: none !important; }
+        .mini-mode .w-4\/12, .mini-mode .w-5\/12, .mini-mode .md\:w-4\/12 { display: none !important; }
     </style>
 </head>
 <body id="app-body" class="theme-cyberpunk bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300">
@@ -4216,6 +4225,9 @@
         function toggleMiniPlayer() {
             isMiniMode = !isMiniMode;
             document.body.classList.toggle('mini-mode', isMiniMode);
+            if (window.electronAPI && window.electronAPI.toggleMiniMode) {
+                window.electronAPI.toggleMiniMode(isMiniMode);
+            }
         }
         window.toggleMiniPlayer = toggleMiniPlayer;
 
