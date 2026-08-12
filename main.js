@@ -7,8 +7,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1300,
         height: 880,
-        minWidth: 900,
-        minHeight: 650,
+        minWidth: 950,
+        minHeight: 700,
         title: "OST Player",
         backgroundColor: "#0d0f17",
         autoHideMenuBar: true,
