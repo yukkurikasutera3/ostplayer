@@ -3200,6 +3200,18 @@
             const sfBadge = document.getElementById('sf2-badge-text');
             const sfName = sfBadge ? sfBadge.textContent.replace('SF: ', '').trim() : 'Default';
             
+            // Pause main player MIDI playback if currently playing
+            const mainSynth = getMidiSynth('main');
+            const wasPlayingMain = isPlaying;
+            if (mainSynth && mainSynth.pauseMIDI) {
+                try { mainSynth.pauseMIDI(); } catch(e){}
+            }
+
+            // Temporarily disconnect speaker output node for 100% silent export
+            if (speakerGainNode) {
+                try { speakerGainNode.disconnect(audioContext.destination); } catch(e){}
+            }
+
             isExportingWav = true;
             exportStartTime = performance.now();
             
@@ -3215,6 +3227,14 @@
             const finishExportState = () => {
                 isExportingWav = false;
                 bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
+                
+                // Reconnect speaker output node seamlessly
+                if (speakerGainNode) {
+                    try {
+                        speakerGainNode.disconnect();
+                        speakerGainNode.connect(audioContext.destination);
+                    } catch(e){}
+                }
             };
 
             try {
