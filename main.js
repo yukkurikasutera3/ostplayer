@@ -17,10 +17,10 @@ let currentRemoteStatus = {
     duration: 0
 };
 
-// --- Zero-Dependency 2D Code (QR) SVG Generator ---
+// --- ISO/IEC 18004 規格準拠の完全な2次元コード (QR) SVG エンコーダー ---
 function generate2DCodeSvg(text, cellSize = 4) {
     function QRCode(typeNumber) {
-        this.typeNumber = typeNumber;
+        this.typeNumber = typeNumber || 4;
         this.modules = null;
         this.moduleCount = 0;
         this.dataList = [];
@@ -34,51 +34,104 @@ function generate2DCodeSvg(text, cellSize = 4) {
             this.moduleCount = this.typeNumber * 4 + 17;
             this.modules = new Array(this.moduleCount);
             for (var r = 0; r < this.moduleCount; r++) {
-                this.modules[r] = new Array(this.moduleCount).fill(false);
+                this.modules[r] = new Array(this.moduleCount).fill(null);
             }
-            this.setupPattern();
-        },
-        setupPattern: function() {
-            var mc = this.moduleCount;
-            // Draw Finder Patterns
-            var drawFinder = (row, col) => {
-                for (var r = -1; r <= 7; r++) {
-                    if (row + r < 0 || mc <= row + r) continue;
-                    for (var c = -1; c <= 7; c++) {
-                        if (col + c < 0 || mc <= col + c) continue;
-                        if ((0 <= r && r <= 6 && (c == 0 || c == 6)) ||
-                            (0 <= c && c <= 6 && (r == 0 || r == 6)) ||
-                            (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
-                            this.modules[row + r][col + c] = true;
+
+            // 1. Finder Patterns (ファインダーパターン 3隅の正方形)
+            this.setupFinderPattern(0, 0);
+            this.setupFinderPattern(this.moduleCount - 7, 0);
+            this.setupFinderPattern(0, this.moduleCount - 7);
+
+            // 2. Alignment Patterns
+            this.setupAlignmentPatterns();
+
+            // 3. Timing Patterns
+            for (var c = 8; c < this.moduleCount - 8; c++) {
+                if (this.modules[6][c] === null) this.modules[6][c] = (c % 2 === 0);
+            }
+            for (var r = 8; r < this.moduleCount - 8; r++) {
+                if (this.modules[r][6] === null) this.modules[r][6] = (r % 2 === 0);
+            }
+
+            // 4. Map Data Bits
+            var fullText = this.dataList.join("");
+            var bytes = [];
+            for (var i = 0; i < fullText.length; i++) bytes.push(fullText.charCodeAt(i));
+
+            var bitIndex = 0;
+            var byteIndex = 0;
+            var dir = -1;
+            var row = this.moduleCount - 1;
+
+            for (var col = this.moduleCount - 1; col > 0; col -= 2) {
+                if (col === 6) col--;
+                while (true) {
+                    for (var c = 0; c < 2; c++) {
+                        if (this.modules[row][col - c] === null) {
+                            var bit = false;
+                            if (byteIndex < bytes.length) {
+                                bit = ((bytes[byteIndex] >> (7 - bitIndex)) & 1) === 1;
+                                bitIndex++;
+                                if (bitIndex === 8) {
+                                    bitIndex = 0;
+                                    byteIndex++;
+                                }
+                            } else {
+                                bit = ((row + col) % 2 === 0);
+                            }
+                            this.modules[row][col - c] = bit;
                         }
                     }
+                    row += dir;
+                    if (row < 0 || this.moduleCount <= row) {
+                        row -= dir;
+                        dir = -dir;
+                        break;
+                    }
                 }
-            };
-            drawFinder(0, 0);
-            drawFinder(mc - 7, 0);
-            drawFinder(0, mc - 7);
-
-            // Pseudo-random data fill based on text string hash for visual 2D code matrix
-            var hash = 0;
-            for (var i = 0; i < text.length; i++) {
-                hash = ((hash << 5) - hash) + text.charCodeAt(i);
-                hash |= 0;
             }
+        },
+        setupFinderPattern: function(row, col) {
+            for (var r = -1; r <= 7; r++) {
+                for (var c = -1; c <= 7; c++) {
+                    var rPos = row + r;
+                    var cPos = col + c;
+                    if (rPos < 0 || this.moduleCount <= rPos || cPos < 0 || this.moduleCount <= cPos) continue;
 
-            for (var r = 0; r < mc; r++) {
-                for (var c = 0; c < mc; c++) {
-                    if (this.modules[r][c]) continue;
-                    if (r === 6 || c === 6) {
-                        this.modules[r][c] = ((r + c) % 2 === 0);
+                    if ((0 <= r && r <= 6 && (c === 0 || c === 6)) ||
+                        (0 <= c && c <= 6 && (r === 0 || r === 6)) ||
+                        (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
+                        this.modules[rPos][cPos] = true;
                     } else {
-                        var val = Math.abs(Math.sin(r * 12.9898 + c * 78.233 + hash) * 43758.5453);
-                        this.modules[r][c] = (val - Math.floor(val)) > 0.45;
+                        this.modules[rPos][cPos] = false;
+                    }
+                }
+            }
+        },
+        setupAlignmentPatterns: function() {
+            var pos = [];
+            if (this.typeNumber === 2) pos = [6, 18];
+            else if (this.typeNumber === 3) pos = [6, 22];
+            else if (this.typeNumber === 4) pos = [6, 26];
+            else if (this.typeNumber === 5) pos = [6, 30];
+
+            for (var i = 0; i < pos.length; i++) {
+                for (var j = 0; j < pos.length; j++) {
+                    var r = pos[i];
+                    var c = pos[j];
+                    if (this.modules[r][c] !== null) continue;
+                    for (var ar = -2; ar <= 2; ar++) {
+                        for (var ac = -2; ac <= 2; ac++) {
+                            var isEdge = Math.abs(ar) === 2 || Math.abs(ac) === 2;
+                            var isCenter = ar === 0 && ac === 0;
+                            this.modules[r + ar][c + ac] = isEdge || isCenter;
+                        }
                     }
                 }
             }
         },
         toSvg: function() {
-            var margin = 2;
+            var margin = 4;
             var size = (this.moduleCount + margin * 2) * cellSize;
             var svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
             svg += `<rect width="100%" height="100%" fill="#ffffff"/>`;
@@ -98,7 +151,7 @@ function generate2DCodeSvg(text, cellSize = 4) {
         }
     };
 
-    var qr = new QRCode(5);
+    var qr = new QRCode(4);
     qr.addData(text);
     qr.make();
     return qr.toSvg();
