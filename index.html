@@ -257,13 +257,13 @@
         <!-- 左側: プレイヤーエリア -->
         <div id="player-left-panel" class="w-full md:w-8/12 p-5 flex flex-col bg-gray-800/90 backdrop-blur-sm z-10 relative border-r border-gray-700">
             
-            <!-- モード切替ヘッダー -->
-            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-700 shrink-0 gap-2 overflow-x-auto custom-scrollbar">
-                <div class="flex items-center space-x-2 shrink-0">
-                    <span class="text-xs font-bold uppercase tracking-wider text-gray-400 shrink-0">Mode</span>
+            <!-- モード切替ヘッダー (スクロールバー完全消去・コンパクトフィット配置) -->
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-700 shrink-0 gap-1.5 overflow-hidden">
+                <div class="flex items-center space-x-1.5 shrink-0">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400 shrink-0 hidden sm:inline">Mode</span>
                     
                     <!-- 5段階スイッチ (フィット＆ズレゼロの完全ピルレイアウト) -->
-                    <div class="relative w-[270px] shrink-0 bg-gray-900 rounded-full p-1 flex items-center border border-gray-600 select-none">
+                    <div class="relative w-[250px] sm:w-[270px] shrink-0 bg-gray-900 rounded-full p-1 flex items-center border border-gray-600 select-none">
                         <button id="btn-mode-single" onclick="setPlayerMode('single')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 bg-blue-600 text-white shadow-md">Single</button>
                         <button id="btn-mode-dual" onclick="setPlayerMode('dual')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Dual</button>
                         <button id="btn-mode-multi" onclick="setPlayerMode('multi')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Multi</button>
@@ -272,37 +272,43 @@
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-1.5 shrink-0">
+                <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
                     <!-- SoundFont Control & Status Badge -->
-                    <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full border border-yellow-500/40 bg-gray-900/90 shrink-0" title="SoundFont 状態">
-                        <span id="sf2-badge-icon" class="text-xs">⚡</span>
-                        <span id="sf2-badge-text" class="text-[10px] font-bold text-yellow-300 max-w-[120px] truncate">SF: デフォルト (Built-in)</span>
-                        <button onclick="document.getElementById('sf2-input').click()" class="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-yellow-200 bg-yellow-950/80 hover:bg-yellow-800 border border-yellow-500/50 transition-colors cursor-pointer" title="ローカルの .sf2 / .sf3 ファイルを選択">
+                    <div class="flex items-center space-x-1 px-2 py-0.5 rounded-full border border-yellow-500/40 bg-gray-900/90 shrink-0" title="SoundFont 状態">
+                        <span id="sf2-badge-icon" class="text-[10px]">⚡</span>
+                        <span id="sf2-badge-text" class="text-[9px] sm:text-[10px] font-bold text-yellow-300 max-w-[80px] sm:max-w-[110px] truncate">SF: デフォルト</span>
+                        <button onclick="document.getElementById('sf2-input').click()" class="ml-0.5 px-1 py-0.5 rounded text-[9px] font-bold text-yellow-200 bg-yellow-950/80 hover:bg-yellow-800 border border-yellow-500/50 transition-colors cursor-pointer" title="ローカルの .sf2 / .sf3 ファイルを選択">
                             📁 変更
                         </button>
-                        <button id="sf2-reset-btn" onclick="resetSoundFont()" class="hidden px-1.5 py-0.5 rounded text-[9px] font-bold text-red-200 bg-red-950/80 hover:bg-red-800 border border-red-500/50 transition-colors cursor-pointer" title="デフォルト音源に戻す">
+                        <button id="sf2-reset-btn" onclick="resetSoundFont()" class="hidden px-1 py-0.5 rounded text-[9px] font-bold text-red-200 bg-red-950/80 hover:bg-red-800 border border-red-500/50 transition-colors cursor-pointer" title="デフォルト音源に戻す">
                             ↺ リセット
                         </button>
                     </div>
 
+                    <!-- 🎚️ NORM (音量均一化ノーマライザー) トグルボタン -->
+                    <button id="norm-toggle-btn" onclick="toggleNormCompressor()" class="px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900/90 hover:text-white transition-all duration-200 select-none focus:outline-none shrink-0 flex items-center space-x-0.5" title="NORM: 音量を自動で均一に揃える (DynamicsCompressor)">
+                        <span>🎚️</span>
+                        <span>NORM</span>
+                    </button>
+
                     <!-- テーマ設定ボタン -->
-                    <button id="theme-modal-btn" onclick="openThemeModal()" class="px-2.5 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900/90 hover:text-white hover:bg-purple-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="テーマ＆背景設定">
+                    <button id="theme-modal-btn" onclick="openThemeModal()" class="px-2 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900/90 hover:text-white hover:bg-purple-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="テーマ＆背景設定">
                         <span>🎨</span>
-                        <span>Theme</span>
+                        <span class="hidden sm:inline">Theme</span>
                     </button>
 
                     <!-- 独立したHelpボタン -->
-                    <button id="help-mode-btn" onclick="setPlayerMode('help')" class="px-2.5 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
+                    <button id="help-mode-btn" onclick="setPlayerMode('help')" class="px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
                         Help
                     </button>
 
                     <!-- ミニプレイヤー切替 -->
-                    <button id="mini-toggle-btn" onclick="toggleMiniPlayer()" class="px-2 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white hover:bg-cyan-900/50 transition-colors select-none focus:outline-none shrink-0" title="ミニプレイヤー切替">
+                    <button id="mini-toggle-btn" onclick="toggleMiniPlayer()" class="px-1.5 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white hover:bg-cyan-900/50 transition-colors select-none focus:outline-none shrink-0" title="ミニプレイヤー切替">
                         📐
                     </button>
 
                     <!-- ビジュアライザー (Small) -->
-                    <div id="header-visualizer-container" class="visualizer-container h-8 w-16 border border-gray-700 bg-black shrink-0 hidden lg:block">
+                    <div id="header-visualizer-container" class="visualizer-container h-8 w-14 border border-gray-700 bg-black shrink-0 hidden lg:block">
                         <canvas id="visualizer"></canvas>
                     </div>
                 </div>
@@ -1201,6 +1207,8 @@
         let analyser = null;
         let masterGainNode = null;
         let speakerGainNode = null;
+        let masterCompressorNode = null;
+        let isNormEnabled = false;
         let isMuted = false;
         // players[0], players[1] for Single, Dual, FX, Visual
         let players = [new Audio(), new Audio()];
@@ -2127,6 +2135,9 @@
             closeMidiMixerBtn.addEventListener('click', () => {
                 midiMixerPanel.classList.add('hidden');
                 singleArtworkArea.classList.remove('hidden');
+                updateModeUI();
+                updatePlaylistUI();
+                window.dispatchEvent(new Event('resize'));
             });
 
             // Recording events
@@ -3230,6 +3241,14 @@
             masterGainNode = audioContext.createGain();
             speakerGainNode = audioContext.createGain();
 
+            // Create Master DynamicsCompressor for NORM (音量自動均一化)
+            masterCompressorNode = audioContext.createDynamicsCompressor();
+            masterCompressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+            masterCompressorNode.knee.setValueAtTime(30, audioContext.currentTime);
+            masterCompressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
+            masterCompressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+            masterCompressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
+
             // Create Master Filters & 3D Spatial Panner
             masterLowpassNode = audioContext.createBiquadFilter();
             masterLowpassNode.type = 'lowpass';
@@ -3264,10 +3283,11 @@
                 chainNode.connect(masterGainNode);
             }
 
-            masterGainNode.connect(speakerGainNode);
             masterGainNode.connect(recDestNode);
             speakerGainNode.connect(audioContext.destination);
             if (isMuted) speakerGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+
+            updateNormRouting();
 
             // Create FX Nodes
             const freqs = [60, 250, 1000, 4000, 12000];
@@ -3343,6 +3363,40 @@
             
             connectAudioGraph();
             drawVisualizer();
+        }
+
+        function updateNormRouting() {
+            if (!audioContext || !masterGainNode || !speakerGainNode) return;
+            const normBtn = document.getElementById('norm-toggle-btn');
+            
+            try {
+                masterGainNode.disconnect(speakerGainNode);
+                if (masterCompressorNode) {
+                    masterGainNode.disconnect(masterCompressorNode);
+                    masterCompressorNode.disconnect(speakerGainNode);
+                }
+            } catch(e) {}
+
+            if (isNormEnabled && masterCompressorNode) {
+                masterGainNode.connect(masterCompressorNode);
+                masterCompressorNode.connect(speakerGainNode);
+                if (normBtn) {
+                    normBtn.className = "px-2 py-1 rounded-full border border-emerald-500/80 text-[10px] font-bold text-emerald-300 bg-emerald-950/80 shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all duration-200 select-none focus:outline-none shrink-0 flex items-center space-x-0.5";
+                }
+            } else {
+                masterGainNode.connect(speakerGainNode);
+                if (normBtn) {
+                    normBtn.className = "px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900/90 hover:text-white transition-all duration-200 select-none focus:outline-none shrink-0 flex items-center space-x-0.5";
+                }
+            }
+        }
+
+        function toggleNormCompressor() {
+            initAudio();
+            isNormEnabled = !isNormEnabled;
+            try { localStorage.setItem('ost_norm_enabled', isNormEnabled ? '1' : '0'); } catch(e){}
+            updateNormRouting();
+            showNotification(isNormEnabled ? "🎚️ NORM (音量自動均一化) 有効化" : "🎚️ NORM (音量自動均一化) OFF");
         }
         
         function makeDistortionCurve(amount) {
@@ -3618,7 +3672,7 @@
             }, delayMs);
         }
 
-        // --- Async Non-Blocking 16-bit PCM WAV Encoder ---
+        // --- Async Non-Blocking 16-bit PCM WAV Encoder (Ultra Fast TypedArray Optimization) ---
         async function asyncBufferToWav(buffer, onProgress) {
             const numChannels = buffer.numberOfChannels;
             const sampleRate = buffer.sampleRate;
@@ -3639,6 +3693,7 @@
 
             const arrayBuffer = new ArrayBuffer(totalByteLength);
             const view = new DataView(arrayBuffer);
+            const int16Array = new Int16Array(arrayBuffer, headerByteLength);
 
             function writeString(offset, string) {
                 for (let i = 0; i < string.length; i++) {
@@ -3660,26 +3715,39 @@
             writeString(36, 'data');
             view.setUint32(40, dataByteLength, true);
 
-            const chunkSize = 250000;
-            let offset = 44;
+            const chunkSize = 2000000;
+            let sampleIdx = 0;
             for (let i = 0; i < length; i += chunkSize) {
                 const end = Math.min(length, i + chunkSize);
-                for (let j = i; j < end; j++) {
-                    for (let c = 0; c < numChannels; c++) {
-                        const sample = Math.max(-1, Math.min(1, channelData[c][j]));
-                        const val = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-                        view.setInt16(offset, val, true);
-                        offset += 2;
+                if (numChannels === 2) {
+                    const left = channelData[0];
+                    const right = channelData[1];
+                    for (let j = i; j < end; j++) {
+                        let sL = left[j];
+                        sL = sL < -1 ? -1 : (sL > 1 ? 1 : sL);
+                        int16Array[sampleIdx++] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
+
+                        let sR = right[j];
+                        sR = sR < -1 ? -1 : (sR > 1 ? 1 : sR);
+                        int16Array[sampleIdx++] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
+                    }
+                } else {
+                    for (let j = i; j < end; j++) {
+                        for (let c = 0; c < numChannels; c++) {
+                            let s = channelData[c][j];
+                            s = s < -1 ? -1 : (s > 1 ? 1 : s);
+                            int16Array[sampleIdx++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
                     }
                 }
                 if (onProgress && typeof onProgress === 'function') {
-                    const pct = 94 + Math.floor((i / length) * 5);
+                    const pct = 95 + Math.floor((i / length) * 5);
                     onProgress(pct, 'WAV変換中...', `PCMデータをエンコード中 (${pct}%)`);
                 }
                 await new Promise(r => setTimeout(r, 0));
             }
 
-            return new Blob([view], { type: 'audio/wav' });
+            return new Blob([arrayBuffer], { type: 'audio/wav' });
         }
 
         // --- SoundFont (SGM) 1-Second Ultra-Fast Offline WAV Exporter ---
@@ -5052,6 +5120,9 @@
             const savedOverlay = localStorage.getItem('ost_bg_overlay') || '0.6';
             const savedCard = localStorage.getItem('ost_card_opacity') || '0.85';
             
+            isNormEnabled = localStorage.getItem('ost_norm_enabled') === '1';
+            updateNormRouting();
+
             const blurInput = document.getElementById('custom-blur-input');
             const overlayInput = document.getElementById('custom-overlay-input');
             const cardInput = document.getElementById('custom-card-input');
@@ -6115,7 +6186,7 @@
                 if (!this.gainNode) {
                     this.gainNode = ctx.createGain();
                 }
-                this.gainNode.gain.setValueAtTime(this.volume, ctx.currentTime);
+                this.gainNode.gain.setValueAtTime(this.volume * 1.6, ctx.currentTime);
                 try {
                     this.gainNode.disconnect();
                 } catch(e){}
@@ -6252,7 +6323,7 @@
             setMasterVol(vol) {
                 this.volume = vol;
                 if (this.gainNode && audioContext) {
-                    this.gainNode.gain.setValueAtTime(vol, audioContext.currentTime);
+                    this.gainNode.gain.setValueAtTime(vol * 1.6, audioContext.currentTime);
                 }
             }
             
