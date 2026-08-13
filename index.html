@@ -5042,10 +5042,10 @@
                 currentTrack = playlist[fxTrackIndex];
                 isPlaying = isFxPlaying;
             } else if (currentMode === 'dual') {
-                currentTrack = playlist[dualTrackIndices[0]];
-                isPlaying = isDualPlaying[0] || isDualPlaying[1];
+                currentTrack = dualTracks[0] || dualTracks[1];
+                isPlaying = (isDualPlaying && (isDualPlaying[0] || isDualPlaying[1]));
             } else if (currentMode === 'multi') {
-                isPlaying = decks.some(d => d.isPlaying);
+                isPlaying = decks.some(d => d && d.isPlaying);
                 if (playlist.length > 0) currentTrack = playlist[0];
             }
 
@@ -5074,18 +5074,20 @@
                 else if (currentMode === 'fx') toggleFxPlay();
                 else if (currentMode === 'dual') toggleDualPlay(0);
                 else if (currentMode === 'multi') {
-                    const anyPlaying = decks.some(d => d.isPlaying);
+                    const anyPlaying = decks.some(d => d && d.isPlaying);
                     if (anyPlaying) stopAllAudio();
                     else decks.forEach(d => playDeck(d));
                 }
             } else if (cmd.action === 'next') {
+                if (playlist.length === 0) return;
                 if (currentMode === 'single' || currentMode === 'visual') playNextSingleTrack();
                 else if (currentMode === 'fx') loadFxTrack((fxTrackIndex + 1) % playlist.length);
-                else if (currentMode === 'dual') loadDualTrack(0, (dualTrackIndices[0] + 1) % playlist.length);
+                else if (currentMode === 'dual') loadDualTrack(0, (singleTrackIndex + 1) % playlist.length);
             } else if (cmd.action === 'prev') {
+                if (playlist.length === 0) return;
                 if (currentMode === 'single' || currentMode === 'visual') playPrevSingleTrack();
                 else if (currentMode === 'fx') loadFxTrack((fxTrackIndex - 1 + playlist.length) % playlist.length);
-                else if (currentMode === 'dual') loadDualTrack(0, (dualTrackIndices[0] - 1 + playlist.length) % playlist.length);
+                else if (currentMode === 'dual') loadDualTrack(0, (singleTrackIndex - 1 + playlist.length) % playlist.length);
             } else if (cmd.action === 'vol') {
                 const vol = parseFloat(cmd.value);
                 if (!isNaN(vol)) {
