@@ -3323,7 +3323,7 @@
             reverbNode.buffer = createReverbBuffer(2.0, 2.0);
             
             dryGainNode = audioContext.createGain();
-            dryGainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+            dryGainNode.gain.setValueAtTime(1.25, audioContext.currentTime);
             wetGainNode = audioContext.createGain();
             wetGainNode.gain.setValueAtTime(0, audioContext.currentTime);
 
@@ -4086,10 +4086,8 @@
         function updateDist(val) { if(distNode) distNode.curve = makeDistortionCurve(parseFloat(val)); ui.fx.distVal.textContent = val; }
         function updateFxMixGain() {
             if (!dryGainNode || !audioContext) return;
-            const wetV = wetGainNode ? wetGainNode.gain.value : 0;
-            const delayV = delayGainNode ? delayGainNode.gain.value : 0;
-            const compensatedDry = Math.max(0.35, 1.0 - (wetV * 0.4 + delayV * 0.4));
-            dryGainNode.gain.setTargetAtTime(compensatedDry, audioContext.currentTime, 0.05);
+            // 1.25倍 (+2dB) のノード挿入損失補正ゲインで Single モードと音量を100%均一に一致
+            dryGainNode.gain.setTargetAtTime(1.25, audioContext.currentTime, 0.05);
         }
 
         function updateEcho(val) { 
