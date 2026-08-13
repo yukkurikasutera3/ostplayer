@@ -733,6 +733,42 @@
             <!-- === HELP VIEW === -->
             <div id="help-view" class="flex-1 flex flex-col hidden-mode p-4 overflow-y-auto bg-gray-800/80 rounded-lg">
                 <h2 class="text-xl font-bold text-white mb-4">OST Player Help</h2>
+                
+                <!-- 📱 スマホWebリモコン (2次元コード接続) -->
+                <div class="help-section border border-cyan-500/50 bg-gray-900/90 rounded-xl p-4 mb-4 shadow-lg">
+                    <div class="flex items-center justify-between border-b border-cyan-500/30 pb-2 mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-cyan-400 text-lg">📱</span>
+                            <h3 class="text-cyan-300 font-bold text-sm tracking-wide">スマホ Webリモコン (2次元コード接続)</h3>
+                        </div>
+                        <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/50 px-2.5 py-0.5 rounded-full font-bold">New v3.0</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-4">
+                        <!-- 2次元コード表示エリア -->
+                        <div class="flex flex-col items-center shrink-0">
+                            <div id="remote-qrcode-container" class="bg-white p-2.5 rounded-xl shadow-md border border-gray-600 flex items-center justify-center min-w-[140px] min-h-[140px]">
+                                <div id="remote-qrcode-svg"></div>
+                            </div>
+                            <span class="text-[10px] text-cyan-300/80 mt-1.5 font-bold">カメラで2次元コードをスキャン</span>
+                        </div>
+                        <!-- URL & 説明 -->
+                        <div class="flex-1 space-y-2 text-xs">
+                            <p class="text-gray-300 leading-relaxed">
+                                PCと同じWi-Fi（ローカルネットワーク）に接続中のスマホで左の<strong class="text-cyan-300">2次元コード</strong>を読み取ると、スマホからOST Playerをリモート操作できます！
+                            </p>
+                            <div class="bg-gray-950/90 border border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2">
+                                <span id="remote-url-text" class="font-mono text-cyan-300 select-all text-xs font-bold truncate">http://127.0.0.1:8888</span>
+                                <button onclick="copyRemoteUrl()" class="px-2.5 py-1 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 text-[10px] font-bold rounded border border-cyan-500/50 transition-colors shrink-0 cursor-pointer">URLコピー</button>
+                            </div>
+                            <ul class="text-[11px] text-gray-400 space-y-0.5 list-disc list-inside">
+                                <li>再生 / 一時停止 / 曲送り / 曲戻し</li>
+                                <li>音量調整 & モード切替 (Single, Dual, Multi, FX, Visual)</li>
+                                <li>リアルタイム曲名 & 再生ステータス同期</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="help-section">
                     <h3 class="help-heading">基本操作</h3>
                     <p class="help-text">音楽ファイルをウィンドウにドラッグ＆ドロップしてライブラリに追加します。再生したいモードを選んでから、リストの曲をクリックしてください。</p>
@@ -1425,6 +1461,7 @@
                 initThemeFromSettings();
                 initBgVisualizer();
                 startMidiGlobalLoop();
+                await initWebRemote();       // 📱 スマホWebリモコン (2次元コード) 読み込み
             } catch (err) { console.error(err); }
             dismissSplashScreen();            // 読み込み完了後即座にスプラッシュ画面をフェードアウト消去
         });
@@ -3239,16 +3276,16 @@
             masterGainNode = audioContext.createGain();
             speakerGainNode = audioContext.createGain();
 
-            // Create Master DynamicsCompressor & Makeup Gain Node for NORM (音量自動均一化 & ダイナミックブースト)
+            // Create Master DynamicsCompressor for NORM (現在の音量を基準とする自動均一化)
             masterCompressorNode = audioContext.createDynamicsCompressor();
-            masterCompressorNode.threshold.setValueAtTime(-32, audioContext.currentTime);
-            masterCompressorNode.knee.setValueAtTime(6, audioContext.currentTime);
-            masterCompressorNode.ratio.setValueAtTime(16, audioContext.currentTime);
-            masterCompressorNode.attack.setValueAtTime(0.002, audioContext.currentTime);
-            masterCompressorNode.release.setValueAtTime(0.12, audioContext.currentTime);
+            masterCompressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+            masterCompressorNode.knee.setValueAtTime(12, audioContext.currentTime);
+            masterCompressorNode.ratio.setValueAtTime(8, audioContext.currentTime);
+            masterCompressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+            masterCompressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
 
             masterMakeupGainNode = audioContext.createGain();
-            masterMakeupGainNode.gain.setValueAtTime(1.55, audioContext.currentTime);
+            masterMakeupGainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
 
             // Create Master Filters & 3D Spatial Panner
             masterLowpassNode = audioContext.createBiquadFilter();
@@ -4952,6 +4989,116 @@
                     ui.mini.pauseIcon.classList.add('hidden');
                 }
             }
+            broadcastRemoteStatus();
+        }
+
+        // --- 📱 スマホWebリモコン (2次元コード) ロジック ---
+        let remoteUrlString = "";
+
+        async function initWebRemote() {
+            if (window.electronAPI && typeof window.electronAPI.getRemoteInfo === 'function') {
+                try {
+                    const info = await window.electronAPI.getRemoteInfo();
+                    if (info) {
+                        remoteUrlString = info.url;
+                        const svgContainer = document.getElementById('remote-qrcode-svg');
+                        const urlText = document.getElementById('remote-url-text');
+                        if (svgContainer && info.qrSvg) svgContainer.innerHTML = info.qrSvg;
+                        if (urlText) urlText.textContent = info.url;
+                    }
+                } catch(e){ console.error("Web Remote Init Error:", e); }
+
+                window.electronAPI.onRemoteCommand((cmd) => {
+                    if (!cmd || !cmd.action) return;
+                    handleRemoteCommand(cmd);
+                });
+            }
+        }
+
+        function copyRemoteUrl() {
+            if (!remoteUrlString) {
+                const urlText = document.getElementById('remote-url-text');
+                if (urlText) remoteUrlString = urlText.textContent;
+            }
+            if (remoteUrlString) {
+                navigator.clipboard.writeText(remoteUrlString).then(() => {
+                    showNotification("📱 リモコンURLをコピーしました");
+                }).catch(() => {
+                    showNotification("URL: " + remoteUrlString);
+                });
+            }
+        }
+
+        function broadcastRemoteStatus() {
+            if (!window.electronAPI || typeof window.electronAPI.updateRemoteStatus !== 'function') return;
+            
+            let title = "再生なし";
+            let artist = "OST Player";
+            let isPlaying = false;
+            let currentTrack = null;
+
+            if (currentMode === 'single' || currentMode === 'visual') {
+                currentTrack = playlist[singleTrackIndex];
+                isPlaying = isSinglePlaying;
+            } else if (currentMode === 'fx') {
+                currentTrack = playlist[fxTrackIndex];
+                isPlaying = isFxPlaying;
+            } else if (currentMode === 'dual') {
+                currentTrack = playlist[dualTrackIndices[0]];
+                isPlaying = isDualPlaying[0] || isDualPlaying[1];
+            } else if (currentMode === 'multi') {
+                isPlaying = decks.some(d => d.isPlaying);
+                if (playlist.length > 0) currentTrack = playlist[0];
+            }
+
+            if (currentTrack) {
+                title = currentTrack.name || "再生中";
+                artist = currentTrack.artist || "OST Player";
+            }
+
+            const currentVol = parseFloat(ui.single ? ui.single.vol.value : 1.0);
+
+            window.electronAPI.updateRemoteStatus({
+                title,
+                artist,
+                mode: currentMode,
+                isPlaying,
+                volume: currentVol
+            });
+        }
+
+        function handleRemoteCommand(cmd) {
+            initAudio();
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+
+            if (cmd.action === 'play-pause') {
+                if (currentMode === 'single' || currentMode === 'visual') toggleSinglePlay();
+                else if (currentMode === 'fx') toggleFxPlay();
+                else if (currentMode === 'dual') toggleDualPlay(0);
+                else if (currentMode === 'multi') {
+                    const anyPlaying = decks.some(d => d.isPlaying);
+                    if (anyPlaying) stopAllAudio();
+                    else decks.forEach(d => playDeck(d));
+                }
+            } else if (cmd.action === 'next') {
+                if (currentMode === 'single' || currentMode === 'visual') playNextSingleTrack();
+                else if (currentMode === 'fx') loadFxTrack((fxTrackIndex + 1) % playlist.length);
+                else if (currentMode === 'dual') loadDualTrack(0, (dualTrackIndices[0] + 1) % playlist.length);
+            } else if (cmd.action === 'prev') {
+                if (currentMode === 'single' || currentMode === 'visual') playPrevSingleTrack();
+                else if (currentMode === 'fx') loadFxTrack((fxTrackIndex - 1 + playlist.length) % playlist.length);
+                else if (currentMode === 'dual') loadDualTrack(0, (dualTrackIndices[0] - 1 + playlist.length) % playlist.length);
+            } else if (cmd.action === 'vol') {
+                const vol = parseFloat(cmd.value);
+                if (!isNaN(vol)) {
+                    updateSingleVolume(vol);
+                    updateFxVolume(vol);
+                }
+            } else if (cmd.action === 'mode') {
+                if (cmd.value) setPlayerMode(cmd.value);
+            }
+
+            setTimeout(broadcastRemoteStatus, 100);
         }
 
         function toggleLoop() {
