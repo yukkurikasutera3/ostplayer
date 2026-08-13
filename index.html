@@ -6209,7 +6209,7 @@
                 if (!this.gainNode) {
                     this.gainNode = ctx.createGain();
                 }
-                this.gainNode.gain.setValueAtTime(this.volume * 1.6, ctx.currentTime);
+                this.gainNode.gain.setValueAtTime(this.volume, ctx.currentTime);
                 try {
                     this.gainNode.disconnect();
                 } catch(e){}
@@ -6346,7 +6346,7 @@
             setMasterVol(vol) {
                 this.volume = vol;
                 if (this.gainNode && audioContext) {
-                    this.gainNode.gain.setValueAtTime(vol * 1.6, audioContext.currentTime);
+                    this.gainNode.gain.setValueAtTime(vol, audioContext.currentTime);
                 }
             }
             
