@@ -230,6 +230,22 @@
         .mini-mode #player-left-panel { display: none !important; }
         .mini-mode #mini-player-view { display: flex !important; height: 100% !important; border: none !important; }
         .mini-mode .w-4\/12, .mini-mode .w-5\/12, .mini-mode .md\:w-4\/12 { display: none !important; }
+
+        /* ⚡ Mini Player Text Marquee (長いタイトルの滑らかな自動スクロール) */
+        @keyframes mini-marquee-scroll {
+            0%, 20% {
+                transform: translateX(0);
+            }
+            80%, 100% {
+                transform: translateX(var(--marquee-translate, -50px));
+            }
+        }
+        .mini-marquee-active {
+            display: inline-block !important;
+            white-space: nowrap !important;
+            will-change: transform;
+            animation: mini-marquee-scroll var(--marquee-duration, 8s) ease-in-out infinite alternate !important;
+        }
     </style>
 </head>
 <body id="app-body" class="theme-cyberpunk bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300">
@@ -850,8 +866,10 @@
             <button id="mini-next" class="text-gray-400 hover:text-white transition shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
             </button>
-            <div class="flex-1 min-w-0">
-                <h3 id="mini-title" class="text-sm font-bold text-white truncate">No Track Selected</h3>
+            <div id="mini-title-container" class="flex-1 min-w-0 overflow-hidden">
+                <div class="overflow-hidden whitespace-nowrap">
+                    <h3 id="mini-title" class="text-sm font-bold text-white inline-block">No Track Selected</h3>
+                </div>
                 <div class="flex items-center space-x-2 mt-1">
                     <span id="mini-current" class="text-[10px] text-gray-400 font-mono w-8 shrink-0">0:00</span>
                     <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.01" class="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
@@ -4461,13 +4479,46 @@
             if(synth) synth.setMasterVol(vol);
         }
 
-        // --- Mini Player Toggle ---
+        // --- Mini Player Toggle & Marquee ---
         let isMiniMode = false;
+
+        function updateMiniMarqueeTitle(titleText) {
+            const el = document.getElementById('mini-title');
+            const container = document.getElementById('mini-title-container');
+            if (!el) return;
+            
+            const currentTitle = titleText || (playlist[singleTrackIndex] ? playlist[singleTrackIndex].name : 'No Track Selected');
+            el.textContent = currentTitle;
+            el.classList.remove('mini-marquee-active');
+            el.style.removeProperty('--marquee-translate');
+            el.style.removeProperty('--marquee-duration');
+
+            // DOM描画後に幅を計測してオーバーフロー判定
+            requestAnimationFrame(() => {
+                const containerWidth = container ? container.clientWidth : 180;
+                const textWidth = el.scrollWidth;
+                
+                if (textWidth > containerWidth + 4) {
+                    const overflow = textWidth - containerWidth;
+                    const duration = Math.max(5, (overflow / 18) + 3) + "s";
+                    el.style.setProperty('--marquee-translate', `-${overflow + 8}px`);
+                    el.style.setProperty('--marquee-duration', duration);
+                    el.classList.add('mini-marquee-active');
+                }
+            });
+        }
+        window.addEventListener('resize', () => {
+            if (isMiniMode) updateMiniMarqueeTitle();
+        });
+
         function toggleMiniPlayer() {
             isMiniMode = !isMiniMode;
             document.body.classList.toggle('mini-mode', isMiniMode);
             if (window.electronAPI && window.electronAPI.toggleMiniMode) {
                 window.electronAPI.toggleMiniMode(isMiniMode);
+            }
+            if (isMiniMode) {
+                setTimeout(updateMiniMarqueeTitle, 150);
             }
         }
         window.toggleMiniPlayer = toggleMiniPlayer;
@@ -5040,8 +5091,8 @@
             const fxTitle = document.getElementById('fx-title');
             if (fxTitle) fxTitle.textContent = t.name;
 
-            // Mini View Title
-            if (ui.mini && ui.mini.title) ui.mini.title.textContent = t.name;
+            // Mini View Title & Marquee Scroll
+            updateMiniMarqueeTitle(t.name);
 
             // Artwork Update
             const artworkEl = ui.single.artwork;
