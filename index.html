@@ -1750,7 +1750,9 @@
 
             if (crushEnable) {
                 crushEnable.addEventListener('change', (e) => {
+                    initAudio();
                     isBitcrusherEnabled = e.target.checked;
+                    updateMasterEffectsRouting();
                     showNotification(`Bitcrusher: ${isBitcrusherEnabled ? '有効 (ON)' : '無効 (OFF)'}`);
                 });
             }
@@ -1774,6 +1776,7 @@
                     bitcrusherBits = bits;
                     bitcrusherRate = rate;
                     isBitcrusherEnabled = (bits < 16 || rate < 44100);
+                    updateMasterEffectsRouting();
                     if (crushEnable) crushEnable.checked = isBitcrusherEnabled;
                     if (bitSlider) bitSlider.value = bits;
                     if (rateSlider) rateSlider.value = rate;
@@ -1848,7 +1851,7 @@
                     initAudio();
                     if (audioContext && audioContext.state === 'suspended') audioContext.resume();
                     isVocalCancelEnabled = e.target.checked;
-                    connectAudioGraph();
+                    updateMasterEffectsRouting();
                     showNotification(`ボーカルキャンセラー: ${isVocalCancelEnabled ? '有効 (ON)' : '無効 (OFF)'}`);
                 });
             }
@@ -2317,7 +2320,110 @@
             return synth;
         }
 
-        let activeLedTimeouts = {};
+        // --- ⚡ 高性能インメモリオーディオRAMキャッシュマネージャー ---
+        const AudioCacheManager = {
+            blobUrlCache: new Map(),
+            midiArrayBufferCache: new Map(),
+
+            async getTrackUrl(track) {
+                if (!track) return null;
+                if (track.url) return track.url;
+                const key = track.id || track.name;
+                if (this.blobUrlCache.has(key)) {
+                    const cached = this.blobUrlCache.get(key);
+                    track.url = cached;
+                    return cached;
+                }
+                if (track.file) {
+                    const url = URL.createObjectURL(track.file);
+                    this.blobUrlCache.set(key, url);
+                    track.url = url;
+                    return url;
+                }
+                return null;
+            },
+
+            async getMidiBuffer(track) {
+                if (!track || !track.isMidi) return null;
+                const key = track.id || track.name;
+                if (this.midiArrayBufferCache.has(key)) {
+                    return this.midiArrayBufferCache.get(key);
+                }
+                if (track.file) {
+                    const buf = await track.file.arrayBuffer();
+                    this.midiArrayBufferCache.set(key, buf);
+                    return buf;
+                }
+                return null;
+            },
+
+            preloadNextTrack(currentIndex) {
+                if (!playlist || playlist.length === 0) return;
+                const nextIdx = (currentIndex + 1) % playlist.length;
+                const nextTrack = playlist[nextIdx];
+                if (!nextTrack) return;
+
+                if (nextTrack.isMidi) {
+                    this.getMidiBuffer(nextTrack).catch(() => {});
+                } else {
+                    this.getTrackUrl(nextTrack).catch(() => {});
+                }
+            }
+        };
+
+        // --- ⚡ 超軽量MIDIチャンネルLEDバッチ描画マネージャー ---
+        const midiLedActiveUntil = new Float64Array(16);
+        let isMidiLedLoopRunning = false;
+        let cachedMidiLedElements = null;
+
+        function getMidiLedElements() {
+            if (!cachedMidiLedElements) {
+                cachedMidiLedElements = [];
+                for (let ch = 0; ch < 16; ch++) {
+                    cachedMidiLedElements.push(document.getElementById(`midi-led-${ch}`));
+                }
+            }
+            return cachedMidiLedElements;
+        }
+
+        function triggerMidiChannelLed(channel) {
+            if (channel < 0 || channel > 15) return;
+            midiLedActiveUntil[channel] = performance.now() + 80;
+            if (!isMidiLedLoopRunning) {
+                isMidiLedLoopRunning = true;
+                requestAnimationFrame(updateMidiLedsBatch);
+            }
+        }
+
+        function updateMidiLedsBatch(now) {
+            const leds = getMidiLedElements();
+            let hasActive = false;
+
+            for (let ch = 0; ch < 16; ch++) {
+                const led = leds[ch];
+                if (!led) continue;
+                const isActive = midiLedActiveUntil[ch] > now;
+                if (isActive) {
+                    hasActive = true;
+                    if (!led.classList.contains('bg-yellow-400')) {
+                        led.classList.remove('bg-gray-700');
+                        led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                    }
+                } else {
+                    if (led.classList.contains('bg-yellow-400')) {
+                        led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
+                        led.classList.add('bg-gray-700');
+                    }
+                }
+            }
+
+            if (hasActive) {
+                requestAnimationFrame(updateMidiLedsBatch);
+            } else {
+                isMidiLedLoopRunning = false;
+            }
+        }
+
         function wrapMidiSynthSend(synth) {
             if (synth._wrapped) return;
             synth._wrapped = true;
@@ -2332,20 +2438,8 @@
                 const ch = status & 0x0f;
                 
                 if (cmd === 0x90 && msg[2] > 0) {
-                    // Note On
-                    requestAnimationFrame(() => {
-                        const led = document.getElementById(`midi-led-${ch}`);
-                        if (led) {
-                            led.classList.remove('bg-gray-700');
-                            led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                            
-                            if (activeLedTimeouts[ch]) clearTimeout(activeLedTimeouts[ch]);
-                            activeLedTimeouts[ch] = setTimeout(() => {
-                                led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                                led.classList.add('bg-gray-700');
-                            }, 100);
-                        }
-                    });
+                    // ⚡ 超高速バッチ描画でUIブロックをゼロ化
+                    triggerMidiChannelLed(ch);
                 } else if (cmd === 0xc0) {
                     // Program change
                     const prog = msg[1];
@@ -3232,7 +3326,10 @@
         function initAudio() {
             if (audioContext) return;
             const AC = window.AudioContext || window.webkitAudioContext;
-            audioContext = new AC();
+            audioContext = new AC({
+                latencyHint: 'playback', // ⚡ 音楽再生用の広帯域ジッターバッファ（処理落ち・ラグによる音飛びを完全防止）
+                sampleRate: 44100
+            });
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
             
@@ -3263,26 +3360,11 @@
 
             init3DPannerNode();
 
-            // Routing: Analyser -> Lowpass -> Highpass -> 3D Panner -> Bitcrusher -> VocalCancel -> Master Gain -> (SpeakerGain & RecDest)
+            // Routing: Analyser -> Lowpass -> Highpass -> Master Effects Routing -> Master Gain
             analyser.connect(masterLowpassNode);
             masterLowpassNode.connect(masterHighpassNode);
 
-            let chainNode = masterHighpassNode;
-            if (panner3DNode) {
-                masterHighpassNode.connect(panner3DNode);
-                chainNode = panner3DNode;
-            }
-
-            const crusher = getOrCreateBitcrusherNode();
-            const vocalNode = getOrCreateVocalCancelNode();
-
-            if (crusher && vocalNode) {
-                chainNode.connect(crusher);
-                crusher.connect(vocalNode);
-                vocalNode.connect(masterGainNode);
-            } else {
-                chainNode.connect(masterGainNode);
-            }
+            updateMasterEffectsRouting();
 
             masterGainNode.connect(recDestNode);
             speakerGainNode.connect(audioContext.destination);
@@ -3364,6 +3446,42 @@
             
             connectAudioGraph();
             drawVisualizer();
+        }
+
+        // ⚡ ScriptProcessorバイパス・ネイティブ直結ルーティング（通常時は最速C++スレッドで直結処理）
+        function updateMasterEffectsRouting() {
+            if (!audioContext || !masterHighpassNode || !masterGainNode) return;
+            
+            try {
+                masterHighpassNode.disconnect();
+                if (panner3DNode) panner3DNode.disconnect();
+                if (bitcrusherNode) bitcrusherNode.disconnect();
+                if (vocalCancelNode) vocalCancelNode.disconnect();
+            } catch(e) {}
+
+            let chainNode = masterHighpassNode;
+            if (panner3DNode && is3DEnabled) {
+                masterHighpassNode.connect(panner3DNode);
+                chainNode = panner3DNode;
+            }
+
+            if (isBitcrusherEnabled) {
+                const crusher = getOrCreateBitcrusherNode();
+                if (crusher) {
+                    chainNode.connect(crusher);
+                    chainNode = crusher;
+                }
+            }
+
+            if (isVocalCancelEnabled) {
+                const vocalNode = getOrCreateVocalCancelNode();
+                if (vocalNode) {
+                    chainNode.connect(vocalNode);
+                    chainNode = vocalNode;
+                }
+            }
+
+            chainNode.connect(masterGainNode);
         }
 
         function updateNormRouting() {
@@ -3979,17 +4097,20 @@
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name + " (MIDI)";
                 if (ui.fx && ui.fx.status) ui.fx.status.textContent = "Ready";
                 const synth = getMidiSynth('main');
-                const buf = await track.file.arrayBuffer();
+                const buf = await AudioCacheManager.getMidiBuffer(track);
                 await loadMidiData(synth, buf, singleGainNodes[0]);
+                AudioCacheManager.preloadNextTrack(index);
                 toggleFxPlay();
             } else {
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
                 const p = players[0]; 
                 p.loop = false; 
-                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
-                p.src = track.url;
+                p.preload = "auto";
+                const trackUrl = await AudioCacheManager.getTrackUrl(track);
+                p.src = trackUrl;
                 p.currentTime = 0;
                 updateFxVolume(); 
+                AudioCacheManager.preloadNextTrack(index);
                 p.play().then(() => {
                     updateFxUIState(true);
                 }).catch(e=>console.log(e));
@@ -4133,7 +4254,7 @@
             if (track.isMidi) {
                 // --- MIDI PLAYBACK ---
                 const synth = getMidiSynth('main');
-                const arrayBuffer = await track.file.arrayBuffer();
+                const arrayBuffer = await AudioCacheManager.getMidiBuffer(track);
                 await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
                 
                 initMidiMixerUI();
@@ -4143,6 +4264,7 @@
                 
                 ui.single.title.textContent = track.name + " (MIDI)";
                 showNotification(`▶ 再生中: ${track.name}`);
+                AudioCacheManager.preloadNextTrack(index); // ⚡ 次の曲をRAM先行キャッシュ
                 if(autoPlay) toggleSinglePlay();
 
             } else {
@@ -4158,17 +4280,17 @@
                 currentSinglePlayerIndex = 0; 
                 const p = players[0];
                 p.loop = false;
-                if (!track.url && track.file) {
-                    track.url = URL.createObjectURL(track.file);
-                }
-                if (p.src !== track.url) {
-                    p.src = track.url;
+                p.preload = "auto";
+                const trackUrl = await AudioCacheManager.getTrackUrl(track);
+                if (p.src !== trackUrl) {
+                    p.src = trackUrl;
                 }
                 p.currentTime = 0;
                 singleGainNodes[0].gain.value = parseFloat(ui.single.vol.value);
                 singleGainNodes[1].gain.value = 0;
 
                 showNotification(`▶ 再生中: ${track.name}`);
+                AudioCacheManager.preloadNextTrack(index); // ⚡ 次の曲をRAM先行キャッシュ
                 if(autoPlay) {
                     isSinglePlaying = true;
                     updateSingleUIState();
@@ -4483,16 +4605,18 @@
 
             if (track.isMidi) {
                 const synth = getMidiSynth(deckKey);
-                const buf = await track.file.arrayBuffer();
+                const buf = await AudioCacheManager.getMidiBuffer(track);
                 await loadMidiData(synth, buf, singleGainNodes[activeDualDeckIndex]);
                 deckUI.title.textContent += " (MIDI)";
             } else {
                 const p = players[activeDualDeckIndex];
                 p.loop = true;
-                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
-                p.src = track.url;
+                p.preload = "auto";
+                const trackUrl = await AudioCacheManager.getTrackUrl(track);
+                p.src = trackUrl;
                 p.currentTime = 0;
             }
+            AudioCacheManager.preloadNextTrack(trackIndex);
             
             updateDualVolume();
         }
@@ -6227,19 +6351,7 @@
                 if (!this.sequencer) return;
                 this.sequencer.onNoteOn = (channel, note, velocity) => {
                     if (velocity > 0) {
-                        requestAnimationFrame(() => {
-                            const led = document.getElementById(`midi-led-${channel}`);
-                            if (led) {
-                                led.classList.remove('bg-gray-700');
-                                led.classList.add('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                                
-                                if (activeLedTimeouts[channel]) clearTimeout(activeLedTimeouts[channel]);
-                                activeLedTimeouts[channel] = setTimeout(() => {
-                                    led.classList.remove('bg-yellow-400', 'shadow-[0_0_8px_#fbbf24]');
-                                    led.classList.add('bg-gray-700');
-                                }, 100);
-                            }
-                        });
+                        triggerMidiChannelLed(channel);
                     }
                 };
             }
