@@ -1,7 +1,103 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const net = require('net');
 
 let mainWindow;
+
+// --- Native Zero-Dependency Discord Rich Presence IPC Manager ---
+class DiscordRPC {
+    constructor(clientId) {
+        this.clientId = clientId;
+        this.client = null;
+        this.connected = false;
+        this.currentActivity = null;
+    }
+
+    connect() {
+        if (this.connected) return Promise.resolve(true);
+
+        return new Promise((resolve) => {
+            const pipePath = process.platform === 'win32' ? '\\\\.\\pipe\\discord-ipc-0' : `${process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || '/tmp'}/discord-ipc-0`;
+            
+            try {
+                this.client = net.connect(pipePath, () => {
+                    this.connected = true;
+                    this.sendHandshake();
+                    resolve(true);
+                });
+
+                this.client.on('error', () => {
+                    this.connected = false;
+                    resolve(false);
+                });
+
+                this.client.on('close', () => {
+                    this.connected = false;
+                });
+            } catch (e) {
+                this.connected = false;
+                resolve(false);
+            }
+        });
+    }
+
+    sendHandshake() {
+        const payload = JSON.stringify({ v: 1, client_id: this.clientId });
+        this.sendPacket(0, payload);
+    }
+
+    setActivity(activity) {
+        this.currentActivity = activity;
+        if (!this.connected) return;
+
+        const payload = JSON.stringify({
+            cmd: 'SET_ACTIVITY',
+            args: {
+                pid: process.pid,
+                activity: activity
+            },
+            nonce: Date.now().toString()
+        });
+        this.sendPacket(1, payload);
+    }
+
+    clearActivity() {
+        this.setActivity(null);
+    }
+
+    sendPacket(op, payload) {
+        if (!this.client || !this.connected) return;
+        try {
+            const len = Buffer.byteLength(payload);
+            const buf = Buffer.alloc(8 + len);
+            buf.writeInt32LE(op, 0);
+            buf.writeInt32LE(len, 4);
+            buf.write(payload, 8);
+            this.client.write(buf);
+        } catch (e) {}
+    }
+}
+
+const discordRpc = new DiscordRPC('1275000000000000000');
+
+function initDiscordRPC() {
+    discordRpc.connect().then(success => {
+        if (success && discordRpc.currentActivity) {
+            discordRpc.setActivity(discordRpc.currentActivity);
+        }
+    });
+
+    // Auto-retry connection every 15 seconds if Discord opens later
+    setInterval(() => {
+        if (!discordRpc.connected) {
+            discordRpc.connect().then(success => {
+                if (success && discordRpc.currentActivity) {
+                    discordRpc.setActivity(discordRpc.currentActivity);
+                }
+            });
+        }
+    }, 15000);
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -21,10 +117,8 @@ function createWindow() {
         }
     });
 
-    // Remove default top menu bar for a clean player aesthetic
     Menu.setApplicationMenu(null);
 
-    // Enable F12 and Ctrl+Shift+I to open DevTools for debugging
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             if (input.key === 'F12' || (input.control && input.shift && input.key.toUpperCase() === 'I')) {
@@ -55,9 +149,45 @@ ipcMain.on('toggle-mini-mode', (event, isMini) => {
     }
 });
 
-app.whenReady().then(createWindow);
+// IPC Listener for Discord Rich Presence Update
+ipcMain.on('update-discord-presence', (event, data) => {
+    if (!data) return;
+
+    if (!data.enabled || !data.isPlaying) {
+        discordRpc.clearActivity();
+        return;
+    }
+
+    const activity = {
+        details: data.title || '再生中',
+        state: `Mode: ${data.mode ? data.mode.toUpperCase() : 'SINGLE'} | ${data.artist || 'OST Player'}`,
+        assets: {
+            large_image: 'app_logo',
+            large_text: 'OST Player v3.0',
+            small_image: data.isPlaying ? 'play_icon' : 'pause_icon',
+            small_text: data.isPlaying ? 'Playing' : 'Paused'
+        }
+    };
+
+    if (data.isPlaying && data.startTime) {
+        activity.timestamps = { start: Math.floor(data.startTime / 1000) };
+    }
+
+    discordRpc.setActivity(activity);
+});
+
+// IPC Listener to query Discord connection status
+ipcMain.handle('get-discord-status', async () => {
+    return { connected: discordRpc.connected };
+});
+
+app.whenReady().then(() => {
+    initDiscordRPC();
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
+    discordRpc.clearActivity();
     if (process.platform !== 'darwin') {
         app.quit();
     }
