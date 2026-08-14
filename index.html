@@ -1228,6 +1228,8 @@
         let tremoloDepthNode = null;
         let masterLowpassNode = null;
         let masterHighpassNode = null;
+        let panner3DNode = null;
+        let is8DOrbiting = false;
         
         // FX Presets
         const fxPresets = {
@@ -3460,7 +3462,7 @@
             } catch(e) {}
 
             let chainNode = masterHighpassNode;
-            if (panner3DNode && is3DEnabled) {
+            if (panner3DNode && is8DOrbiting) {
                 masterHighpassNode.connect(panner3DNode);
                 chainNode = panner3DNode;
             }
@@ -3550,7 +3552,9 @@
             
             // Disconnect first
             singleGainNodes.forEach(g => { 
-                try { g.disconnect(); } catch(e){} 
+                if (g) {
+                    try { g.disconnect(); } catch(e){} 
+                }
             });
             
             if(currentMode === 'fx') {
@@ -3580,7 +3584,9 @@
                 }
             } else {
                 // Standard Routing: Gain -> Analyser
-                singleGainNodes.forEach(g => g.connect(analyser));
+                singleGainNodes.forEach(g => {
+                    if (g && analyser) g.connect(analyser);
+                });
                 
                 // Re-connect MAIN MIDI
                 const synth = getMidiSynth('main', false);
@@ -6050,8 +6056,6 @@
         window.duplicateCurrentPlaylist = duplicateCurrentPlaylist;
 
         // --- 4. 3D Spatial Audio & 8D Orbit ---
-        let panner3DNode = null;
-        let is8DOrbiting = false;
         let orbitAngle = 0;
 
         function init3DPannerNode() {
