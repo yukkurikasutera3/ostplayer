@@ -1,10 +1,23 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const net = require('net');
 
 let mainWindow;
 
-// --- Native Zero-Dependency Discord Rich Presence IPC Manager ---
+// --- Restore User Data Directory (Fix Playlist & Background Missing Issue) ---
+const appData = app.getPath('appData');
+const ultimatePath = path.join(appData, 'ost-player-ultimate');
+const stdPath = path.join(appData, 'ost-player');
+
+if (fs.existsSync(ultimatePath)) {
+    app.setPath('userData', ultimatePath);
+} else if (fs.existsSync(stdPath)) {
+    app.setPath('userData', stdPath);
+}
+app.name = "OST Player";
+
+// --- Native Discord Rich Presence IPC Manager ---
 class DiscordRPC {
     constructor(clientId) {
         this.clientId = clientId;
@@ -23,6 +36,9 @@ class DiscordRPC {
                 this.client = net.connect(pipePath, () => {
                     this.connected = true;
                     this.sendHandshake();
+                    if (this.currentActivity) {
+                        setTimeout(() => this.sendActivityPacket(this.currentActivity), 200);
+                    }
                     resolve(true);
                 });
 
@@ -48,8 +64,14 @@ class DiscordRPC {
 
     setActivity(activity) {
         this.currentActivity = activity;
-        if (!this.connected) return;
+        if (!this.connected) {
+            this.connect();
+            return;
+        }
+        this.sendActivityPacket(activity);
+    }
 
+    sendActivityPacket(activity) {
         const payload = JSON.stringify({
             cmd: 'SET_ACTIVITY',
             args: {
@@ -62,7 +84,8 @@ class DiscordRPC {
     }
 
     clearActivity() {
-        this.setActivity(null);
+        this.currentActivity = null;
+        this.sendActivityPacket(null);
     }
 
     sendPacket(op, payload) {
@@ -78,25 +101,17 @@ class DiscordRPC {
     }
 }
 
-const discordRpc = new DiscordRPC('1275000000000000000');
+// Registered Discord Application Client ID for OST Player
+const discordRpc = new DiscordRPC('1045050532296069151');
 
 function initDiscordRPC() {
-    discordRpc.connect().then(success => {
-        if (success && discordRpc.currentActivity) {
-            discordRpc.setActivity(discordRpc.currentActivity);
-        }
-    });
-
-    // Auto-retry connection every 15 seconds if Discord opens later
+    discordRpc.connect();
+    // Auto-retry connection every 10 seconds if Discord is started later
     setInterval(() => {
         if (!discordRpc.connected) {
-            discordRpc.connect().then(success => {
-                if (success && discordRpc.currentActivity) {
-                    discordRpc.setActivity(discordRpc.currentActivity);
-                }
-            });
+            discordRpc.connect();
         }
-    }, 15000);
+    }, 10000);
 }
 
 function createWindow() {
@@ -163,9 +178,7 @@ ipcMain.on('update-discord-presence', (event, data) => {
         state: `Mode: ${data.mode ? data.mode.toUpperCase() : 'SINGLE'} | ${data.artist || 'OST Player'}`,
         assets: {
             large_image: 'app_logo',
-            large_text: 'OST Player v3.0',
-            small_image: data.isPlaying ? 'play_icon' : 'pause_icon',
-            small_text: data.isPlaying ? 'Playing' : 'Paused'
+            large_text: 'OST Player v3.0'
         }
     };
 

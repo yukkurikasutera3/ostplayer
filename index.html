@@ -1450,6 +1450,7 @@
                 initThemeFromSettings();
                 initBgVisualizer();
                 startMidiGlobalLoop();
+                setInterval(broadcastDiscordPresence, 3000); // 💬 Discordステータス定期自動同期
             } catch (err) { console.error(err); }
             dismissSplashScreen();            // 読み込み完了後即座にスプラッシュ画面をフェードアウト消去
         });
