@@ -2524,6 +2524,8 @@
                 ? synth.program 
                 : GM_INSTRUMENTS.map((name, i) => ({ name: `${i}: ${name}` }));
             
+            const initialProgs = (synth && synth._smfMap && synth._smfMap.programs) ? synth._smfMap.programs : {};
+
             const grid = document.createElement('div');
             grid.className = 'grid grid-cols-2 md:grid-cols-4 gap-2';
             
@@ -2551,12 +2553,14 @@
                 if (ch === 9) {
                     html += `<div class="text-[9px] text-gray-400 font-bold py-1 italic text-center bg-gray-900/60 rounded border border-gray-700/50">🥁 Standard Drums</div>`;
                 } else {
+                    const defaultProg = (initialProgs[ch] !== undefined) ? initialProgs[ch] : 0;
                     html += `
                         <select id="midi-inst-${ch}" onchange="changeMidiChannelInstrument(${ch}, this.value)" class="bg-gray-900 text-[9px] text-gray-200 border border-gray-700 rounded px-1 py-0.5 focus:outline-none w-full cursor-pointer hover:bg-gray-800">
                     `;
                     programs.forEach((p, idx) => {
                         const name = (typeof p === 'object' && p.name) ? p.name : `${idx}: ${p}`;
-                        html += `<option value="${idx}">${name}</option>`;
+                        const isSelected = (idx === defaultProg) ? 'selected' : '';
+                        html += `<option value="${idx}" ${isSelected}>${name}</option>`;
                     });
                     html += `</select>`;
                 }
@@ -3084,6 +3088,9 @@
                             } else if (cmd === 0x80) {
                                 const note = data[offset];
                                 allEvents.push({ tick: currentTick, type: 'noteOff', ch, note });
+                            } else if (cmd === 0xc0) {
+                                const program = data[offset];
+                                allEvents.push({ tick: currentTick, type: 'programChange', ch, program });
                             } else {
                                 allEvents.push({ tick: currentTick, type: 'midi' });
                             }
@@ -3094,6 +3101,15 @@
                 }
 
                 allEvents.sort((a, b) => a.tick - b.tick);
+
+                const initialPrograms = {};
+                for (const ev of allEvents) {
+                    if (ev.type === 'programChange') {
+                        if (initialPrograms[ev.ch] === undefined) {
+                            initialPrograms[ev.ch] = ev.program;
+                        }
+                    }
+                }
 
                 let maxTick = 0;
                 if (allEvents.length > 0) maxTick = allEvents[allEvents.length - 1].tick;
@@ -3158,6 +3174,7 @@
                     ppqn: ppqn,
                     timePoints: timePoints,
                     notes: notes,
+                    programs: initialPrograms,
                     tickToSec(targetTick) {
                         return calcTickToSec(targetTick);
                     },
@@ -3230,6 +3247,17 @@
                 
                 if (synth.song) {
                     synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
+                }
+
+                // MIDIミキサーの楽器ドロップダウンを曲の初期音色に自動同期
+                if (synth._smfMap && synth._smfMap.programs) {
+                    for (let ch = 0; ch < 16; ch++) {
+                        if (ch !== 9) {
+                            const prog = (synth._smfMap.programs[ch] !== undefined) ? synth._smfMap.programs[ch] : 0;
+                            const selectEl = document.getElementById(`midi-inst-${ch}`);
+                            if (selectEl) selectEl.value = prog;
+                        }
+                    }
                 }
                 
                 // 音量初期設定 (スライダー値と同期)
@@ -4703,14 +4731,9 @@
                     activeNotesMap[n.note] = { ch: n.ch, hue: chHue, vel: n.velocity || 100 };
                 }
 
-                // Rounded Pill Bar
-                const radius = Math.min(noteW / 2, 4);
+                // Sharp Rectangular Note Bar (No rounded corners, crisp and precise)
                 ctx.beginPath();
-                if (typeof ctx.roundRect === 'function') {
-                    ctx.roundRect(noteX, noteY, noteW, noteH, radius);
-                } else {
-                    ctx.rect(noteX, noteY, noteW, noteH);
-                }
+                ctx.rect(noteX, noteY, noteW, noteH);
 
                 if (isActive) {
                     const grad = ctx.createLinearGradient(noteX, noteY, noteX + noteW, noteY + noteH);
@@ -4730,7 +4753,7 @@
                 ctx.fill();
 
                 // Highlight border
-                ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.75)' : 'rgba(255, 255, 255, 0.2)';
+                ctx.strokeStyle = isActive ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.22)';
                 ctx.lineWidth = 1;
                 ctx.stroke();
             }
@@ -4801,11 +4824,7 @@
                     const active = activeNotesMap[n];
 
                     ctx.beginPath();
-                    if (typeof ctx.roundRect === 'function') {
-                        ctx.roundRect(k.x, k.y, k.w, k.h, [0, 0, 3, 3]);
-                    } else {
-                        ctx.rect(k.x, k.y, k.w, k.h);
-                    }
+                    ctx.rect(k.x, k.y, k.w, k.h);
 
                     if (active) {
                         const grad = ctx.createLinearGradient(k.x, k.y, k.x, k.y + k.h);
@@ -4838,11 +4857,7 @@
                     const active = activeNotesMap[n];
 
                     ctx.beginPath();
-                    if (typeof ctx.roundRect === 'function') {
-                        ctx.roundRect(k.x, k.y, k.w, k.h, [0, 0, 3, 3]);
-                    } else {
-                        ctx.rect(k.x, k.y, k.w, k.h);
-                    }
+                    ctx.rect(k.x, k.y, k.w, k.h);
 
                     if (active) {
                         const grad = ctx.createLinearGradient(k.x, k.y, k.x, k.y + k.h);
