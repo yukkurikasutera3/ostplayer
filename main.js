@@ -2,6 +2,8 @@ const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+const net = require('net');
+
 let mainWindow;
 
 // --- Restore User Data Directory (Preserve Playlist & Background Data) ---
@@ -15,6 +17,72 @@ if (fs.existsSync(ultimatePath)) {
     app.setPath('userData', stdPath);
 }
 app.name = "OST Player";
+
+// --- SSP (伺か) SSTP Sender ---
+function sendSstpMessage(options) {
+    if (!options) return;
+    const port = parseInt(options.port) || 9801;
+    const host = '127.0.0.1';
+    const client = new net.Socket();
+    client.setTimeout(1200);
+
+    const title = options.title || 'Unknown Track';
+    const artist = options.artist || '';
+    const album = options.album || '';
+    
+    let script = options.script || `\\0\\s[0]『${title}』を再生中だよ！\\e`;
+    script = script.replace(/\{title\}/g, title)
+                   .replace(/\{artist\}/g, artist)
+                   .replace(/\{album\}/g, album);
+
+    const sstpPacket = [
+        'NOTIFY SSTP/1.1',
+        'Sender: OST Player',
+        'Event: OnMusicPlay',
+        `Reference0: ${title}`,
+        `Reference1: ${artist}`,
+        `Reference2: ${album}`,
+        `Script: ${script}`,
+        'Option: nodescript',
+        'Charset: UTF-8',
+        '',
+        ''
+    ].join('\r\n');
+
+    client.connect(port, host, () => {
+        client.write(Buffer.from(sstpPacket, 'utf8'));
+    });
+
+    client.on('data', () => {
+        client.destroy();
+    });
+
+    client.on('error', () => {
+        client.destroy();
+    });
+
+    client.on('timeout', () => {
+        client.destroy();
+    });
+}
+
+ipcMain.on('notify-sstp-track', (event, options) => {
+    if (options && typeof options === 'object') {
+        sendSstpMessage(options);
+    }
+});
+
+ipcMain.on('test-sstp', (event, options) => {
+    const port = (options && options.port) || 9801;
+    const script = (options && options.script) || '\\0\\s[0]OST Player と SSP(伺か)の連携テスト成功だよ！\\e';
+    sendSstpMessage({
+        port: port,
+        title: 'テスト楽曲',
+        artist: 'OST Player',
+        album: 'Ultimate',
+        script: script
+    });
+});
 
 function createWindow() {
     mainWindow = new BrowserWindow({
