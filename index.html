@@ -1254,6 +1254,7 @@
         let midiMuted = Array(16).fill(false);
         let midiSoloed = Array(16).fill(false);
         let midiVolumes = Array(16).fill(100);
+        let midiUserPrograms = Array(16).fill(null);
         
         // Recording State
         let mediaRecorder = null;
@@ -2501,30 +2502,61 @@
             
             const originalSend = synth.send.bind(synth);
             synth.send = function(msg, time) {
-                originalSend(msg, time);
-                if (!msg || msg.length < 1) return;
+                if (!msg || msg.length < 1) {
+                    return originalSend(msg, time);
+                }
                 
                 const status = msg[0];
                 const cmd = status & 0xf0;
                 const ch = status & 0x0f;
+                const anySolo = midiSoloed.some(s => s);
+                const isChannelSilenced = midiMuted[ch] || (anySolo && !midiSoloed[ch]);
                 
                 if (cmd === 0x90 && msg[2] > 0) {
-                    // ⚡ 超高速バッチ描画でUIブロックをゼロ化
-                    triggerMidiChannelLed(ch);
+                    if (isChannelSilenced) {
+                        // Muted / not soloed: ensure volume is 0 before sounding
+                        if (typeof synth.setChVol === 'function') {
+                            synth.setChVol(ch, 0);
+                        }
+                    } else {
+                        triggerMidiChannelLed(ch);
+                    }
+                    originalSend(msg, time);
                 } else if (cmd === 0xc0) {
-                    // Program change
-                    const prog = msg[1];
+                    // Program change (Instrument)
+                    let prog = msg[1];
+                    if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
+                        // User has customized instrument on this channel: enforce user selection!
+                        prog = midiUserPrograms[ch];
+                        msg[1] = prog;
+                    }
+                    originalSend(msg, time);
                     requestAnimationFrame(() => {
                         const select = document.getElementById(`midi-inst-${ch}`);
-                        if (select) select.value = prog;
+                        if (select && parseInt(select.value) !== prog) {
+                            select.value = prog;
+                        }
                     });
                 } else if (cmd === 0xb0 && msg[1] === 7) {
                     // Volume CC 7
-                    const vol = msg[2];
-                    requestAnimationFrame(() => {
-                        const slider = document.getElementById(`midi-vol-${ch}`);
-                        if (slider) slider.value = vol;
-                    });
+                    if (isChannelSilenced) {
+                        // Prevent MIDI track CC 7 from un-muting muted/non-soloed channels
+                        msg[2] = 0;
+                        originalSend(msg, time);
+                    } else {
+                        let vol = msg[2];
+                        if (midiVolumes[ch] !== undefined && midiVolumes[ch] !== 100) {
+                            vol = midiVolumes[ch];
+                            msg[2] = vol;
+                        }
+                        originalSend(msg, time);
+                        requestAnimationFrame(() => {
+                            const slider = document.getElementById(`midi-vol-${ch}`);
+                            if (slider && !isChannelSilenced) slider.value = vol;
+                        });
+                    }
+                } else {
+                    originalSend(msg, time);
                 }
             };
         }
@@ -2625,16 +2657,18 @@
 
         window.changeMidiChannelVolume = (ch, val) => {
             midiVolumes[ch] = parseInt(val);
-            const synth = getMidiSynth('main', false);
-            if (synth && !midiMuted[ch]) {
-                synth.send([0xb0 | ch, 7, midiVolumes[ch]], audioContext ? audioContext.currentTime : 0);
-            }
+            applyMidiChannelStates();
         };
 
         window.changeMidiChannelInstrument = (ch, val) => {
+            const prog = parseInt(val);
+            midiUserPrograms[ch] = prog;
             const synth = getMidiSynth('main', false);
             if (synth) {
-                synth.send([0xc0 | ch, parseInt(val)], audioContext ? audioContext.currentTime : 0);
+                synth.send([0xc0 | ch, prog], audioContext ? audioContext.currentTime : 0);
+                if (synth.synth && typeof synth.synth.programChange === 'function') {
+                    try { synth.synth.programChange(ch, prog); } catch(e){}
+                }
             }
         };
 
@@ -2643,7 +2677,7 @@
             const btn = document.getElementById(`midi-mute-${ch}`);
             if (btn) {
                 if (midiMuted[ch]) {
-                    btn.className = "text-[9px] w-4 h-4 rounded bg-red-600 text-white font-bold flex items-center justify-center transition-colors";
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-red-600 text-white font-bold flex items-center justify-center transition-colors shadow-sm";
                 } else {
                     btn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-red-900 text-gray-300 font-bold flex items-center justify-center transition-colors";
                 }
@@ -2656,7 +2690,7 @@
             const btn = document.getElementById(`midi-solo-${ch}`);
             if (btn) {
                 if (midiSoloed[ch]) {
-                    btn.className = "text-[9px] w-4 h-4 rounded bg-yellow-500 text-black font-bold flex items-center justify-center transition-colors";
+                    btn.className = "text-[9px] w-4 h-4 rounded bg-yellow-500 text-black font-bold flex items-center justify-center transition-colors shadow-sm";
                 } else {
                     btn.className = "text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-yellow-700 text-gray-300 font-bold flex items-center justify-center transition-colors";
                 }
@@ -2664,22 +2698,34 @@
             applyMidiChannelStates();
         };
 
-        function applyMidiChannelStates() {
-            const synth = getMidiSynth('main', false);
+        function applyMidiChannelStates(targetSynth) {
+            const synth = targetSynth || getMidiSynth('main', false);
             if (!synth) return;
             
             const anySolo = midiSoloed.some(s => s);
+            const curTime = audioContext ? audioContext.currentTime : 0;
             
             for (let ch = 0; ch < 16; ch++) {
                 let targetVol = midiVolumes[ch];
                 
-                if (midiMuted[ch]) {
-                    targetVol = 0;
-                } else if (anySolo && !midiSoloed[ch]) {
+                if (midiMuted[ch] || (anySolo && !midiSoloed[ch])) {
                     targetVol = 0;
                 }
                 
-                synth.send([0xb0 | ch, 7, targetVol], audioContext.currentTime);
+                // Volume CC 7
+                synth.send([0xb0 | ch, 7, targetVol], curTime);
+                if (synth.synth && typeof synth.synth.controllerChange === 'function') {
+                    try { synth.synth.controllerChange(ch, 7, targetVol); } catch(e){}
+                }
+                
+                // Re-apply custom instrument if changed by user
+                if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
+                    const prog = midiUserPrograms[ch];
+                    synth.send([0xc0 | ch, prog], curTime);
+                    if (synth.synth && typeof synth.synth.programChange === 'function') {
+                        try { synth.synth.programChange(ch, prog); } catch(e){}
+                    }
+                }
             }
         }
 
@@ -2956,6 +3002,7 @@
             midiMuted.fill(false);
             midiSoloed.fill(false);
             midiVolumes.fill(100);
+            midiUserPrograms.fill(null);
             
             for (let ch = 0; ch < 16; ch++) {
                 const muteBtn = document.getElementById(`midi-mute-${ch}`);
@@ -2971,6 +3018,7 @@
                     slider.value = 100;
                 }
             }
+            applyMidiChannelStates();
         }
 
         // --- Recording Functions ---
@@ -3443,11 +3491,8 @@
                     const targetTime = (pct / 100) * status.maxTime;
                     synth.seekTo(targetTime);
                 }
-                return;
-            }
-            
-            // 2. Default Built-in Synthesizer (WebAudioTinySynth)
-            if (typeof synth.locateMIDI === 'function') {
+            } else if (typeof synth.locateMIDI === 'function') {
+                // 2. Default Built-in Synthesizer (WebAudioTinySynth)
                 const status = synth.getPlayStatus();
                 if (synth._smfMap && status.maxTime > 0) {
                     const targetSec = (pct / 100) * status.maxTime;
@@ -3458,6 +3503,9 @@
                     synth.locateMIDI(targetTick);
                 }
             }
+            
+            // ⚡ タイムシーク後もソロ/ミュート/音量/カスタム楽器設定を完全維持・再適用
+            applyMidiChannelStates(synth);
         }
 
         // --- Audio Core ---
@@ -6814,7 +6862,21 @@
                 if (!this.sequencer) return;
                 this.sequencer.onNoteOn = (channel, note, velocity) => {
                     if (velocity > 0) {
-                        triggerMidiChannelLed(channel);
+                        const anySolo = midiSoloed.some(s => s);
+                        const isSilenced = midiMuted[channel] || (anySolo && !midiSoloed[channel]);
+                        if (isSilenced) {
+                            if (this.synth && typeof this.synth.controllerChange === 'function') {
+                                try { this.synth.controllerChange(channel, 7, 0); } catch(e){}
+                            }
+                        } else {
+                            triggerMidiChannelLed(channel);
+                        }
+                        
+                        if (midiUserPrograms[channel] !== null && midiUserPrograms[channel] !== undefined && channel !== 9) {
+                            if (this.synth && typeof this.synth.programChange === 'function') {
+                                try { this.synth.programChange(channel, midiUserPrograms[channel]); } catch(e){}
+                            }
+                        }
                     }
                 };
             }
@@ -6847,6 +6909,7 @@
                     if (wasPlaying) {
                         try { this.sequencer.play(); this.isMidiPlaying = true; } catch(e){}
                     }
+                    setTimeout(() => { applyMidiChannelStates(this); }, 20);
                 }
             }
             
@@ -6869,6 +6932,7 @@
                     try {
                         this.sequencer.play();
                         this.isMidiPlaying = true;
+                        setTimeout(() => { applyMidiChannelStates(this); }, 20);
                     } catch(e){}
                 }
             }
@@ -6907,6 +6971,9 @@
                             }
                         } catch(err){}
                     }
+                    setTimeout(() => {
+                        applyMidiChannelStates(this);
+                    }, 20);
                 }
             }
 
