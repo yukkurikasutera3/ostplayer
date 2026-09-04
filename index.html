@@ -1066,7 +1066,7 @@
                             <span>ゴースト発話スクリプト (SakuraScript)</span>
                             <span class="text-gray-500">{title}=曲名, {artist}=歌手</span>
                         </div>
-                        <input type="text" id="sstp-script-input" value="\0\s[0]『{title}』を再生中だよ！\e" class="w-full bg-gray-900 border border-gray-700 rounded px-2.5 py-1.5 text-pink-200 text-xs focus:outline-none focus:border-pink-500 font-mono">
+                        <input type="text" id="sstp-script-input" value="\0\s[0]『{title}』({artist})を再生中だよ！\e" class="w-full bg-gray-900 border border-gray-700 rounded px-2.5 py-1.5 text-pink-200 text-xs focus:outline-none focus:border-pink-500 font-mono">
                     </div>
                     
                     <div class="flex items-center justify-between pt-1">
@@ -5677,7 +5677,7 @@
 
         // 👻 SSP (伺か) SSTP Manager
         let isSstpEnabled = localStorage.getItem('ost_sstp_enabled') !== '0'; // Default ON
-        let sstpScriptTemplate = localStorage.getItem('ost_sstp_script') || '\\0\\s[0]『{title}』を再生中だよ！\\e';
+        let sstpScriptTemplate = localStorage.getItem('ost_sstp_script') || '\\0\\s[0]『{title}』({artist})を再生中だよ！\\e';
         let sstpPort = parseInt(localStorage.getItem('ost_sstp_port')) || 9801;
         let sstpLastNotifyTime = 0;
         let sstpLastNotifiedTitle = '';
@@ -5724,7 +5724,7 @@
                 localStorage.setItem('ost_sstp_enabled', isSstpEnabled ? '1' : '0');
             }
             if (scriptInput) {
-                sstpScriptTemplate = scriptInput.value || '\\0\\s[0]『{title}』を再生中だよ！\\e';
+                sstpScriptTemplate = scriptInput.value || '\\0\\s[0]『{title}』({artist})を再生中だよ！\\e';
                 localStorage.setItem('ost_sstp_script', sstpScriptTemplate);
             }
             if (portInput) {

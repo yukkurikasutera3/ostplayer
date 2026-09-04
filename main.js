@@ -27,13 +27,30 @@ function sendSstpMessage(options) {
     client.setTimeout(1200);
 
     const title = options.title || 'Unknown Track';
-    const artist = options.artist || '';
-    const album = options.album || '';
+    const artist = (options.artist && options.artist.trim()) ? options.artist.trim() : '';
+    const album = (options.album && options.album.trim()) ? options.album.trim() : '';
     
-    let script = options.script || `\\0\\s[0]『${title}』を再生中だよ！\\e`;
-    script = script.replace(/\{title\}/g, title)
-                   .replace(/\{artist\}/g, artist)
-                   .replace(/\{album\}/g, album);
+    let script = options.script || `\\0\\s[0]『{title}』({artist})を再生中だよ！\\e`;
+    
+    if (!artist) {
+        script = script.replace(/\(\{artist\}\)/g, '')
+                       .replace(/（\{artist\}）/g, '')
+                       .replace(/ - \{artist\}/g, '')
+                       .replace(/\{artist\}/g, '');
+    } else {
+        script = script.replace(/\{artist\}/g, artist);
+    }
+
+    if (!album) {
+        script = script.replace(/\(\{album\}\)/g, '')
+                       .replace(/（\{album\}）/g, '')
+                       .replace(/ - \{album\}/g, '')
+                       .replace(/\{album\}/g, '');
+    } else {
+        script = script.replace(/\{album\}/g, album);
+    }
+
+    script = script.replace(/\{title\}/g, title);
 
     const sstpPacket = [
         'NOTIFY SSTP/1.1',
