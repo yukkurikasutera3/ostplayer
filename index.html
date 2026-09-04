@@ -749,6 +749,45 @@
             <!-- === HELP VIEW === -->
             <div id="help-view" class="flex-1 flex flex-col hidden-mode p-4 overflow-y-auto bg-gray-800/80 rounded-lg">
                 <h2 class="text-xl font-bold text-white mb-4">OST Player Help</h2>
+
+                <!-- 👻 SSP (伺か) SSTP 連携設定 -->
+                <div class="help-section bg-gray-900/90 p-4 rounded-xl border border-pink-500/50 shadow-lg space-y-3 mb-6">
+                    <div class="flex justify-between items-center border-b border-pink-500/30 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg">👻</span>
+                            <span class="text-sm font-bold text-pink-300">SSP (伺か) SSTP 楽曲再生連携設定</span>
+                            <span class="text-[10px] text-pink-400 bg-pink-950/80 border border-pink-800 px-2 py-0.5 rounded-full font-mono">DirectSSTP 1.1</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="sstp-enabled-toggle" class="sr-only peer" checked>
+                            <div class="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        曲の再生が始まると、起動中の SSP (伺か) ゴーストへ曲名やアーティスト名を送信し、自動で発話させることができます。
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <div>
+                            <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                <span class="font-bold text-pink-200">ゴースト発話スクリプト (SakuraScript)</span>
+                                <span class="text-gray-400">{title}=曲名, {artist}=歌手, {album}=アルバム</span>
+                            </div>
+                            <input type="text" id="sstp-script-input" value="\0\s[0]『{title}』({artist})を再生中だよ！\e" class="w-full bg-gray-950 border border-pink-500/40 rounded-lg px-3 py-2 text-pink-200 text-xs focus:outline-none focus:border-pink-400 font-mono shadow-inner">
+                        </div>
+                        
+                        <div class="flex items-center justify-between pt-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[11px] text-gray-400">SSTP ポート番号:</span>
+                                <input type="number" id="sstp-port-input" value="9801" min="1024" max="65535" class="w-24 bg-gray-950 border border-gray-700 rounded-lg px-2.5 py-1.5 text-gray-200 text-xs font-mono text-center focus:border-pink-400 focus:outline-none">
+                                <span class="text-[10px] text-gray-500">(標準: 9801)</span>
+                            </div>
+                            <button onclick="testSstpSpeech()" class="px-4 py-1.5 rounded-lg bg-pink-900/70 hover:bg-pink-600 border border-pink-500/70 text-pink-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
+                                <span>💬</span><span>テスト発話</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="help-section">
                     <h3 class="help-heading">基本操作</h3>
                     <p class="help-text">音楽ファイルをウィンドウにドラッグ＆ドロップしてライブラリに追加します。再生したいモードを選んでから、リストの曲をクリックしてください。</p>
@@ -791,12 +830,23 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>📜</span><span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.6.0 Exporter Update</span>
+                        <span class="text-[10px] text-gray-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded-full font-mono">v2.7.0 Ukagaka & PianoRoll Update</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-pink-500/50">
+                            <div class="flex items-center justify-between text-pink-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>👻 最新アップデート (v2.7.0)</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-04</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>👻 SSP (伺か) SSTP楽曲再生連携:</strong> 起動中のSSPゴーストへ現在再生中の曲名・アーティスト情報を自動送信（DirectSSTP 1.1）。ヘルプ画面からスクリプト（SakuraScript）やポートを自由に設定可能。</li>
+                                <li><strong>🎹 MIDI ピアノロール高速ウォーターフォール化:</strong> ノート落下速度を快適な高速（1.1秒）に固定し、ピアノ風のクッキリとしたスクエアデザインに最適化。</li>
+                                <li><strong>🎛️ MIDI 音色アサインの初期同期:</strong> トラックごとの初期音色（Program Change）をミキサーUIへ正確に反映。</li>
+                            </ul>
+                        </div>
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-indigo-500/50">
                             <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
-                                <span>🚀 最新アップデート (v2.6.0)</span>
+                                <span>🚀 アップデート (v2.6.0)</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-08-12</span>
                             </div>
                             <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
@@ -1046,38 +1096,6 @@
                     <button onclick="setBgVisType('wave')" id="bg-vis-btn-wave" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Fluid Wave</button>
                     <button onclick="setBgVisType('particles')" id="bg-vis-btn-particles" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Particles</button>
                     <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition" title="重低音に合わせてプレイヤーが縦方向に弾む">Beat Bounce</button>
-            </div>
-
-            <!-- 👻 SSP (伺か) SSTP連携設定 -->
-            <div class="bg-gray-800/80 p-4 rounded-lg border border-pink-500/40 space-y-3">
-                <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-pink-300 uppercase tracking-wider flex items-center space-x-1.5">
-                        <span>👻</span><span>SSP (伺か) SSTP楽曲再生連携</span>
-                    </span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="sstp-enabled-toggle" class="sr-only peer" checked>
-                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
-                    </label>
-                </div>
-                
-                <div class="space-y-2 text-xs">
-                    <div>
-                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                            <span>ゴースト発話スクリプト (SakuraScript)</span>
-                            <span class="text-gray-500">{title}=曲名, {artist}=歌手</span>
-                        </div>
-                        <input type="text" id="sstp-script-input" value="\0\s[0]『{title}』({artist})を再生中だよ！\e" class="w-full bg-gray-900 border border-gray-700 rounded px-2.5 py-1.5 text-pink-200 text-xs focus:outline-none focus:border-pink-500 font-mono">
-                    </div>
-                    
-                    <div class="flex items-center justify-between pt-1">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-[10px] text-gray-400">SSTPポート:</span>
-                            <input type="number" id="sstp-port-input" value="9801" min="1024" max="65535" class="w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-200 text-xs font-mono text-center">
-                        </div>
-                        <button onclick="testSstpSpeech()" class="px-3 py-1 rounded bg-pink-950/80 border border-pink-500/60 text-pink-300 hover:bg-pink-900 hover:text-white font-bold text-[11px] transition flex items-center space-x-1 shadow-sm">
-                            <span>💬</span><span>テスト発話</span>
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -1476,6 +1494,7 @@
                 initMultiDecks();
                 initThemeFromSettings();
                 initBgVisualizer();
+                initSstpUI();
                 startMidiGlobalLoop();
             } catch (err) { console.error(err); }
             dismissSplashScreen();            // 読み込み完了後即座にスプラッシュ画面をフェードアウト消去
@@ -5370,6 +5389,7 @@
                 ui.helpBtn.classList.remove('bg-gray-900', 'text-gray-300', 'border-gray-600');
                 ui.helpBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
                 ui.helpView.classList.remove('hidden-mode');
+                initSstpUI();
             }
         }
 
@@ -5663,7 +5683,6 @@
             if(modal) { 
                 modal.classList.remove('hidden'); 
                 modal.classList.add('flex'); 
-                initSstpUI();
             }
         }
         window.openThemeModal = openThemeModal;
@@ -5671,7 +5690,6 @@
         function closeThemeModal() {
             const modal = document.getElementById('theme-modal');
             if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-            saveSstpSettings();
         }
         window.closeThemeModal = closeThemeModal;
 
@@ -5748,10 +5766,12 @@
             }
             if (scriptInput) {
                 scriptInput.value = sstpScriptTemplate;
+                scriptInput.oninput = saveSstpSettings;
                 scriptInput.onchange = saveSstpSettings;
             }
             if (portInput) {
                 portInput.value = sstpPort;
+                portInput.oninput = saveSstpSettings;
                 portInput.onchange = saveSstpSettings;
             }
         }
