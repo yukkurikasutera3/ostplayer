@@ -3348,6 +3348,23 @@
                     synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
                 }
 
+                // ⚡ 新しい曲の読み込み時は再生位置・シークバーを 0 に完全リセット
+                if (typeof synth.locateMIDI === 'function') {
+                    try { synth.locateMIDI(0); } catch(e){}
+                }
+                if (typeof synth.seekTo === 'function') {
+                    try { synth.seekTo(0); } catch(e){}
+                }
+                if (currentMode === 'single' || currentMode === 'visual') {
+                    if (ui.single && ui.single.seek) ui.single.seek.value = 0;
+                    if (ui.single && ui.single.time) ui.single.time.textContent = "0:00";
+                    if (ui.mini && ui.mini.seek) ui.mini.seek.value = 0;
+                    if (ui.mini && ui.mini.time) ui.mini.time.textContent = "0:00";
+                } else if (currentMode === 'fx') {
+                    if (ui.fx && ui.fx.seek) ui.fx.seek.value = 0;
+                    if (ui.fx && ui.fx.time) ui.fx.time.textContent = "0:00";
+                }
+
                 // MIDIミキサーの楽器ドロップダウンを曲の初期音色に自動同期
                 if (synth._smfMap && synth._smfMap.programs) {
                     for (let ch = 0; ch < 16; ch++) {
@@ -3790,10 +3807,37 @@
         }
 
         function stopAllAudio() {
-             // Stop All MIDI
-             Object.values(spessaSynthWrappers).forEach(p => { if(p) p.stopMIDI(); });
-             Object.values(midiPlayers).forEach(p => { if(p) p.stopMIDI(); });
-             decks.forEach(d => { if(d.midiSynth) d.midiSynth.stopMIDI(); if(d.spessaSynth) d.spessaSynth.stopMIDI(); });
+             // Stop All MIDI & Reset Position to 0
+             Object.values(spessaSynthWrappers).forEach(p => { 
+                 if(p) { 
+                     p.stopMIDI(); 
+                     if (typeof p.seekTo === 'function') {
+                         try { p.seekTo(0); } catch(e){}
+                     }
+                 } 
+             });
+             Object.values(midiPlayers).forEach(p => { 
+                 if(p) { 
+                     p.stopMIDI(); 
+                     if (typeof p.locateMIDI === 'function') {
+                         try { p.locateMIDI(0); } catch(e){}
+                     }
+                 } 
+             });
+             decks.forEach(d => { 
+                 if(d.midiSynth) { 
+                     d.midiSynth.stopMIDI(); 
+                     if (typeof d.midiSynth.locateMIDI === 'function') {
+                         try { d.midiSynth.locateMIDI(0); } catch(e){}
+                     }
+                 } 
+                 if(d.spessaSynth) { 
+                     d.spessaSynth.stopMIDI(); 
+                     if (typeof d.spessaSynth.seekTo === 'function') {
+                         try { d.spessaSynth.seekTo(0); } catch(e){}
+                     }
+                 } 
+             });
             
             players.forEach(p => { 
                 p.pause(); p.currentTime = 0; 
@@ -6808,7 +6852,7 @@
                 if (w) {
                     w.synth = spessaSynthInstance;
                     w.setAudioContext(audioContext, masterGainNode || audioContext.destination);
-                    w.rebindSequencer();
+                    w.rebindSequencer(true);
                 }
             });
             
@@ -6818,7 +6862,7 @@
                     if (d && d.spessaSynth) {
                         d.spessaSynth.synth = spessaSynthInstance;
                         d.spessaSynth.setAudioContext(audioContext, masterGainNode || audioContext.destination);
-                        d.spessaSynth.rebindSequencer();
+                        d.spessaSynth.rebindSequencer(true);
                     }
                 });
             }
@@ -6881,13 +6925,15 @@
                 };
             }
 
-            rebindSequencer() {
+            rebindSequencer(preserveCurrentTime = false) {
                 if (!this.synth || !window.SpessaSynth || !window.SpessaSynth.Sequencer) return;
                 const wasPlaying = this.isMidiPlaying;
                 let curSec = 0;
                 if (this.sequencer) {
                     try {
-                        curSec = this.sequencer.currentTime || 0;
+                        if (preserveCurrentTime) {
+                            curSec = this.sequencer.currentTime || 0;
+                        }
                         if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
                         else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
                     } catch(e){}
@@ -6903,10 +6949,12 @@
                         fileName: "song.mid"
                     }]);
                     this.bindEvents();
-                    if (curSec > 0) {
+                    if (preserveCurrentTime && curSec > 0) {
                         try { this.sequencer.currentTime = curSec; } catch(e){}
+                    } else {
+                        try { this.sequencer.currentTime = 0; } catch(e){}
                     }
-                    if (wasPlaying) {
+                    if (wasPlaying && preserveCurrentTime) {
                         try { this.sequencer.play(); this.isMidiPlaying = true; } catch(e){}
                     }
                     setTimeout(() => { applyMidiChannelStates(this); }, 20);
@@ -6915,16 +6963,19 @@
             
             loadMIDI(uint8Array) {
                 if (!uint8Array) return;
+                this.isMidiPlaying = false;
                 if (this.sequencer) {
                     try {
                         if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                        else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
+                        try { this.sequencer.currentTime = 0; } catch(err){}
                     } catch(e){}
                 }
                 if (this.synth && typeof this.synth.stopAll === 'function') {
                     try { this.synth.stopAll(true); } catch(e){}
                 }
                 this.midiData = uint8Array.buffer ? uint8Array.buffer.slice(0) : uint8Array.slice(0);
-                this.rebindSequencer();
+                this.rebindSequencer(false);
             }
             
             playMIDI() {
