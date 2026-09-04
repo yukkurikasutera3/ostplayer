@@ -2514,13 +2514,10 @@
                 
                 if (cmd === 0x90 && msg[2] > 0) {
                     if (isChannelSilenced) {
-                        // Muted / not soloed: ensure volume is 0 before sounding
-                        if (typeof synth.setChVol === 'function') {
-                            synth.setChVol(ch, 0);
-                        }
-                    } else {
-                        triggerMidiChannelLed(ch);
+                        // ⚡ 完全消音ガード: ミュート/非ソロ時はノート発音イベント自体を破棄して貫通を完全阻止
+                        return;
                     }
+                    triggerMidiChannelLed(ch);
                     originalSend(msg, time);
                 } else if (cmd === 0xc0) {
                     // Program change (Instrument)
@@ -2537,13 +2534,14 @@
                             select.value = prog;
                         }
                     });
-                } else if (cmd === 0xb0 && msg[1] === 7) {
-                    // Volume CC 7
-                    if (isChannelSilenced) {
-                        // Prevent MIDI track CC 7 from un-muting muted/non-soloed channels
+                } else if (cmd === 0xb0) {
+                    const ctrl = msg[1];
+                    // Volume (CC7), Expression (CC11), Volume LSB (CC39), Expression LSB (CC43)
+                    if (isChannelSilenced && (ctrl === 7 || ctrl === 11 || ctrl === 39 || ctrl === 43)) {
+                        // ⚡ 音量/エクスプレッション指定を 0 に固定して貫通を防止
                         msg[2] = 0;
                         originalSend(msg, time);
-                    } else {
+                    } else if (ctrl === 7) {
                         let vol = msg[2];
                         if (midiVolumes[ch] !== undefined && midiVolumes[ch] !== 100) {
                             vol = midiVolumes[ch];
@@ -2554,6 +2552,8 @@
                             const slider = document.getElementById(`midi-vol-${ch}`);
                             if (slider && !isChannelSilenced) slider.value = vol;
                         });
+                    } else {
+                        originalSend(msg, time);
                     }
                 } else {
                     originalSend(msg, time);
@@ -2706,16 +2706,34 @@
             const curTime = audioContext ? audioContext.currentTime : 0;
             
             for (let ch = 0; ch < 16; ch++) {
-                let targetVol = midiVolumes[ch];
+                const isSilenced = midiMuted[ch] || (anySolo && !midiSoloed[ch]);
+                let targetVol = isSilenced ? 0 : midiVolumes[ch];
                 
-                if (midiMuted[ch] || (anySolo && !midiSoloed[ch])) {
-                    targetVol = 0;
+                // 1. WebAudioTinySynth send (Volume CC7, Expression CC11, All Notes Off)
+                synth.send([0xb0 | ch, 7, targetVol], curTime);
+                synth.send([0xb0 | ch, 11, isSilenced ? 0 : 127], curTime);
+                if (isSilenced) {
+                    synth.send([0xb0 | ch, 120, 0], curTime); // All sound off
+                    synth.send([0xb0 | ch, 123, 0], curTime); // All notes off
                 }
                 
-                // Volume CC 7
-                synth.send([0xb0 | ch, 7, targetVol], curTime);
-                if (synth.synth && typeof synth.synth.controllerChange === 'function') {
-                    try { synth.synth.controllerChange(ch, 7, targetVol); } catch(e){}
+                // 2. SpessaSynth lockController & controllerChange
+                if (synth.synth) {
+                    if (typeof synth.synth.controllerChange === 'function') {
+                        try {
+                            synth.synth.controllerChange(ch, 7, targetVol);
+                            synth.synth.controllerChange(ch, 11, isSilenced ? 0 : 127);
+                        } catch(e){}
+                    }
+                    if (synth.synth.midiChannels && synth.synth.midiChannels[ch]) {
+                        try {
+                            synth.synth.midiChannels[ch].lockController(7, isSilenced);
+                            synth.synth.midiChannels[ch].lockController(11, isSilenced);
+                            if (isSilenced && typeof synth.synth.midiChannels[ch].stopAllNotes === 'function') {
+                                synth.synth.midiChannels[ch].stopAllNotes(true);
+                            }
+                        } catch(e){}
+                    }
                 }
                 
                 // Re-apply custom instrument if changed by user
@@ -6909,8 +6927,22 @@
                         const anySolo = midiSoloed.some(s => s);
                         const isSilenced = midiMuted[channel] || (anySolo && !midiSoloed[channel]);
                         if (isSilenced) {
-                            if (this.synth && typeof this.synth.controllerChange === 'function') {
-                                try { this.synth.controllerChange(channel, 7, 0); } catch(e){}
+                            if (this.synth) {
+                                if (typeof this.synth.controllerChange === 'function') {
+                                    try { 
+                                        this.synth.controllerChange(channel, 7, 0); 
+                                        this.synth.controllerChange(channel, 11, 0); 
+                                    } catch(e){}
+                                }
+                                if (this.synth.midiChannels && this.synth.midiChannels[channel]) {
+                                    try {
+                                        this.synth.midiChannels[channel].lockController(7, true);
+                                        this.synth.midiChannels[channel].lockController(11, true);
+                                        if (typeof this.synth.midiChannels[channel].stopAllNotes === 'function') {
+                                            this.synth.midiChannels[channel].stopAllNotes(true);
+                                        }
+                                    } catch(e){}
+                                }
                             }
                         } else {
                             triggerMidiChannelLed(channel);
