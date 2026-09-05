@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"/dist\""
+    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"^(dist|\\.git|\\.continue|filter_logs\\.py|current_features\\.md)(/|$)\""
   },
   "keywords": [
     "audio",
@@ -20,8 +20,5 @@
   "devDependencies": {
     "electron": "^31.3.0",
     "electron-packager": "^17.1.2"
-  },
-  "dependencies": {
-    "discord-rpc": "^4.0.1"
   }
 }

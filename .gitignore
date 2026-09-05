@@ -13,3 +13,10 @@ Thumbs.db
 
 # Node modules (if any)
 node_modules/
+
+# Build output
+dist/
+
+# AI assistant workspace settings
+.continue/
+

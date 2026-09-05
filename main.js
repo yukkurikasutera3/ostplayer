@@ -29,6 +29,7 @@ function sendSstpMessage(options) {
     const title = options.title || 'Unknown Track';
     const artist = (options.artist && options.artist.trim()) ? options.artist.trim() : '';
     const album = (options.album && options.album.trim()) ? options.album.trim() : '';
+    const fileName = (options.fileName && options.fileName.trim()) ? options.fileName.trim() : title;
     
     let script = options.script || `\\0\\s[0]『{title}』({artist})を再生中だよ！\\e`;
     
@@ -50,7 +51,8 @@ function sendSstpMessage(options) {
         script = script.replace(/\{album\}/g, album);
     }
 
-    script = script.replace(/\{title\}/g, title);
+    script = script.replace(/\{filename\}/gi, fileName);
+    script = script.replace(/\{title\}/gi, title);
 
     const sstpPacket = [
         'NOTIFY SSTP/1.1',
@@ -59,6 +61,7 @@ function sendSstpMessage(options) {
         `Reference0: ${title}`,
         `Reference1: ${artist}`,
         `Reference2: ${album}`,
+        `Reference3: ${fileName}`,
         `Script: ${script}`,
         'Option: nodescript',
         'Charset: UTF-8',
@@ -97,6 +100,7 @@ ipcMain.on('test-sstp', (event, options) => {
         title: 'テスト楽曲',
         artist: 'OST Player',
         album: 'Ultimate',
+        fileName: 'test_track',
         script: script
     });
 });

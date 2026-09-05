@@ -770,7 +770,7 @@
                         <div>
                             <div class="flex justify-between text-[11px] text-gray-300 mb-1">
                                 <span class="font-bold text-pink-200">ゴースト発話スクリプト (SakuraScript)</span>
-                                <span class="text-gray-400">{title}=曲名, {artist}=歌手, {album}=アルバム</span>
+                                <span class="text-gray-400">{title}=曲名(タグ優先), {artist}=歌手, {album}=アルバム, {filename}=ファイル名</span>
                             </div>
                             <input type="text" id="sstp-script-input" value="\0\s[0]『{title}』({artist})を再生中だよ！\e" class="w-full bg-gray-950 border border-pink-500/40 rounded-lg px-3 py-2 text-pink-200 text-xs focus:outline-none focus:border-pink-400 font-mono shadow-inner">
                         </div>
@@ -4344,6 +4344,14 @@
             connectAudioGraph();
             updatePlaylistUI();
             updateSingleUIInfo();
+            notifySstpTrackPlay(track);
+            if (!track.isMidi && !track.metadataLoaded && track.file) {
+                ensureTrackMetadata(track).then(() => {
+                    updateSingleUIInfo();
+                    updatePlaylistUI();
+                    notifySstpTrackPlay(track);
+                });
+            }
 
             if (track.isMidi) {
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name + " (MIDI)";
@@ -4502,6 +4510,14 @@
             updatePlaylistUI();
             updateSingleUIInfo();
             resetMidiMixerState();
+            notifySstpTrackPlay(track);
+            if (!track.isMidi && !track.metadataLoaded && track.file) {
+                ensureTrackMetadata(track).then(() => {
+                    updateSingleUIInfo();
+                    updatePlaylistUI();
+                    notifySstpTrackPlay(track);
+                });
+            }
             
             if (track.isMidi) {
                 // --- MIDI PLAYBACK ---
@@ -4588,6 +4604,17 @@
                 singleTrackIndex = nextIndex;
                 updateSingleUIInfo();
                 updatePlaylistUI();
+                const nextTrack = playlist[nextIndex];
+                if (nextTrack) {
+                    notifySstpTrackPlay(nextTrack);
+                    if (!nextTrack.isMidi && !nextTrack.metadataLoaded && nextTrack.file) {
+                        ensureTrackMetadata(nextTrack).then(() => {
+                            updateSingleUIInfo();
+                            updatePlaylistUI();
+                            notifySstpTrackPlay(nextTrack);
+                        });
+                    }
+                }
                 
                 setTimeout(() => {
                     currP.pause();
@@ -5099,6 +5126,13 @@
             }
             AudioCacheManager.preloadNextTrack(trackIndex);
             notifySstpTrackPlay(track);
+            if (!track.isMidi && !track.metadataLoaded && track.file) {
+                ensureTrackMetadata(track).then(() => {
+                    deckUI.title.textContent = (track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name;
+                    updatePlaylistUI();
+                    notifySstpTrackPlay(track);
+                });
+            }
             
             updateDualVolume();
         }
@@ -5506,7 +5540,8 @@
         function updateSingleUIInfo() {
             if(singleTrackIndex === -1) return;
             const t = playlist[singleTrackIndex];
-            ui.single.title.textContent = t.name;
+            const displayTitle = (t.tagTitle && t.tagTitle.trim()) ? t.tagTitle.trim() : t.name;
+            ui.single.title.textContent = t.isMidi ? (t.name + " (MIDI)") : displayTitle;
             let statusStr = "Ready";
             if (t.artist || t.album) {
                 statusStr = [t.artist, t.album].filter(Boolean).join(' — ');
@@ -5515,13 +5550,10 @@
 
             // FX View Title
             const fxTitle = document.getElementById('fx-title');
-            if (fxTitle) fxTitle.textContent = t.name;
+            if (fxTitle) fxTitle.textContent = displayTitle;
 
             // Mini View Title & Marquee Scroll
-            updateMiniMarqueeTitle(t.name);
-
-            // 👻 SSP (伺か) SSTP 自動連携
-            notifySstpTrackPlay(t);
+            updateMiniMarqueeTitle(displayTitle);
 
             // Artwork Update
             const artworkEl = ui.single.artwork;
@@ -5704,7 +5736,7 @@
                         ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
                         <div class="min-w-0 flex-1">
                             <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
-                                <span class="truncate">${track.name}</span> ${extInfo} ${activeBadges}
+                                <span class="truncate" title="${track.name}">${(track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name}</span> ${extInfo} ${activeBadges}
                             </div>
                             ${artistSub}
                         </div>
@@ -5810,18 +5842,29 @@
         let sstpLastNotifyTime = 0;
         let sstpLastNotifiedTitle = '';
 
-        function notifySstpTrackPlay(track) {
+        async function notifySstpTrackPlay(track) {
             if (!isSstpEnabled || !track || !window.electronAPI || !window.electronAPI.notifySstpTrack) return;
             
+            // If audio file and metadata not parsed yet, parse it!
+            if (!track.isMidi && !track.metadataLoaded && track.file && typeof ensureTrackMetadata === 'function') {
+                await ensureTrackMetadata(track);
+            }
+
+            const sendTitle = (track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : (track.name || 'Unknown Track');
+            const sendArtist = (track.artist && track.artist.trim()) ? track.artist.trim() : '';
+            const sendAlbum = (track.album && track.album.trim()) ? track.album.trim() : '';
+            const cleanFileName = (track.file && track.file.name) ? track.file.name.replace(/\.[^/.]+$/, "") : (track.name || '');
+
             const now = Date.now();
-            if (now - sstpLastNotifyTime < 400 && sstpLastNotifiedTitle === track.name) return; // Debounce
+            if (now - sstpLastNotifyTime < 400 && sstpLastNotifiedTitle === sendTitle) return; // Debounce
             sstpLastNotifyTime = now;
-            sstpLastNotifiedTitle = track.name;
+            sstpLastNotifiedTitle = sendTitle;
 
             window.electronAPI.notifySstpTrack({
-                title: track.name || '',
-                artist: track.artist || '',
-                album: track.album || '',
+                title: sendTitle,
+                artist: sendArtist,
+                album: sendAlbum,
+                fileName: cleanFileName,
                 script: sstpScriptTemplate,
                 port: sstpPort
             });
@@ -6263,17 +6306,79 @@
                 r.onerror = e => reject(e); 
             }); 
         }
-        async function loadTracksFromDB() { if(!db)return; const t=db.transaction([STORE_NAME],'readonly'); const store = t.objectStore(STORE_NAME); const req = store.getAll(); req.onsuccess = e => { 
-            const res=e.target.result; 
-            if(res && res.length) playlist = res.map(i => ({
-                id:i.id, name:i.name.replace(/\.[^/.]+$/, ""), 
-                url:URL.createObjectURL(i.blob), file:i.blob,
-                playlistName: i.playlistName || 'All Tracks',
-                isMidi: i.name.toLowerCase().endsWith('.mid') || i.name.toLowerCase().endsWith('.midi') || i.blob.type === 'audio/midi' || i.blob.type === 'audio/mid'
-            }));
-            updatePlaylistUI(); 
-        }; }
-        async function saveTrackToDB(file, playlistName = 'All Tracks') { return new Promise((res,rej)=>{ const t=db.transaction([STORE_NAME],'readwrite'); const r=t.objectStore(STORE_NAME).add({name:file.name, blob:file, playlistName: playlistName}); r.onsuccess=e=>res(e.target.result); r.onerror=e=>rej(e); }); }
+        async function loadTracksFromDB() { 
+            if(!db) return; 
+            const t = db.transaction([STORE_NAME],'readonly'); 
+            const store = t.objectStore(STORE_NAME); 
+            const req = store.getAll(); 
+            req.onsuccess = e => { 
+                const res = e.target.result; 
+                if(res && res.length) {
+                    playlist = res.map(i => {
+                        const isMidi = i.name.toLowerCase().endsWith('.mid') || i.name.toLowerCase().endsWith('.midi') || (i.blob && (i.blob.type === 'audio/midi' || i.blob.type === 'audio/mid'));
+                        return {
+                            id: i.id, 
+                            name: i.name.replace(/\.[^/.]+$/, ""), 
+                            url: URL.createObjectURL(i.blob), 
+                            file: i.blob,
+                            playlistName: i.playlistName || 'All Tracks',
+                            tagTitle: i.tagTitle || '',
+                            artist: i.artist || '',
+                            album: i.album || '',
+                            coverUrl: i.coverUrl || null,
+                            metadataLoaded: !!(i.tagTitle || i.artist || i.album || i.coverUrl),
+                            isMidi: isMidi
+                        };
+                    });
+                }
+                updatePlaylistUI(); 
+                
+                // Background metadata parser for stored tracks that haven't been parsed yet
+                (async () => {
+                    let hasNewMeta = false;
+                    for (const item of playlist) {
+                        if (!item.isMidi && !item.metadataLoaded && item.file && typeof ensureTrackMetadata === 'function') {
+                            await ensureTrackMetadata(item);
+                            hasNewMeta = true;
+                        }
+                    }
+                    if (hasNewMeta) updatePlaylistUI();
+                })();
+            }; 
+        }
+        async function saveTrackToDB(file, playlistName = 'All Tracks', meta = null) { 
+            return new Promise((res,rej)=>{ 
+                const t=db.transaction([STORE_NAME],'readwrite'); 
+                const data = { name: file.name, blob: file, playlistName: playlistName };
+                if (meta) {
+                    if (meta.title) data.tagTitle = meta.title;
+                    if (meta.artist) data.artist = meta.artist;
+                    if (meta.album) data.album = meta.album;
+                    if (meta.coverUrl) data.coverUrl = meta.coverUrl;
+                }
+                const r=t.objectStore(STORE_NAME).add(data); 
+                r.onsuccess=e=>res(e.target.result); 
+                r.onerror=e=>rej(e); 
+            }); 
+        }
+        async function updateTrackMetadataInDB(id, meta) {
+            if (!db || id === undefined || !meta) return;
+            try {
+                const tx = db.transaction([STORE_NAME], 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.get(id);
+                req.onsuccess = (e) => {
+                    const data = e.target.result;
+                    if (data) {
+                        if (meta.tagTitle) data.tagTitle = meta.tagTitle;
+                        if (meta.artist) data.artist = meta.artist;
+                        if (meta.album) data.album = meta.album;
+                        if (meta.coverUrl) data.coverUrl = meta.coverUrl;
+                        store.put(data);
+                    }
+                };
+            } catch(e) {}
+        }
         async function deleteTrackFromDB(id) { return new Promise(res=>{ if(!db||id===undefined) return res(); try{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).delete(id).onsuccess=()=>res(); }catch(e){res();} }); }
         async function updateTrackPlaylistInDB(id, playlistName) { if (!db || id === undefined) return; return new Promise((res) => { try { const tx = db.transaction([STORE_NAME], 'readwrite'); const store = tx.objectStore(STORE_NAME); const req = store.get(id); req.onsuccess = (e) => { const data = e.target.result; if (data) { data.playlistName = playlistName; store.put(data); } res(); }; req.onerror = () => res(); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch(e) { res(); } }); }
         async function clearDB() { return new Promise(res=>{ if(!db) return res(); try{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }catch(e){res();} }); }
@@ -6410,7 +6515,10 @@
 
         async function parseAudioMetadata(file) {
             if (!file) return { title: '', artist: '', album: '', coverUrl: null };
-            const jsm = await extractMetadataWithJsMediaTags(file);
+            let jsm = null;
+            try {
+                jsm = await extractMetadataWithJsMediaTags(file);
+            } catch(e){}
             if (jsm && (jsm.coverUrl || jsm.title || jsm.artist)) {
                 return jsm;
             }
@@ -6451,6 +6559,27 @@
                         else if (frameID === 'APIC') coverUrl = decodeID3Picture(frameData);
                     }
                 }
+
+                // ID3v1 fallback at end of file (128 bytes)
+                if ((!title || !artist) && file.size > 128) {
+                    try {
+                        const tailBuffer = await file.slice(file.size - 128).arrayBuffer();
+                        const tail = new Uint8Array(tailBuffer);
+                        if (tail[0] === 0x54 && tail[1] === 0x41 && tail[2] === 0x47) { // "TAG"
+                            const decodeV1 = (bytes) => {
+                                try {
+                                    return new TextDecoder('shift_jis').decode(bytes).replace(/\0/g, '').trim();
+                                } catch(e) {
+                                    return new TextDecoder('utf-8').decode(bytes).replace(/\0/g, '').trim();
+                                }
+                            };
+                            if (!title) title = decodeV1(tail.subarray(3, 33));
+                            if (!artist) artist = decodeV1(tail.subarray(33, 63));
+                            if (!album) album = decodeV1(tail.subarray(63, 93));
+                        }
+                    } catch(e){}
+                }
+
                 return { title, artist, album, coverUrl };
             } catch(e) {
                 return { title: '', artist: '', album: '', coverUrl: null };
@@ -6462,10 +6591,23 @@
             const encoding = uint8Array[0];
             const content = uint8Array.subarray(1);
             try {
-                if (encoding === 0 || encoding === 3) {
-                    return new TextDecoder(encoding === 3 ? 'utf-8' : 'iso-8859-1').decode(content).replace(/\0/g, '').trim();
+                if (encoding === 3) {
+                    return new TextDecoder('utf-8').decode(content).replace(/\0/g, '').trim();
                 } else if (encoding === 1 || encoding === 2) {
                     return new TextDecoder('utf-16').decode(content).replace(/\0/g, '').trim();
+                } else if (encoding === 0) {
+                    // Try utf-8 first, then shift_jis, then fallback
+                    try {
+                        const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+                        return utf8Decoder.decode(content).replace(/\0/g, '').trim();
+                    } catch(e) {
+                        try {
+                            const sjisDecoder = new TextDecoder('shift_jis');
+                            return sjisDecoder.decode(content).replace(/\0/g, '').trim();
+                        } catch(e2) {
+                            return new TextDecoder('iso-8859-1').decode(content).replace(/\0/g, '').trim();
+                        }
+                    }
                 }
             } catch(e){}
             return '';
@@ -6498,6 +6640,27 @@
             } catch(e){}
             return null;
         }
+
+        async function ensureTrackMetadata(track) {
+            if (!track || track.isMidi || track.metadataLoaded || !track.file) return track;
+            try {
+                const meta = await parseAudioMetadata(track.file);
+                if (meta) {
+                    if (meta.title && meta.title.trim()) track.tagTitle = meta.title.trim();
+                    if (meta.artist && meta.artist.trim()) track.artist = meta.artist.trim();
+                    if (meta.album && meta.album.trim()) track.album = meta.album.trim();
+                    if (meta.coverUrl) track.coverUrl = meta.coverUrl;
+                    if (track.id !== undefined && typeof updateTrackMetadataInDB === 'function') {
+                        updateTrackMetadataInDB(track.id, track);
+                    }
+                }
+            } catch(e) {
+                console.warn("Metadata parse error:", e);
+            }
+            track.metadataLoaded = true;
+            return track;
+        }
+        window.ensureTrackMetadata = ensureTrackMetadata;
 
         // --- 2. BPM Detector ---
         async function detectBPM(file) {
@@ -6742,6 +6905,11 @@
                     url: URL.createObjectURL(f),
                     file: f,
                     playlistName: activePlaylist,
+                    tagTitle: '',
+                    artist: '',
+                    album: '',
+                    coverUrl: null,
+                    metadataLoaded: isMidi,
                     isMidi: isMidi
                 });
                 addedCount++;
@@ -6749,6 +6917,19 @@
             
             updatePlaylistUI();
             showNotification(`▶ ${addedCount} 曲をライブラリに追加しました`);
+
+            // Background metadata extraction for newly added audio files
+            (async () => {
+                const addedTracks = playlist.slice(-addedCount);
+                let hasMeta = false;
+                for (const t of addedTracks) {
+                    if (!t.isMidi && !t.metadataLoaded && t.file && typeof ensureTrackMetadata === 'function') {
+                        await ensureTrackMetadata(t);
+                        hasMeta = true;
+                    }
+                }
+                if (hasMeta) updatePlaylistUI();
+            })();
         }
 
         async function traverseEntry(entry, filesList) {
