@@ -2707,31 +2707,36 @@
             
             for (let ch = 0; ch < 16; ch++) {
                 const isSilenced = midiMuted[ch] || (anySolo && !midiSoloed[ch]);
-                let targetVol = isSilenced ? 0 : midiVolumes[ch];
+                let targetVol = isSilenced ? 0 : (midiVolumes[ch] !== undefined ? midiVolumes[ch] : 100);
                 
-                // 1. WebAudioTinySynth send (Volume CC7, Expression CC11, All Notes Off)
-                synth.send([0xb0 | ch, 7, targetVol], curTime);
-                synth.send([0xb0 | ch, 11, isSilenced ? 0 : 127], curTime);
-                if (isSilenced) {
-                    synth.send([0xb0 | ch, 120, 0], curTime); // All sound off
-                    synth.send([0xb0 | ch, 123, 0], curTime); // All notes off
+                // 1. WebAudioTinySynth / synth.send (Volume CC7, Expression CC11, All Notes Off)
+                if (typeof synth.send === 'function') {
+                    try {
+                        synth.send([0xb0 | ch, 7, targetVol], curTime);
+                        synth.send([0xb0 | ch, 11, isSilenced ? 0 : 127], curTime);
+                        if (isSilenced) {
+                            synth.send([0xb0 | ch, 120, 0], curTime); // All sound off
+                            synth.send([0xb0 | ch, 123, 0], curTime); // All notes off
+                        }
+                    } catch(e){}
                 }
                 
                 // 2. SpessaSynth lockController & controllerChange
-                if (synth.synth) {
-                    if (typeof synth.synth.controllerChange === 'function') {
+                const spessaCore = synth.synth || (synth.workletSynth ? synth.workletSynth : null);
+                if (spessaCore) {
+                    if (spessaCore.midiChannels && spessaCore.midiChannels[ch]) {
                         try {
-                            synth.synth.controllerChange(ch, 7, targetVol);
-                            synth.synth.controllerChange(ch, 11, isSilenced ? 0 : 127);
+                            spessaCore.midiChannels[ch].lockController(7, isSilenced);
+                            spessaCore.midiChannels[ch].lockController(11, isSilenced);
+                            if (isSilenced && typeof spessaCore.midiChannels[ch].stopAllNotes === 'function') {
+                                spessaCore.midiChannels[ch].stopAllNotes(true);
+                            }
                         } catch(e){}
                     }
-                    if (synth.synth.midiChannels && synth.synth.midiChannels[ch]) {
+                    if (typeof spessaCore.controllerChange === 'function') {
                         try {
-                            synth.synth.midiChannels[ch].lockController(7, isSilenced);
-                            synth.synth.midiChannels[ch].lockController(11, isSilenced);
-                            if (isSilenced && typeof synth.synth.midiChannels[ch].stopAllNotes === 'function') {
-                                synth.synth.midiChannels[ch].stopAllNotes(true);
-                            }
+                            spessaCore.controllerChange(ch, 7, targetVol);
+                            spessaCore.controllerChange(ch, 11, isSilenced ? 0 : 127);
                         } catch(e){}
                     }
                 }
@@ -2739,9 +2744,11 @@
                 // Re-apply custom instrument if changed by user
                 if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
                     const prog = midiUserPrograms[ch];
-                    synth.send([0xc0 | ch, prog], curTime);
-                    if (synth.synth && typeof synth.synth.programChange === 'function') {
-                        try { synth.synth.programChange(ch, prog); } catch(e){}
+                    if (typeof synth.send === 'function') {
+                        try { synth.send([0xc0 | ch, prog], curTime); } catch(e){}
+                    }
+                    if (spessaCore && typeof spessaCore.programChange === 'function') {
+                        try { spessaCore.programChange(ch, prog); } catch(e){}
                     }
                 }
             }
@@ -7101,6 +7108,32 @@
                 }
             }
 
+            send(msg, time) {
+                if (!msg || msg.length < 1 || !this.synth) return;
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+                if (cmd === 0x90) {
+                    if (msg[2] > 0 && typeof this.synth.noteOn === 'function') {
+                        try { this.synth.noteOn(ch, msg[1], msg[2]); } catch(e){}
+                    } else if (typeof this.synth.noteOff === 'function') {
+                        try { this.synth.noteOff(ch, msg[1]); } catch(e){}
+                    }
+                } else if (cmd === 0x80) {
+                    if (typeof this.synth.noteOff === 'function') {
+                        try { this.synth.noteOff(ch, msg[1]); } catch(e){}
+                    }
+                } else if (cmd === 0xb0) {
+                    if (typeof this.synth.controllerChange === 'function') {
+                        try { this.synth.controllerChange(ch, msg[1], msg[2]); } catch(e){}
+                    }
+                } else if (cmd === 0xc0) {
+                    if (typeof this.synth.programChange === 'function') {
+                        try { this.synth.programChange(ch, msg[1]); } catch(e){}
+                    }
+                }
+            }
+
             bindEvents() {
                 if (!this.sequencer) return;
                 this.sequencer.onNoteOn = (channel, note, velocity) => {
@@ -7109,12 +7142,6 @@
                         const isSilenced = midiMuted[channel] || (anySolo && !midiSoloed[channel]);
                         if (isSilenced) {
                             if (this.synth) {
-                                if (typeof this.synth.controllerChange === 'function') {
-                                    try { 
-                                        this.synth.controllerChange(channel, 7, 0); 
-                                        this.synth.controllerChange(channel, 11, 0); 
-                                    } catch(e){}
-                                }
                                 if (this.synth.midiChannels && this.synth.midiChannels[channel]) {
                                     try {
                                         this.synth.midiChannels[channel].lockController(7, true);
@@ -7124,8 +7151,22 @@
                                         }
                                     } catch(e){}
                                 }
+                                if (typeof this.synth.controllerChange === 'function') {
+                                    try { 
+                                        this.synth.controllerChange(channel, 7, 0); 
+                                        this.synth.controllerChange(channel, 11, 0); 
+                                    } catch(e){}
+                                }
                             }
                         } else {
+                            if (this.synth) {
+                                if (this.synth.midiChannels && this.synth.midiChannels[channel]) {
+                                    try {
+                                        this.synth.midiChannels[channel].lockController(7, false);
+                                        this.synth.midiChannels[channel].lockController(11, false);
+                                    } catch(e){}
+                                }
+                            }
                             triggerMidiChannelLed(channel);
                         }
                         
