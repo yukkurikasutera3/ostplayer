@@ -130,6 +130,9 @@ function createWindow() {
             if (input.key === 'F12' || (input.control && input.shift && input.key.toUpperCase() === 'I')) {
                 mainWindow.webContents.toggleDevTools();
                 event.preventDefault();
+            } else if (input.key === 'F11') {
+                mainWindow.setFullScreen(!mainWindow.isFullScreen());
+                event.preventDefault();
             }
         }
     });
@@ -140,6 +143,13 @@ function createWindow() {
         mainWindow = null;
     });
 }
+
+// IPC Listener for Fullscreen Toggle
+ipcMain.on('toggle-fullscreen', () => {
+    if (mainWindow) {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
+});
 
 // IPC Listener for Mini Player Window Toggle
 ipcMain.on('toggle-mini-mode', (event, isMini) => {
