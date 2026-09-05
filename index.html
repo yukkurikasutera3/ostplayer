@@ -5726,19 +5726,19 @@
                 };
                 
                 const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-1 shrink-0">MIDI</span>' : '';
-                const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-6 h-6 rounded object-cover mr-2 shrink-0">` : '';
-                const artistSub = track.artist ? `<div class="text-[10px] text-gray-500 truncate">${track.artist}</div>` : '';
+                const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-4 h-4 rounded object-cover mr-1.5 shrink-0 inline-block shadow-sm">` : '';
+                const artistInline = track.artist ? `<span class="text-xs text-gray-400 font-normal ml-1.5 shrink-0 opacity-75 truncate"> - ${track.artist}</span>` : '';
 
                 div.innerHTML = `
                     <div class="flex-1 min-w-0 mr-2 flex items-center">
                         <span class="text-gray-600 mr-1.5 cursor-grab text-xs shrink-0" title="ドラッグして並び替え">⋮⋮</span>
                         ${coverImg}
                         ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
-                        <div class="min-w-0 flex-1">
-                            <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center">
-                                <span class="truncate" title="${track.name}">${(track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name}</span> ${extInfo} ${activeBadges}
-                            </div>
-                            ${artistSub}
+                        <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center min-w-0 flex-1">
+                            <span class="truncate" title="${track.name}">${(track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name}</span>
+                            ${artistInline}
+                            ${extInfo}
+                            ${activeBadges}
                         </div>
                     </div>
                     <div class="flex items-center shrink-0">
