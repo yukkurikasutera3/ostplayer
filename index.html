@@ -119,6 +119,31 @@
             -webkit-backdrop-filter: blur(8px);
         }
 
+        body.theme-video {
+            --theme-bg-main: transparent;
+            --theme-bg-card: rgba(15, 23, 42, var(--custom-card-opacity, 0.75));
+            --theme-border: rgba(255, 255, 255, 0.18);
+            --theme-text-primary: #ffffff;
+            --theme-text-secondary: #cbd5e1;
+            --theme-accent: #f43f5e;
+            --theme-accent-hover: #fb7185;
+            --theme-glow: rgba(244, 63, 94, 0.5);
+        }
+
+        body.theme-video #main-app-container {
+            background-color: rgba(15, 23, 42, var(--custom-card-opacity, 0.75)) !important;
+            backdrop-filter: blur(10px) saturate(160%);
+            -webkit-backdrop-filter: blur(10px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(244, 63, 94, 0.25);
+        }
+
+        body.theme-video #main-app-container > div {
+            background-color: rgba(15, 23, 42, 0.35) !important;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+
         /* カスタムスクロールバー */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -263,8 +288,9 @@
         </div>
     </div>
 
-    <!-- 背景画像レイヤー & オーバーレイ & 背景ビジュアライザー -->
+    <!-- 背景画像レイヤー & 背景動画レイヤー & オーバーレイ & 背景ビジュアライザー -->
     <div id="custom-bg-layer" class="fixed inset-0 bg-cover bg-center pointer-events-none transition-all duration-300 z-0 hidden"></div>
+    <video id="custom-bg-video" class="fixed inset-0 w-full h-full object-cover pointer-events-none transition-all duration-300 z-0 hidden" playsinline loop></video>
     <div id="custom-bg-overlay" class="fixed inset-0 bg-black/60 pointer-events-none transition-all duration-300 z-0 hidden"></div>
     <canvas id="bg-visualizer-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0"></canvas>
 
@@ -898,7 +924,7 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-red-500" id="record-dot"></span>
                         <span id="record-text">Rec Session</span>
                     </button>
-                    <input type="file" id="file-input" multiple accept="audio/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff" class="hidden">
+                    <input type="file" id="file-input" multiple accept="audio/*,video/*,.mid,.midi,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,.wma,.aiff,.mp4,.webm,.mov,.mkv,.m4v,.avi,.ts,.ogv" class="hidden">
                     <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden">
                     <input type="file" id="sf2-input" accept=".sf2,.sf3" class="hidden">
                 </div>
@@ -963,10 +989,11 @@
                     </div>
                 </div>
                 <!-- Type Filter Buttons -->
-                <div class="flex items-center space-x-1 text-[10px]">
-                    <button id="filter-all-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-blue-500 bg-blue-500/20 text-blue-300" data-filter="all">All</button>
-                    <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50" data-filter="midi">🎹 MIDI</button>
-                    <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50" data-filter="audio">🎵 Audio</button>
+                <div class="flex items-center space-x-1 text-[10px] overflow-x-auto py-0.5">
+                    <button id="filter-all-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-blue-500 bg-blue-500/20 text-blue-300 shrink-0" data-filter="all">All</button>
+                    <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50 shrink-0" data-filter="midi">🎹 MIDI</button>
+                    <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50 shrink-0" data-filter="audio">🎵 Audio</button>
+                    <button id="filter-video-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 hover:border-rose-500/50 shrink-0" data-filter="video">🎬 Video</button>
                 </div>
             </div>
             <!-- Playlists Section -->
@@ -1016,7 +1043,7 @@
             <!-- プリセットテーマ選択 -->
             <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">プリセットテーマ</label>
-                <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <button onclick="setTheme('cyberpunk')" class="p-2.5 rounded-lg border border-blue-500/50 bg-slate-900 text-blue-300 font-bold hover:bg-slate-800 transition flex items-center justify-center space-x-1.5">
                         <span>🌌</span><span>Cyberpunk</span>
                     </button>
@@ -1037,6 +1064,9 @@
                     </button>
                     <button onclick="setTheme('custom')" class="p-2.5 rounded-lg border border-cyan-500/50 bg-cyan-950 text-cyan-300 font-bold hover:bg-cyan-900 transition flex items-center justify-center space-x-1.5">
                         <span>🖼️</span><span>Custom Image</span>
+                    </button>
+                    <button onclick="setTheme('video')" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-1.5 shadow-[0_0_12px_rgba(244,63,94,0.25)]">
+                        <span>🎬</span><span>Video</span>
                     </button>
                 </div>
             </div>
@@ -1080,6 +1110,21 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 動画再生時の背景連動 コントロール -->
+            <div class="bg-gray-800/80 p-4 rounded-lg border border-rose-900/50 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-rose-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <span>🎬</span><span>動画再生時は背景を動画にする (Video Background)</span>
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="video-bg-toggle" class="sr-only peer" checked>
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                    </label>
+                </div>
+                <p class="text-[10px] text-gray-400">MP4 / WebM / MOV などの動画トラック再生時、背景全体に動画を自動同期再生します（ぼかし・暗さ・透明度設定が適用されます）</p>
+            </div>
+
             <!-- 背景ビジュアライザー コントロール -->
             <div class="bg-gray-800/80 p-4 rounded-lg border border-purple-900/50 space-y-3">
                 <div class="flex justify-between items-center">
@@ -1217,7 +1262,7 @@
         let customPlaylists = JSON.parse(localStorage.getItem('customPlaylists') || '[]');
         let activePlaylist = 'All Tracks';
         let playlistSearchQuery = '';
-        let playlistFilterType = 'all'; // 'all' | 'midi' | 'audio'
+        let playlistFilterType = 'all'; // 'all' | 'midi' | 'audio' | 'video'
         let pendingMoveIndex = -1;
         
         // Single Mode State
@@ -1269,6 +1314,9 @@
         // let midiTimer = null; // Removed in favor of loop
         // ----------------------
 
+        // Video Background State
+        let isBgVideoEnabled = localStorage.getItem('ost_video_bg_enabled') !== 'false'; // Default ON
+
         // Audio System
         let audioContext = null;
         let analyser = null;
@@ -1279,7 +1327,7 @@
         let isNormEnabled = false;
         let isMuted = false;
         // players[0], players[1] for Single, Dual, FX, Visual
-        let players = [new Audio(), new Audio()];
+        let players = [document.getElementById('custom-bg-video') || new Audio(), new Audio()];
         let singleGainNodes = [null, null];
         let singleSources = [null, null];
         
@@ -1766,11 +1814,11 @@
                 btn.addEventListener('click', () => {
                     playlistFilterType = btn.dataset.filter;
                     document.querySelectorAll('.filter-type-btn').forEach(b => {
-                        b.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-blue-300', 'border-yellow-500', 'bg-yellow-500/20', 'text-yellow-300', 'border-green-500', 'bg-green-500/20', 'text-green-300');
+                        b.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-blue-300', 'border-yellow-500', 'bg-yellow-500/20', 'text-yellow-300', 'border-green-500', 'bg-green-500/20', 'text-green-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
                         b.classList.add('border-gray-700', 'bg-gray-800', 'text-gray-400');
                     });
-                    const colorMap = { all: 'blue', midi: 'yellow', audio: 'green' };
-                    const c = colorMap[playlistFilterType];
+                    const colorMap = { all: 'blue', midi: 'yellow', audio: 'green', video: 'rose' };
+                    const c = colorMap[playlistFilterType] || 'blue';
                     btn.classList.remove('border-gray-700', 'bg-gray-800', 'text-gray-400');
                     btn.classList.add(`border-${c}-500`, `bg-${c}-500/20`, `text-${c}-300`);
                     updatePlaylistUI();
@@ -1813,6 +1861,18 @@
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', updateCustomBgStyles);
             });
+
+            // Video Background Toggle Event
+            const videoBgToggle = document.getElementById('video-bg-toggle');
+            if (videoBgToggle) {
+                videoBgToggle.checked = isBgVideoEnabled;
+                videoBgToggle.addEventListener('change', () => {
+                    isBgVideoEnabled = videoBgToggle.checked;
+                    localStorage.setItem('ost_video_bg_enabled', isBgVideoEnabled ? 'true' : 'false');
+                    updateVideoBackgroundState(isCurrentTrackVideoPlaying());
+                    showNotification(isBgVideoEnabled ? "🎬 動画背景連動: 有効 (ON)" : "🎬 動画背景連動: 無効 (OFF)");
+                });
+            }
 
             // --- Studio Mode Event Listeners ---
             const crushEnable = document.getElementById('studio-bitcrusher-enable');
@@ -3566,6 +3626,11 @@
                 latencyHint: 'playback', // ⚡ 音楽再生用の広帯域ジッターバッファ（処理落ち・ラグによる音飛びを完全防止）
                 sampleRate: 44100
             });
+
+            const bgVideoEl = document.getElementById('custom-bg-video');
+            if (bgVideoEl && players[0] !== bgVideoEl) {
+                players[0] = bgVideoEl;
+            }
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
             
@@ -3876,6 +3941,7 @@
                 p.pause(); p.currentTime = 0; 
                 p.playbackRate = 1.0; 
             });
+            updateVideoBackgroundState(false);
             isSinglePlaying = false; isAutoCrossfading = false; currentSinglePlayerIndex = 0; 
             updateSingleUIState(); updateDualUIState(0); updateDualUIState(1); updateFxUIState(false);
             updateVisualUIState(false);
@@ -4369,6 +4435,7 @@
             }
 
             if (track.isMidi) {
+                updateVideoBackgroundState(false);
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name + " (MIDI)";
                 if (ui.fx && ui.fx.status) ui.fx.status.textContent = "Ready";
                 const synth = getMidiSynth('main');
@@ -4377,6 +4444,7 @@
                 AudioCacheManager.preloadNextTrack(index);
                 toggleFxPlay();
             } else {
+                updateVideoBackgroundState(track.isVideo);
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
                 const p = players[0]; 
                 p.loop = false; 
@@ -4535,6 +4603,7 @@
             }
             
             if (track.isMidi) {
+                updateVideoBackgroundState(false);
                 // --- MIDI PLAYBACK ---
                 const synth = getMidiSynth('main');
                 const arrayBuffer = await AudioCacheManager.getMidiBuffer(track);
@@ -4551,6 +4620,7 @@
                 if(autoPlay) toggleSinglePlay();
 
             } else {
+                updateVideoBackgroundState(track.isVideo);
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
                 document.getElementById('single-piano-roll-btn').classList.add('hidden');
                 document.getElementById('single-midi-export-btn').classList.add('hidden');
@@ -5556,7 +5626,13 @@
             if(singleTrackIndex === -1) return;
             const t = playlist[singleTrackIndex];
             const displayTitle = (t.tagTitle && t.tagTitle.trim()) ? t.tagTitle.trim() : t.name;
-            ui.single.title.textContent = t.isMidi ? (t.name + " (MIDI)") : displayTitle;
+            if (t.isMidi) {
+                ui.single.title.textContent = t.name + " (MIDI)";
+            } else if (t.isVideo) {
+                ui.single.title.textContent = displayTitle + " (Video)";
+            } else {
+                ui.single.title.textContent = displayTitle;
+            }
             let statusStr = "Ready";
             if (t.artist || t.album) {
                 statusStr = [t.artist, t.album].filter(Boolean).join(' — ');
@@ -5643,7 +5719,10 @@
                 .filter(item => {
                     const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
                     const matchQuery = !query || item.name.toLowerCase().includes(query) || (item.artist && item.artist.toLowerCase().includes(query));
-                    const matchType = playlistFilterType === 'all' || (playlistFilterType === 'midi' && item.isMidi) || (playlistFilterType === 'audio' && !item.isMidi);
+                    const matchType = playlistFilterType === 'all' 
+                        || (playlistFilterType === 'midi' && item.isMidi) 
+                        || (playlistFilterType === 'video' && item.isVideo) 
+                        || (playlistFilterType === 'audio' && !item.isMidi && !item.isVideo);
                     return matchPlaylist && matchQuery && matchType;
                 });
                 
@@ -5740,7 +5819,12 @@
                     else loadFxTrack(idx);
                 };
                 
-                const extInfo = track.isMidi ? '<span class="text-[10px] text-yellow-500 border border-yellow-500/30 px-1 rounded ml-1 shrink-0">MIDI</span>' : '';
+                let extInfo = '';
+                if (track.isMidi) {
+                    extInfo = '<span class="text-[9px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">MIDI</span>';
+                } else if (track.isVideo) {
+                    extInfo = '<span class="text-[9px] text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">🎬 VIDEO</span>';
+                }
                 const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-4 h-4 rounded object-cover mr-1.5 shrink-0 inline-block shadow-sm">` : '';
                 const artistInline = track.artist ? `<span class="text-xs text-gray-400 font-normal ml-1.5 shrink-0 opacity-75 truncate"> - ${track.artist}</span>` : '';
 
@@ -5811,6 +5895,33 @@
             setTheme(currentTheme);
         }
 
+        function isCurrentTrackVideoPlaying() {
+            if (singleTrackIndex >= 0 && playlist[singleTrackIndex] && playlist[singleTrackIndex].isVideo) {
+                return isSinglePlaying || (players[0] && !players[0].paused);
+            }
+            return false;
+        }
+
+        function updateVideoBackgroundState(showVideo) {
+            const bgVideo = document.getElementById('custom-bg-video');
+            const bgOverlay = document.getElementById('custom-bg-overlay');
+            const currentThemeName = (document.getElementById('app-body')?.className.match(/theme-(\w+)/) || [])[1] || 'cyberpunk';
+
+            if (showVideo && isBgVideoEnabled) {
+                if (bgVideo) bgVideo.classList.remove('hidden');
+                if (bgOverlay) bgOverlay.classList.remove('hidden');
+            } else {
+                if (bgVideo) bgVideo.classList.add('hidden');
+                if (bgOverlay) {
+                    if (currentThemeName === 'custom' || currentThemeName === 'clear' || currentThemeName === 'video') {
+                        bgOverlay.classList.remove('hidden');
+                    } else {
+                        bgOverlay.classList.add('hidden');
+                    }
+                }
+            }
+        }
+
         function setTheme(themeName) {
             currentTheme = themeName;
             localStorage.setItem('ost_theme', themeName);
@@ -5823,16 +5934,17 @@
             
             const bgLayer = document.getElementById('custom-bg-layer');
             const bgOverlay = document.getElementById('custom-bg-overlay');
+            const controls = document.getElementById('custom-bg-controls');
             
-            if (themeName === 'custom' || themeName === 'clear') {
-                if (bgLayer) bgLayer.classList.remove('hidden');
+            if (themeName === 'custom' || themeName === 'clear' || themeName === 'video') {
+                if (themeName === 'custom' && bgLayer && customBgData) bgLayer.classList.remove('hidden');
                 if (bgOverlay) bgOverlay.classList.remove('hidden');
-                const controls = document.getElementById('custom-bg-controls');
                 if (controls) controls.classList.remove('opacity-50', 'pointer-events-none');
             } else {
                 if (bgLayer) bgLayer.classList.add('hidden');
-                if (bgOverlay) bgOverlay.classList.add('hidden');
+                if (bgOverlay && (!isBgVideoEnabled || !isCurrentTrackVideoPlaying())) bgOverlay.classList.add('hidden');
             }
+            updateVideoBackgroundState(isCurrentTrackVideoPlaying());
         }
 
         function openThemeModal() {
@@ -6024,8 +6136,10 @@
             document.documentElement.style.setProperty('--custom-card-opacity', cardVal);
             
             const bgLayer = document.getElementById('custom-bg-layer');
+            const bgVideo = document.getElementById('custom-bg-video');
             const bgOverlay = document.getElementById('custom-bg-overlay');
             if (bgLayer) bgLayer.style.filter = `blur(${blurVal}px)`;
+            if (bgVideo) bgVideo.style.filter = `blur(${blurVal}px)`;
             if (bgOverlay) bgOverlay.style.backgroundColor = `rgba(0,0,0,${overlayVal})`;
             
             localStorage.setItem('ost_bg_blur', blurVal);
@@ -6331,6 +6445,7 @@
                 if(res && res.length) {
                     playlist = res.map(i => {
                         const isMidi = i.name.toLowerCase().endsWith('.mid') || i.name.toLowerCase().endsWith('.midi') || (i.blob && (i.blob.type === 'audio/midi' || i.blob.type === 'audio/mid'));
+                        const isVideo = !isMidi && isVideoFile(i.blob || { name: i.name, type: (i.blob ? i.blob.type : '') });
                         return {
                             id: i.id, 
                             name: i.name.replace(/\.[^/.]+$/, ""), 
@@ -6341,8 +6456,9 @@
                             artist: i.artist || '',
                             album: i.album || '',
                             coverUrl: i.coverUrl || null,
-                            metadataLoaded: !!(i.tagTitle || i.artist || i.album || i.coverUrl),
-                            isMidi: isMidi
+                            metadataLoaded: isMidi || isVideo || !!(i.tagTitle || i.artist || i.album || i.coverUrl),
+                            isMidi: isMidi,
+                            isVideo: isVideo
                         };
                     });
                 }
@@ -6398,11 +6514,19 @@
         async function updateTrackPlaylistInDB(id, playlistName) { if (!db || id === undefined) return; return new Promise((res) => { try { const tx = db.transaction([STORE_NAME], 'readwrite'); const store = tx.objectStore(STORE_NAME); const req = store.get(id); req.onsuccess = (e) => { const data = e.target.result; if (data) { data.playlistName = playlistName; store.put(data); } res(); }; req.onerror = () => res(); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch(e) { res(); } }); }
         async function clearDB() { return new Promise(res=>{ if(!db) return res(); try{ db.transaction([STORE_NAME],'readwrite').objectStore(STORE_NAME).clear().onsuccess=()=>res(); }catch(e){res();} }); }
 
-        const SUPPORTED_AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.wma', '.aiff', '.weba', '.webm', '.mid', '.midi'];
+        const SUPPORTED_VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.mkv', '.m4v', '.avi', '.ts', '.ogv'];
+        const SUPPORTED_AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.wma', '.aiff', '.weba', '.webm', '.mid', '.midi', ...SUPPORTED_VIDEO_EXTS];
+
+        function isVideoFile(file) {
+            if (!file) return false;
+            if (file.type && file.type.startsWith('video/')) return true;
+            const name = (file.name || '').toLowerCase();
+            return SUPPORTED_VIDEO_EXTS.some(ext => name.endsWith(ext));
+        }
 
         function isAudioFile(file) {
             if (!file) return false;
-            if (file.type && (file.type.startsWith('audio/') || file.type === 'video/webm' || file.type === 'video/ogg')) return true;
+            if (file.type && (file.type.startsWith('audio/') || file.type.startsWith('video/'))) return true;
             const name = (file.name || '').toLowerCase();
             return SUPPORTED_AUDIO_EXTS.some(ext => name.endsWith(ext));
         }
@@ -6657,7 +6781,7 @@
         }
 
         async function ensureTrackMetadata(track) {
-            if (!track || track.isMidi || track.metadataLoaded || !track.file) return track;
+            if (!track || track.isMidi || track.isVideo || track.metadataLoaded || !track.file) return track;
             try {
                 const meta = await parseAudioMetadata(track.file);
                 if (meta) {
@@ -6914,6 +7038,7 @@
                     }
                 }
                 const isMidi = f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi') || (f.type && (f.type === 'audio/midi' || f.type === 'audio/mid'));
+                const isVideo = !isMidi && isVideoFile(f);
                 playlist.push({
                     id,
                     name: f.name.replace(/\.[^/.]+$/, ""), 
@@ -6924,8 +7049,9 @@
                     artist: '',
                     album: '',
                     coverUrl: null,
-                    metadataLoaded: isMidi,
-                    isMidi: isMidi
+                    metadataLoaded: isMidi || isVideo,
+                    isMidi: isMidi,
+                    isVideo: isVideo
                 });
                 addedCount++;
             }
