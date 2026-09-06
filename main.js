@@ -18,6 +18,197 @@ if (fs.existsSync(ultimatePath)) {
 }
 app.name = "OST Player";
 
+// --- Native Zero-Dependency Discord Rich Presence IPC Manager ---
+const DEFAULT_DISCORD_CLIENT_ID = '463097721130188830'; // Verified Registered Media App ID
+
+class DiscordRPC {
+    constructor() {
+        this.clientId = DEFAULT_DISCORD_CLIENT_ID;
+        this.client = null;
+        this.connected = false;
+        this.user = null;
+        this.currentActivity = null;
+        this.enabled = false;
+        this.reconnectTimer = null;
+    }
+
+    setClientId(newId) {
+        const targetId = (newId && newId.trim()) ? newId.trim() : DEFAULT_DISCORD_CLIENT_ID;
+        if (this.clientId !== targetId) {
+            this.clientId = targetId;
+            if (this.connected) {
+                this.disconnect();
+                if (this.enabled) {
+                    this.connect();
+                }
+            }
+        }
+    }
+
+    findPipe(pipeIndex = 0) {
+        if (pipeIndex > 9) return Promise.resolve(null);
+        const pipePath = process.platform === 'win32'
+            ? `\\\\.\\pipe\\discord-ipc-${pipeIndex}`
+            : path.join(process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || process.env.TMP || '/tmp', `discord-ipc-${pipeIndex}`);
+
+        return new Promise((resolve) => {
+            const socket = net.connect(pipePath, () => {
+                resolve({ socket, pipePath });
+            });
+            socket.on('error', () => {
+                socket.destroy();
+                this.findPipe(pipeIndex + 1).then(resolve);
+            });
+        });
+    }
+
+    connect() {
+        if (this.connected || this.connecting) return Promise.resolve(this.connected);
+        this.connecting = true;
+
+        return this.findPipe().then((result) => {
+            this.connecting = false;
+            if (!result) {
+                this.connected = false;
+                this.notifyStatus();
+                return false;
+            }
+
+            this.client = result.socket;
+            this.sendHandshake();
+
+            this.client.on('data', (chunk) => {
+                this.handleData(chunk);
+            });
+
+            this.client.on('error', (err) => {
+                this.handleDisconnect();
+            });
+
+            this.client.on('close', () => {
+                this.handleDisconnect();
+            });
+
+            return true;
+        });
+    }
+
+    handleData(chunk) {
+        try {
+            if (chunk.length < 8) return;
+            const op = chunk.readInt32LE(0);
+            const len = chunk.readInt32LE(4);
+            const dataStr = chunk.toString('utf8', 8, 8 + len);
+            const json = JSON.parse(dataStr);
+
+            if (json.evt === 'READY' && json.data) {
+                this.connected = true;
+                this.user = json.data.user || null;
+                this.notifyStatus();
+                if (this.currentActivity && this.enabled) {
+                    this.sendActivityPacket(this.currentActivity);
+                }
+            } else if (json.code === 4000) {
+                // Invalid Client ID error from Discord
+                console.warn('[DiscordRPC] Invalid Client ID:', this.clientId);
+                this.connected = false;
+                this.user = null;
+                this.notifyStatus();
+            }
+        } catch (e) {}
+    }
+
+    handleDisconnect() {
+        this.connected = false;
+        this.user = null;
+        if (this.client) {
+            try { this.client.destroy(); } catch (e) {}
+            this.client = null;
+        }
+        this.notifyStatus();
+    }
+
+    disconnect() {
+        this.handleDisconnect();
+    }
+
+    sendHandshake() {
+        const payload = JSON.stringify({ v: 1, client_id: this.clientId });
+        this.sendPacket(0, payload);
+    }
+
+    setActivity(activity) {
+        this.currentActivity = activity;
+        if (!this.enabled) return;
+
+        if (!this.connected) {
+            this.connect().then(ok => {
+                if (ok && this.currentActivity) {
+                    this.sendActivityPacket(this.currentActivity);
+                }
+            });
+            return;
+        }
+
+        this.sendActivityPacket(activity);
+    }
+
+    sendActivityPacket(activity) {
+        if (!this.connected || !this.client) return;
+        const payload = JSON.stringify({
+            cmd: 'SET_ACTIVITY',
+            args: {
+                pid: process.pid,
+                activity: activity
+            },
+            nonce: Date.now().toString()
+        });
+        this.sendPacket(1, payload);
+    }
+
+    clearActivity() {
+        this.currentActivity = null;
+        if (this.connected && this.client) {
+            this.sendActivityPacket(null);
+        }
+    }
+
+    sendPacket(op, payload) {
+        if (!this.client) return;
+        try {
+            const len = Buffer.byteLength(payload);
+            const buf = Buffer.alloc(8 + len);
+            buf.writeInt32LE(op, 0);
+            buf.writeInt32LE(len, 4);
+            buf.write(payload, 8);
+            this.client.write(buf);
+        } catch (e) {}
+    }
+
+    notifyStatus() {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('discord-status-updated', {
+                enabled: this.enabled,
+                connected: this.connected,
+                user: this.user,
+                clientId: this.clientId
+            });
+        }
+    }
+
+    startAutoReconnect() {
+        if (this.reconnectTimer) clearInterval(this.reconnectTimer);
+        this.reconnectTimer = setInterval(() => {
+            if (this.enabled && !this.connected && !this.connecting) {
+                this.connect();
+            }
+        }, 6000);
+    }
+}
+
+const discordRpc = new DiscordRPC();
+discordRpc.startAutoReconnect();
+
 // --- SSP (伺か) SSTP Sender ---
 function sendSstpMessage(options) {
     if (!options) return;
@@ -165,9 +356,80 @@ ipcMain.on('toggle-mini-mode', (event, isMini) => {
     }
 });
 
+// IPC Listener for Discord Rich Presence Update
+ipcMain.on('update-discord-presence', (event, data) => {
+    if (!data) return;
+
+    discordRpc.enabled = !!data.enabled;
+    if (data.clientId) {
+        discordRpc.setClientId(data.clientId);
+    }
+
+    if (!data.enabled) {
+        discordRpc.clearActivity();
+        discordRpc.disconnect();
+        return;
+    }
+
+    if (!data.isPlaying) {
+        discordRpc.clearActivity();
+        return;
+    }
+
+    const details = data.details || data.title || '再生中';
+    const state = data.state || (data.artist ? `${data.artist} | ${data.mode || 'OST Player'}` : 'OST Player');
+
+    const activity = {
+        details: details,
+        state: state,
+        assets: {
+            large_image: 'vlc',
+            large_text: 'OST Player'
+        }
+    };
+
+    if (data.showTime !== false && data.startTime) {
+        activity.timestamps = { start: Math.floor(data.startTime / 1000) };
+    }
+
+    discordRpc.setActivity(activity);
+});
+
+// IPC Listener to query Discord connection status
+ipcMain.handle('get-discord-status', async () => {
+    return {
+        enabled: discordRpc.enabled,
+        connected: discordRpc.connected,
+        user: discordRpc.user,
+        clientId: discordRpc.clientId
+    };
+});
+
+// IPC Listener for Test Discord Status
+ipcMain.on('test-discord', (event, data) => {
+    discordRpc.enabled = true;
+    if (data && data.clientId) {
+        discordRpc.setClientId(data.clientId);
+    }
+
+    const activity = {
+        details: (data && data.title) || 'テスト楽曲 (Testing Track)',
+        state: (data && data.artist) ? `${data.artist} | OST Player` : 'OST Player | Test Status',
+        timestamps: { start: Math.floor(Date.now() / 1000) },
+        assets: {
+            large_image: 'vlc',
+            large_text: 'OST Player'
+        }
+    };
+
+    discordRpc.setActivity(activity);
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
+    discordRpc.clearActivity();
+    discordRpc.disconnect();
     if (process.platform !== 'darwin') {
         app.quit();
     }

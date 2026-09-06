@@ -814,6 +814,62 @@
                     </div>
                 </div>
 
+                <!-- Discord Rich Presence 連携設定 -->
+                <div class="help-section bg-gray-900/90 p-4 rounded-xl border border-indigo-500/50 shadow-lg space-y-3 mb-6">
+                    <div class="flex justify-between items-center border-b border-indigo-500/30 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm font-bold text-indigo-300">Discord Rich Presence 連携設定</span>
+                            <span id="discord-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">停止中</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="discord-enabled-toggle" class="sr-only peer" checked>
+                            <div class="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        Discord のステータス（アクティビティ）に再生中の曲名、アーティスト、経過時間、モードをリアルタイムで表示します。（※PC上でDiscordアプリが起動している必要があります）
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                                <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                    <span class="font-bold text-indigo-200">1行目 (Details)</span>
+                                    <span class="text-gray-400">{title}=曲名</span>
+                                </div>
+                                <input type="text" id="discord-details-input" value="{title}" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                    <span class="font-bold text-indigo-200">2行目 (State)</span>
+                                    <span class="text-gray-400">{artist}=歌手, {mode}=モード</span>
+                                </div>
+                                <input type="text" id="discord-state-input" value="{artist} | {mode}" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                <span class="font-bold text-indigo-200">Client ID (Application ID)</span>
+                                <span class="text-gray-400">自作のDiscord App IDを使用する場合に入力</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="discord-client-id-input" placeholder="463097721130188830 (標準メディアアプリ)" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs font-mono focus:border-indigo-400 focus:outline-none">
+                                <button id="discord-reset-client-id-btn" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-xs transition">初期値</button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" id="discord-time-toggle" class="cursor-pointer" checked>
+                                <span class="text-[11px] text-gray-300">経過時間を表示する</span>
+                            </label>
+                            <button onclick="testDiscordPresence()" class="px-4 py-1.5 rounded-lg bg-indigo-900/70 hover:bg-indigo-600 border border-indigo-500/70 text-indigo-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
+                                <span>テスト送信</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="help-section">
                     <h3 class="help-heading">基本操作</h3>
                     <p class="help-text">音楽ファイルをウィンドウにドラッグ＆ドロップしてライブラリに追加します。再生したいモードを選んでから、リストの曲をクリックしてください。</p>
@@ -857,9 +913,22 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>📜</span><span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-gray-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded-full font-mono">v2.8.0 Video Background & Multi-Format</span>
+                        <span class="text-[10px] text-gray-400 bg-indigo-950/80 border border-indigo-800 px-2 py-0.5 rounded-full font-mono">v2.9.0 Discord Rich Presence Integration</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v2.9.0 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-indigo-500/50">
+                            <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v2.9.0] 最新アップデート</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-07</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>Discord Rich Presence (RPC) 連携:</strong> 再生中の曲名、アーティスト名、経過時間、プレイヤーモードを Discord のアクティビティステータスにリアルタイム同期表示。</li>
+                                <li><strong>Discord 設定カード:</strong> ヘルプ画面から連携の ON/OFF、接続ステータスバッジ（連動中ユーザー名表示）、テンプレートカスタマイズ（{title}, {artist}, {mode} 等）、自作 App ID 設定、テスト送信に対応。</li>
+                                <li><strong>Windows Named Pipe ネイティブ通信:</strong> 外部 npm 依存ゼロの軽量・高速な Named Pipe IPC 実装により、高い安定性と即時同期を実現。</li>
+                            </ul>
+                        </div>
+
                         <!-- v2.8.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-rose-500/50">
                             <div class="flex items-center justify-between text-rose-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -1883,6 +1952,7 @@
                 initThemeFromSettings();
                 initBgVisualizer();
                 initSstpUI();
+                initDiscordUI();
                 startMidiGlobalLoop();
             } catch (err) { console.error(err); }
             dismissSplashScreen();            // 読み込み完了後即座にスプラッシュ画面をフェードアウト消去
@@ -1939,6 +2009,7 @@
                 
                 updateSingleUIState();
                 updateFxUIState(isPlaying);
+                if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
             };
 
             // Single Events
@@ -4284,6 +4355,9 @@
             updateSingleUIState(); updateDualUIState(0); updateDualUIState(1); updateFxUIState(false);
             updateVisualUIState(false);
             decks.forEach(d => { d.player.pause(); d.player.currentTime = 0; updateDeckUI(d); });
+            if (typeof broadcastDiscordPresence === 'function') {
+                broadcastDiscordPresence();
+            }
         }
 
         // --- Export Logic ---
@@ -4764,11 +4838,13 @@
             updatePlaylistUI();
             updateSingleUIInfo();
             notifySstpTrackPlay(track);
+            if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
             if (!track.isMidi && !track.metadataLoaded && track.file) {
                 ensureTrackMetadata(track).then(() => {
                     updateSingleUIInfo();
                     updatePlaylistUI();
                     notifySstpTrackPlay(track);
+                    if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 });
             }
 
@@ -4829,9 +4905,13 @@
                     isFxPlaying = true;
                 }
                 updateFxUIState(isFxPlaying);
+                if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
             } else {
                 const p = players[0];
-                if(p.src) { if(p.paused) p.play(); else p.pause(); }
+                if(p.src) { 
+                    if(p.paused) p.play(); else p.pause(); 
+                    if (typeof broadcastDiscordPresence === 'function') setTimeout(broadcastDiscordPresence, 60);
+                }
             }
         }
         
@@ -4932,11 +5012,13 @@
             updateSingleUIInfo();
             resetMidiMixerState();
             notifySstpTrackPlay(track);
+            if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
             if (!track.isMidi && !track.metadataLoaded && track.file) {
                 ensureTrackMetadata(track).then(() => {
                     updateSingleUIInfo();
                     updatePlaylistUI();
                     notifySstpTrackPlay(track);
+                    if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 });
             }
             
@@ -5068,10 +5150,14 @@
                     isSinglePlaying = true;
                 }
                 updateSingleUIState();
+                if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
             } else {
                 let p = players[currentSinglePlayerIndex];
                 if(singleTrackIndex === -1 && playlist.length > 0) loadSingleTrack(0, true);
-                else if(p.src) { if(p.paused) p.play(); else p.pause(); }
+                else if(p.src) { 
+                    if(p.paused) p.play(); else p.pause(); 
+                    if (typeof broadcastDiscordPresence === 'function') setTimeout(broadcastDiscordPresence, 60);
+                }
             }
         }
 
@@ -6394,6 +6480,298 @@
             }
         }
         window.initSstpUI = initSstpUI;
+
+        // --- Discord Rich Presence Manager ---
+        let isDiscordEnabled = localStorage.getItem('ost_discord_enabled') !== '0'; // Default ON
+        let discordClientId = localStorage.getItem('ost_discord_client_id') || '';
+        let discordDetailsTemplate = localStorage.getItem('ost_discord_details') || '{title}';
+        let discordStateTemplate = localStorage.getItem('ost_discord_state') || '{artist} | {mode}';
+        let isDiscordShowTime = localStorage.getItem('ost_discord_show_time') !== '0'; // Default ON
+        let discordPlaybackStartTime = 0;
+        let discordLastPlayingTrack = null;
+        let discordLastIsPlaying = false;
+
+        function getActivePlaybackInfo() {
+            let activeTrack = null;
+            let isPlaying = false;
+            let currentSec = 0;
+            let modeName = 'Single';
+
+            if (currentMode === 'single' || currentMode === 'visual') {
+                modeName = (currentMode === 'visual') ? 'Visualizer' : 'Single';
+                if (singleTrackIndex >= 0 && playlist[singleTrackIndex]) {
+                    activeTrack = playlist[singleTrackIndex];
+                    if (activeTrack.isMidi) {
+                        const synth = getMidiSynth('main', false);
+                        if (synth) {
+                            const status = synth.getPlayStatus();
+                            isPlaying = !!(status && status.play);
+                            currentSec = status ? (status.currentTime || 0) : 0;
+                        }
+                    } else {
+                        const p = players[0];
+                        isPlaying = !!(p && !p.paused && p.currentTime > 0);
+                        currentSec = p ? p.currentTime : 0;
+                    }
+                }
+            } else if (currentMode === 'fx') {
+                modeName = 'Studio FX';
+                if (fxTrackIndex >= 0 && playlist[fxTrackIndex]) {
+                    activeTrack = playlist[fxTrackIndex];
+                    if (activeTrack.isMidi) {
+                        const synth = getMidiSynth('main', false);
+                        if (synth) {
+                            const status = synth.getPlayStatus();
+                            isPlaying = !!(status && status.play);
+                            currentSec = status ? (status.currentTime || 0) : 0;
+                        }
+                    } else {
+                        const p = players[0];
+                        isPlaying = !!(p && !p.paused && p.currentTime > 0);
+                        currentSec = p ? p.currentTime : 0;
+                    }
+                }
+            } else if (currentMode === 'dual') {
+                modeName = 'Dual Deck';
+                const trackA = dualTracks[0];
+                const trackB = dualTracks[1];
+                const isPlayingA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().play) : (!players[0].paused)) : false;
+                const isPlayingB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().play) : (!players[1].paused)) : false;
+                
+                if (isPlayingA && isPlayingB) {
+                    activeTrack = { name: `${trackA.name} & ${trackB.name}`, artist: 'Dual Mix', tagTitle: `${trackA.name} & ${trackB.name}` };
+                    isPlaying = true;
+                } else if (isPlayingA) {
+                    activeTrack = trackA;
+                    isPlaying = true;
+                } else if (isPlayingB) {
+                    activeTrack = trackB;
+                    isPlaying = true;
+                } else {
+                    activeTrack = trackA || trackB;
+                    isPlaying = false;
+                }
+            } else if (currentMode === 'multi') {
+                modeName = 'Multi Deck';
+                const playingDecks = decks.filter(d => {
+                    if (!d.track) return false;
+                    return d.track.isMidi ? (d.midiSynth?.getPlayStatus().play || d.spessaSynth?.getPlayStatus().play) : (!d.player.paused);
+                });
+                if (playingDecks.length > 0) {
+                    isPlaying = true;
+                    if (playingDecks.length === 1) {
+                        activeTrack = playingDecks[0].track;
+                    } else {
+                        activeTrack = { name: `${playingDecks.length} Tracks Multi-Session`, artist: 'Multi Mix', tagTitle: `${playingDecks.length} Tracks Multi-Session` };
+                    }
+                } else {
+                    activeTrack = decks[activeMultiDeckIndex]?.track || null;
+                    isPlaying = false;
+                }
+            }
+
+            return { activeTrack, isPlaying, currentSec, modeName };
+        }
+
+        function broadcastDiscordPresence() {
+            if (!window.electronAPI || !window.electronAPI.updateDiscordPresence) return;
+
+            if (!isDiscordEnabled) {
+                window.electronAPI.updateDiscordPresence({ enabled: false });
+                return;
+            }
+
+            const { activeTrack, isPlaying, currentSec, modeName } = getActivePlaybackInfo();
+
+            if (!isPlaying || !activeTrack) {
+                if (discordLastIsPlaying) {
+                    discordLastIsPlaying = false;
+                    window.electronAPI.updateDiscordPresence({
+                        enabled: true,
+                        clientId: discordClientId,
+                        isPlaying: false
+                    });
+                }
+                return;
+            }
+
+            // If new track or resumed
+            const trackIdentifier = activeTrack.id || activeTrack.name;
+            if (discordLastPlayingTrack !== trackIdentifier || !discordLastIsPlaying) {
+                discordPlaybackStartTime = Date.now() - Math.floor(currentSec * 1000);
+            }
+            discordLastPlayingTrack = trackIdentifier;
+            discordLastIsPlaying = true;
+
+            const title = (activeTrack.tagTitle && activeTrack.tagTitle.trim()) ? activeTrack.tagTitle.trim() : (activeTrack.name || 'Unknown Track');
+            const artist = (activeTrack.artist && activeTrack.artist.trim()) ? activeTrack.artist.trim() : '';
+            const album = (activeTrack.album && activeTrack.album.trim()) ? activeTrack.album.trim() : '';
+            const fileName = (activeTrack.file && activeTrack.file.name) ? activeTrack.file.name.replace(/\.[^/.]+$/, "") : (activeTrack.name || '');
+
+            let details = discordDetailsTemplate || '{title}';
+            details = details.replace(/\{title\}/gi, title)
+                             .replace(/\{artist\}/gi, artist)
+                             .replace(/\{album\}/gi, album)
+                             .replace(/\{filename\}/gi, fileName)
+                             .replace(/\{mode\}/gi, modeName);
+
+            let state = discordStateTemplate || '{artist} | {mode}';
+            if (!artist) {
+                state = state.replace(/\(\{artist\}\)/g, '')
+                             .replace(/（\{artist\}）/g, '')
+                             .replace(/ - \{artist\}/g, '')
+                             .replace(/\{artist\} \| /g, '')
+                             .replace(/\{artist\}/g, '');
+            } else {
+                state = state.replace(/\{artist\}/gi, artist);
+            }
+            state = state.replace(/\{title\}/gi, title)
+                         .replace(/\{album\}/gi, album)
+                         .replace(/\{filename\}/gi, fileName)
+                         .replace(/\{mode\}/gi, modeName);
+
+            details = details.trim() || title;
+            state = state.trim() || modeName;
+
+            window.electronAPI.updateDiscordPresence({
+                enabled: true,
+                clientId: discordClientId,
+                isPlaying: true,
+                title: title,
+                artist: artist,
+                mode: modeName,
+                details: details,
+                state: state,
+                showTime: isDiscordShowTime,
+                startTime: discordPlaybackStartTime
+            });
+        }
+        window.broadcastDiscordPresence = broadcastDiscordPresence;
+
+        function testDiscordPresence() {
+            if (!window.electronAPI || !window.electronAPI.testDiscord) {
+                showNotification("⚠️ Electron環境でのみ動作します");
+                return;
+            }
+            saveDiscordSettings();
+            window.electronAPI.testDiscord({
+                clientId: discordClientId,
+                title: 'OST Player - Ultimate',
+                artist: 'Test Playing Track'
+            });
+            showNotification("Discordへテストステータスを送信しました！");
+        }
+        window.testDiscordPresence = testDiscordPresence;
+
+        function saveDiscordSettings() {
+            const toggle = document.getElementById('discord-enabled-toggle');
+            const clientInput = document.getElementById('discord-client-id-input');
+            const detailsInput = document.getElementById('discord-details-input');
+            const stateInput = document.getElementById('discord-state-input');
+            const timeToggle = document.getElementById('discord-time-toggle');
+
+            if (toggle) {
+                isDiscordEnabled = toggle.checked;
+                localStorage.setItem('ost_discord_enabled', isDiscordEnabled ? '1' : '0');
+            }
+            if (clientInput) {
+                discordClientId = clientInput.value.trim();
+                localStorage.setItem('ost_discord_client_id', discordClientId);
+            }
+            if (detailsInput) {
+                discordDetailsTemplate = detailsInput.value || '{title}';
+                localStorage.setItem('ost_discord_details', discordDetailsTemplate);
+            }
+            if (stateInput) {
+                discordStateTemplate = stateInput.value || '{artist} | {mode}';
+                localStorage.setItem('ost_discord_state', discordStateTemplate);
+            }
+            if (timeToggle) {
+                isDiscordShowTime = timeToggle.checked;
+                localStorage.setItem('ost_discord_show_time', isDiscordShowTime ? '1' : '0');
+            }
+
+            broadcastDiscordPresence();
+        }
+        window.saveDiscordSettings = saveDiscordSettings;
+
+        function updateDiscordBadge(status) {
+            const badge = document.getElementById('discord-status-badge');
+            if (!badge) return;
+
+            if (!status || !status.enabled) {
+                badge.className = 'text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono';
+                badge.textContent = '停止中';
+            } else if (status.connected) {
+                const uname = status.user ? (status.user.global_name || status.user.username) : 'Connected';
+                badge.className = 'text-[10px] text-emerald-300 bg-emerald-950/80 border border-emerald-600 px-2 py-0.5 rounded-full font-mono font-bold';
+                badge.textContent = `連動中: ${uname}`;
+            } else {
+                badge.className = 'text-[10px] text-yellow-300 bg-yellow-950/80 border border-yellow-600 px-2 py-0.5 rounded-full font-mono';
+                badge.textContent = 'Discord接続待機中...';
+            }
+        }
+
+        function initDiscordUI() {
+            const toggle = document.getElementById('discord-enabled-toggle');
+            const clientInput = document.getElementById('discord-client-id-input');
+            const resetClientBtn = document.getElementById('discord-reset-client-id-btn');
+            const detailsInput = document.getElementById('discord-details-input');
+            const stateInput = document.getElementById('discord-state-input');
+            const timeToggle = document.getElementById('discord-time-toggle');
+
+            if (toggle) {
+                toggle.checked = isDiscordEnabled;
+                toggle.onchange = () => {
+                    saveDiscordSettings();
+                    showNotification(isDiscordEnabled ? "Discord Rich Presence 有効" : "Discord Rich Presence OFF");
+                };
+            }
+            if (clientInput) {
+                clientInput.value = discordClientId;
+                clientInput.oninput = saveDiscordSettings;
+                clientInput.onchange = saveDiscordSettings;
+            }
+            if (resetClientBtn) {
+                resetClientBtn.onclick = () => {
+                    if (clientInput) clientInput.value = '';
+                    discordClientId = '';
+                    saveDiscordSettings();
+                    showNotification("Client ID を標準設定にリセットしました");
+                };
+            }
+            if (detailsInput) {
+                detailsInput.value = discordDetailsTemplate;
+                detailsInput.oninput = saveDiscordSettings;
+                detailsInput.onchange = saveDiscordSettings;
+            }
+            if (stateInput) {
+                stateInput.value = discordStateTemplate;
+                stateInput.oninput = saveDiscordSettings;
+                stateInput.onchange = saveDiscordSettings;
+            }
+            if (timeToggle) {
+                timeToggle.checked = isDiscordShowTime;
+                timeToggle.onchange = saveDiscordSettings;
+            }
+
+            if (window.electronAPI && window.electronAPI.onDiscordStatusUpdated) {
+                window.electronAPI.onDiscordStatusUpdated((status) => {
+                    updateDiscordBadge(status);
+                });
+                if (window.electronAPI.getDiscordStatus) {
+                    window.electronAPI.getDiscordStatus().then(status => {
+                        updateDiscordBadge(status);
+                    });
+                }
+            }
+
+            // Periodic sync every 3 seconds to keep Discord status in sync
+            setInterval(() => {
+                broadcastDiscordPresence();
+            }, 3000);
+        }
+        window.initDiscordUI = initDiscordUI;
 
         window.setTheme = setTheme;
         window.resetCustomBg = resetCustomBg;
