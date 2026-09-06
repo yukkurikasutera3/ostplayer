@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -19,7 +19,7 @@ if (fs.existsSync(ultimatePath)) {
 app.name = "OST Player";
 
 // --- Native Zero-Dependency Discord Rich Presence IPC Manager ---
-const DEFAULT_DISCORD_CLIENT_ID = '463097721130188830'; // Verified Registered Media App ID
+const DEFAULT_DISCORD_CLIENT_ID = '1038970224050962582'; // Nuclear Music Player (Free OSS Music Player ID)
 
 class DiscordRPC {
     constructor() {
@@ -361,7 +361,7 @@ ipcMain.on('update-discord-presence', (event, data) => {
     if (!data) return;
 
     discordRpc.enabled = !!data.enabled;
-    if (data.clientId) {
+    if (data.clientId !== undefined) {
         discordRpc.setClientId(data.clientId);
     }
 
@@ -369,6 +369,11 @@ ipcMain.on('update-discord-presence', (event, data) => {
         discordRpc.clearActivity();
         discordRpc.disconnect();
         return;
+    }
+
+    // Auto-connect to Discord named pipe if enabled
+    if (!discordRpc.connected && !discordRpc.connecting) {
+        discordRpc.connect();
     }
 
     if (!data.isPlaying) {
@@ -383,13 +388,20 @@ ipcMain.on('update-discord-presence', (event, data) => {
         details: details,
         state: state,
         assets: {
-            large_image: 'vlc',
+            large_image: 'app_icon',
             large_text: 'OST Player'
         }
     };
 
     if (data.showTime !== false && data.startTime) {
-        activity.timestamps = { start: Math.floor(data.startTime / 1000) };
+        if (data.endTime && data.endTime > data.startTime) {
+            activity.timestamps = {
+                start: Math.floor(data.startTime / 1000),
+                end: Math.floor(data.endTime / 1000)
+            };
+        } else {
+            activity.timestamps = { start: Math.floor(data.startTime / 1000) };
+        }
     }
 
     discordRpc.setActivity(activity);
@@ -408,21 +420,32 @@ ipcMain.handle('get-discord-status', async () => {
 // IPC Listener for Test Discord Status
 ipcMain.on('test-discord', (event, data) => {
     discordRpc.enabled = true;
-    if (data && data.clientId) {
+    if (data && data.clientId !== undefined) {
         discordRpc.setClientId(data.clientId);
     }
 
+    const now = Math.floor(Date.now() / 1000);
     const activity = {
-        details: (data && data.title) || 'テスト楽曲 (Testing Track)',
-        state: (data && data.artist) ? `${data.artist} | OST Player` : 'OST Player | Test Status',
-        timestamps: { start: Math.floor(Date.now() / 1000) },
+        details: (data && data.title) || 'OST Player - Ultimate',
+        state: (data && data.artist) ? `${data.artist} | OST Player` : 'Test Playing Track | OST Player',
+        timestamps: {
+            start: now - 45,
+            end: now + 195
+        },
         assets: {
-            large_image: 'vlc',
+            large_image: 'app_icon',
             large_text: 'OST Player'
         }
     };
 
     discordRpc.setActivity(activity);
+});
+
+// IPC Listener for Opening External URLs Safely
+ipcMain.on('open-external', (event, url) => {
+    if (url && typeof url === 'string' && /^https?:\/\//i.test(url)) {
+        shell.openExternal(url);
+    }
 });
 
 app.whenReady().then(createWindow);

@@ -850,12 +850,15 @@
                         <div>
                             <div class="flex justify-between text-[11px] text-gray-300 mb-1">
                                 <span class="font-bold text-indigo-200">Client ID (Application ID)</span>
-                                <span class="text-gray-400">自作のDiscord App IDを使用する場合に入力</span>
+                                <span class="text-gray-400">表示アプリ名を変更したい場合に入力</span>
                             </div>
                             <div class="flex items-center space-x-2">
-                                <input type="text" id="discord-client-id-input" placeholder="463097721130188830 (標準メディアアプリ)" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs font-mono focus:border-indigo-400 focus:outline-none">
+                                <input type="text" id="discord-client-id-input" placeholder="1038970224050962582 (標準Music Player)" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs font-mono focus:border-indigo-400 focus:outline-none">
                                 <button id="discord-reset-client-id-btn" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-xs transition">初期値</button>
                             </div>
+                            <p class="text-[10px] text-gray-400 mt-1 leading-tight">
+                                ※Discord上の太字タイトル（プレイ中: ○○）はDiscord側アプリ登録名です。「OST Player」と表示させたい場合は、<a href="#" onclick="if (window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://discord.com/developers/applications'); } else { window.open('https://discord.com/developers/applications'); } return false;" class="text-indigo-400 underline hover:text-indigo-300 cursor-pointer">Discord Developer Portal</a>で無料作成したApplication IDをここに貼り付けてください。
+                            </p>
                         </div>
 
                         <div class="flex items-center justify-between pt-1">
@@ -913,13 +916,26 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>📜</span><span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-gray-400 bg-indigo-950/80 border border-indigo-800 px-2 py-0.5 rounded-full font-mono">v2.9.0 Discord Rich Presence Integration</span>
+                        <span class="text-[10px] text-gray-400 bg-indigo-950/80 border border-indigo-800 px-2 py-0.5 rounded-full font-mono">v2.9.1 Discord Auto-Connect & Progress Bar</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v2.9.1 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-indigo-500/50">
+                            <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v2.9.1] 最新アップデート</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-07</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>起動時自動連動 (Auto-Connect):</strong> 起動と同時に Discord Named Pipe と即座に接続を確立し、「連動中: @ユーザー名」でスタンバイ。</li>
+                                <li><strong>リアルタイム再生バー (Live Progress Bar):</strong> Discord のアクティビティ表示に曲の長さに応じたリアルタイム再生バー（現在位置 / 総再生時間）を完全同期。シーク操作時も即座に再計算して追従。</li>
+                                <li><strong>Application ID ガイド & リンク:</strong> 専用音楽プレイヤー ID を初期値とし、Developer Portal への直接リンクと自作 App ID の設定方法を追加。</li>
+                            </ul>
+                        </div>
+
                         <!-- v2.9.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-indigo-500/50">
                             <div class="flex items-center justify-between text-indigo-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
-                                <span>[v2.9.0] 最新アップデート</span>
+                                <span>[v2.9.0]</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-07</span>
                             </div>
                             <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
@@ -6495,6 +6511,7 @@
             let activeTrack = null;
             let isPlaying = false;
             let currentSec = 0;
+            let duration = 0;
             let modeName = 'Single';
 
             if (currentMode === 'single' || currentMode === 'visual') {
@@ -6507,11 +6524,13 @@
                             const status = synth.getPlayStatus();
                             isPlaying = !!(status && status.play);
                             currentSec = status ? (status.currentTime || 0) : 0;
+                            duration = status ? (status.maxTime || 0) : (activeTrack.duration || 0);
                         }
                     } else {
                         const p = players[0];
                         isPlaying = !!(p && !p.paused && p.currentTime > 0);
                         currentSec = p ? p.currentTime : 0;
+                        duration = (p && isFinite(p.duration) && p.duration > 0) ? p.duration : (activeTrack.duration || 0);
                     }
                 }
             } else if (currentMode === 'fx') {
@@ -6524,11 +6543,13 @@
                             const status = synth.getPlayStatus();
                             isPlaying = !!(status && status.play);
                             currentSec = status ? (status.currentTime || 0) : 0;
+                            duration = status ? (status.maxTime || 0) : (activeTrack.duration || 0);
                         }
                     } else {
                         const p = players[0];
                         isPlaying = !!(p && !p.paused && p.currentTime > 0);
                         currentSec = p ? p.currentTime : 0;
+                        duration = (p && isFinite(p.duration) && p.duration > 0) ? p.duration : (activeTrack.duration || 0);
                     }
                 }
             } else if (currentMode === 'dual') {
@@ -6538,15 +6559,26 @@
                 const isPlayingA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().play) : (!players[0].paused)) : false;
                 const isPlayingB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().play) : (!players[1].paused)) : false;
                 
+                const curA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().currentTime || 0) : (players[0] ? players[0].currentTime : 0)) : 0;
+                const durA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().maxTime || 0) : (players[0] && isFinite(players[0].duration) ? players[0].duration : (trackA.duration || 0))) : 0;
+                const curB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().currentTime || 0) : (players[1] ? players[1].currentTime : 0)) : 0;
+                const durB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().maxTime || 0) : (players[1] && isFinite(players[1].duration) ? players[1].duration : (trackB.duration || 0))) : 0;
+
                 if (isPlayingA && isPlayingB) {
                     activeTrack = { name: `${trackA.name} & ${trackB.name}`, artist: 'Dual Mix', tagTitle: `${trackA.name} & ${trackB.name}` };
                     isPlaying = true;
+                    currentSec = Math.max(curA, curB);
+                    duration = Math.max(durA, durB);
                 } else if (isPlayingA) {
                     activeTrack = trackA;
                     isPlaying = true;
+                    currentSec = curA;
+                    duration = durA;
                 } else if (isPlayingB) {
                     activeTrack = trackB;
                     isPlaying = true;
+                    currentSec = curB;
+                    duration = durB;
                 } else {
                     activeTrack = trackA || trackB;
                     isPlaying = false;
@@ -6560,9 +6592,14 @@
                 if (playingDecks.length > 0) {
                     isPlaying = true;
                     if (playingDecks.length === 1) {
-                        activeTrack = playingDecks[0].track;
+                        const d = playingDecks[0];
+                        activeTrack = d.track;
+                        currentSec = d.track.isMidi ? (d.midiSynth?.getPlayStatus().currentTime || 0) : (d.player.currentTime || 0);
+                        duration = d.track.isMidi ? (d.midiSynth?.getPlayStatus().maxTime || 0) : ((d.player && isFinite(d.player.duration)) ? d.player.duration : (d.track.duration || 0));
                     } else {
                         activeTrack = { name: `${playingDecks.length} Tracks Multi-Session`, artist: 'Multi Mix', tagTitle: `${playingDecks.length} Tracks Multi-Session` };
+                        currentSec = Math.max(...playingDecks.map(d => d.track.isMidi ? (d.midiSynth?.getPlayStatus().currentTime || 0) : (d.player.currentTime || 0)));
+                        duration = Math.max(...playingDecks.map(d => d.track.isMidi ? (d.midiSynth?.getPlayStatus().maxTime || 0) : ((d.player && isFinite(d.player.duration)) ? d.player.duration : (d.track.duration || 0))));
                     }
                 } else {
                     activeTrack = decks[activeMultiDeckIndex]?.track || null;
@@ -6570,7 +6607,7 @@
                 }
             }
 
-            return { activeTrack, isPlaying, currentSec, modeName };
+            return { activeTrack, isPlaying, currentSec, duration, modeName };
         }
 
         function broadcastDiscordPresence() {
@@ -6581,7 +6618,7 @@
                 return;
             }
 
-            const { activeTrack, isPlaying, currentSec, modeName } = getActivePlaybackInfo();
+            const { activeTrack, isPlaying, currentSec, duration, modeName } = getActivePlaybackInfo();
 
             if (!isPlaying || !activeTrack) {
                 if (discordLastIsPlaying) {
@@ -6595,9 +6632,10 @@
                 return;
             }
 
-            // If new track or resumed
+            // If new track or resumed or seeked position in track
             const trackIdentifier = activeTrack.id || activeTrack.name;
-            if (discordLastPlayingTrack !== trackIdentifier || !discordLastIsPlaying) {
+            const expectedCurrentSec = discordPlaybackStartTime > 0 ? (Date.now() - discordPlaybackStartTime) / 1000 : 0;
+            if (discordLastPlayingTrack !== trackIdentifier || !discordLastIsPlaying || Math.abs(expectedCurrentSec - currentSec) > 2.5) {
                 discordPlaybackStartTime = Date.now() - Math.floor(currentSec * 1000);
             }
             discordLastPlayingTrack = trackIdentifier;
@@ -6633,6 +6671,9 @@
             details = details.trim() || title;
             state = state.trim() || modeName;
 
+            const finalDuration = (typeof duration === 'number' && isFinite(duration) && duration > 0) ? duration : 0;
+            const endTime = finalDuration > 0 ? (discordPlaybackStartTime + Math.floor(finalDuration * 1000)) : null;
+
             window.electronAPI.updateDiscordPresence({
                 enabled: true,
                 clientId: discordClientId,
@@ -6643,7 +6684,8 @@
                 details: details,
                 state: state,
                 showTime: isDiscordShowTime,
-                startTime: discordPlaybackStartTime
+                startTime: discordPlaybackStartTime,
+                endTime: endTime
             });
         }
         window.broadcastDiscordPresence = broadcastDiscordPresence;
@@ -6659,7 +6701,7 @@
                 title: 'OST Player - Ultimate',
                 artist: 'Test Playing Track'
             });
-            showNotification("Discordへテストステータスを送信しました！");
+            showNotification("Discordへテストステータス（再生バー付き）を送信しました！");
         }
         window.testDiscordPresence = testDiscordPresence;
 
@@ -6764,6 +6806,15 @@
                         updateDiscordBadge(status);
                     });
                 }
+            }
+
+            // Immediately auto-connect on startup
+            if (window.electronAPI && window.electronAPI.updateDiscordPresence) {
+                window.electronAPI.updateDiscordPresence({
+                    enabled: isDiscordEnabled,
+                    clientId: discordClientId,
+                    isPlaying: false
+                });
             }
 
             // Periodic sync every 3 seconds to keep Discord status in sync

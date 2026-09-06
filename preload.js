@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('discord-status-updated', (event, status) => {
             if (typeof cb === 'function') cb(status);
         });
-    }
+    },
+    openExternal: (url) => ipcRenderer.send('open-external', url)
 });
 
