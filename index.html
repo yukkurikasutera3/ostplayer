@@ -853,11 +853,11 @@
                                 <span class="text-gray-400">表示アプリ名を変更したい場合に入力</span>
                             </div>
                             <div class="flex items-center space-x-2">
-                                <input type="text" id="discord-client-id-input" placeholder="1038970224050962582 (標準Music Player)" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs font-mono focus:border-indigo-400 focus:outline-none">
+                                <input type="text" id="discord-client-id-input" placeholder="1546206603496390656 (標準OST Player ID)" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-200 text-xs font-mono focus:border-indigo-400 focus:outline-none">
                                 <button id="discord-reset-client-id-btn" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-xs transition">初期値</button>
                             </div>
                             <p class="text-[10px] text-gray-400 mt-1 leading-tight">
-                                ※Discord上の太字タイトル（プレイ中: ○○）はDiscord側アプリ登録名です。「OST Player」と表示させたい場合は、<a href="#" onclick="if (window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://discord.com/developers/applications'); } else { window.open('https://discord.com/developers/applications'); } return false;" class="text-indigo-400 underline hover:text-indigo-300 cursor-pointer">Discord Developer Portal</a>で無料作成したApplication IDをここに貼り付けてください。
+                                ※Discord上の太字タイトル（聴いているもの: ○○）はDiscord側アプリ登録名です。「OST Player」と表示させたい場合は、<a href="#" onclick="if (window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal('https://discord.com/developers/applications'); } else { window.open('https://discord.com/developers/applications'); } return false;" class="text-indigo-400 underline hover:text-indigo-300 cursor-pointer">Discord Developer Portal</a>で無料作成したApplication IDをここに貼り付けてください。
                             </p>
                         </div>
 
@@ -6528,8 +6528,8 @@
                         }
                     } else {
                         const p = players[0];
-                        isPlaying = !!(p && !p.paused && p.currentTime > 0);
-                        currentSec = p ? p.currentTime : 0;
+                        isPlaying = !!(p && !p.paused && !p.ended);
+                        currentSec = p ? (p.currentTime || 0) : 0;
                         duration = (p && isFinite(p.duration) && p.duration > 0) ? p.duration : (activeTrack.duration || 0);
                     }
                 }
@@ -6547,8 +6547,8 @@
                         }
                     } else {
                         const p = players[0];
-                        isPlaying = !!(p && !p.paused && p.currentTime > 0);
-                        currentSec = p ? p.currentTime : 0;
+                        isPlaying = !!(p && !p.paused && !p.ended);
+                        currentSec = p ? (p.currentTime || 0) : 0;
                         duration = (p && isFinite(p.duration) && p.duration > 0) ? p.duration : (activeTrack.duration || 0);
                     }
                 }
@@ -6556,8 +6556,8 @@
                 modeName = 'Dual Deck';
                 const trackA = dualTracks[0];
                 const trackB = dualTracks[1];
-                const isPlayingA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().play) : (!players[0].paused)) : false;
-                const isPlayingB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().play) : (!players[1].paused)) : false;
+                const isPlayingA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().play) : (players[0] && !players[0].paused && !players[0].ended)) : false;
+                const isPlayingB = trackB ? (trackB.isMidi ? (getMidiSynth('dualB', false)?.getPlayStatus().play) : (players[1] && !players[1].paused && !players[1].ended)) : false;
                 
                 const curA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().currentTime || 0) : (players[0] ? players[0].currentTime : 0)) : 0;
                 const durA = trackA ? (trackA.isMidi ? (getMidiSynth('dualA', false)?.getPlayStatus().maxTime || 0) : (players[0] && isFinite(players[0].duration) ? players[0].duration : (trackA.duration || 0))) : 0;
@@ -6587,7 +6587,7 @@
                 modeName = 'Multi Deck';
                 const playingDecks = decks.filter(d => {
                     if (!d.track) return false;
-                    return d.track.isMidi ? (d.midiSynth?.getPlayStatus().play || d.spessaSynth?.getPlayStatus().play) : (!d.player.paused);
+                    return d.track.isMidi ? (d.midiSynth?.getPlayStatus().play || d.spessaSynth?.getPlayStatus().play) : (d.player && !d.player.paused && !d.player.ended);
                 });
                 if (playingDecks.length > 0) {
                     isPlaying = true;
@@ -6816,6 +6816,16 @@
                     isPlaying: false
                 });
             }
+
+            // Clear presence on beforeunload
+            window.addEventListener('beforeunload', () => {
+                if (window.electronAPI && window.electronAPI.updateDiscordPresence) {
+                    window.electronAPI.updateDiscordPresence({
+                        enabled: false,
+                        isPlaying: false
+                    });
+                }
+            });
 
             // Periodic sync every 3 seconds to keep Discord status in sync
             setInterval(() => {

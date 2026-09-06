@@ -19,13 +19,14 @@ if (fs.existsSync(ultimatePath)) {
 app.name = "OST Player";
 
 // --- Native Zero-Dependency Discord Rich Presence IPC Manager ---
-const DEFAULT_DISCORD_CLIENT_ID = '1038970224050962582'; // Nuclear Music Player (Free OSS Music Player ID)
+const DEFAULT_DISCORD_CLIENT_ID = '1546206603496390656'; // OST Player Dedicated Application ID
 
 class DiscordRPC {
     constructor() {
         this.clientId = DEFAULT_DISCORD_CLIENT_ID;
         this.client = null;
         this.connected = false;
+        this.connecting = false;
         this.user = null;
         this.currentActivity = null;
         this.enabled = false;
@@ -153,8 +154,11 @@ class DiscordRPC {
         this.sendActivityPacket(activity);
     }
 
-    sendActivityPacket(activity) {
-        if (!this.connected || !this.client) return;
+    sendActivityPacket(activity, cb) {
+        if (!this.connected || !this.client) {
+            if (cb) cb();
+            return;
+        }
         const payload = JSON.stringify({
             cmd: 'SET_ACTIVITY',
             args: {
@@ -163,26 +167,58 @@ class DiscordRPC {
             },
             nonce: Date.now().toString()
         });
-        this.sendPacket(1, payload);
+        this.sendPacket(1, payload, cb);
     }
 
-    clearActivity() {
+    clearActivity(cb) {
         this.currentActivity = null;
         if (this.connected && this.client) {
-            this.sendActivityPacket(null);
+            this.sendActivityPacket(null, cb);
+        } else if (cb) {
+            cb();
         }
     }
 
-    sendPacket(op, payload) {
-        if (!this.client) return;
+    clearAndDisconnect() {
+        return new Promise((resolve) => {
+            this.enabled = false;
+            this.currentActivity = null;
+            if (!this.connected || !this.client) {
+                this.disconnect();
+                resolve();
+                return;
+            }
+            this.clearActivity(() => {
+                setTimeout(() => {
+                    this.disconnect();
+                    resolve();
+                }, 150);
+            });
+            // Fallback safety timeout
+            setTimeout(() => {
+                this.disconnect();
+                resolve();
+            }, 500);
+        });
+    }
+
+    sendPacket(op, payload, cb) {
+        if (!this.client) {
+            if (cb) cb();
+            return;
+        }
         try {
             const len = Buffer.byteLength(payload);
             const buf = Buffer.alloc(8 + len);
             buf.writeInt32LE(op, 0);
             buf.writeInt32LE(len, 4);
             buf.write(payload, 8);
-            this.client.write(buf);
-        } catch (e) {}
+            this.client.write(buf, () => {
+                if (cb) cb();
+            });
+        } catch (e) {
+            if (cb) cb();
+        }
     }
 
     notifyStatus() {
@@ -296,6 +332,8 @@ ipcMain.on('test-sstp', (event, options) => {
     });
 });
 
+let isQuitting = false;
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1300,
@@ -329,6 +367,23 @@ function createWindow() {
     });
 
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+    mainWindow.on('close', (e) => {
+        if (discordRpc.connected && !isQuitting) {
+            e.preventDefault();
+            isQuitting = true;
+            discordRpc.clearAndDisconnect().finally(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.destroy();
+                }
+                app.quit();
+            });
+            setTimeout(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+                app.quit();
+            }, 500);
+        }
+    });
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -385,6 +440,7 @@ ipcMain.on('update-discord-presence', (event, data) => {
     const state = data.state || (data.artist ? `${data.artist} | ${data.mode || 'OST Player'}` : 'OST Player');
 
     const activity = {
+        type: 2, // 2 = Listening to
         details: details,
         state: state,
         assets: {
@@ -394,13 +450,15 @@ ipcMain.on('update-discord-presence', (event, data) => {
     };
 
     if (data.showTime !== false && data.startTime) {
+        const startSec = (data.startTime > 1e11) ? Math.floor(data.startTime / 1000) : Math.floor(data.startTime);
         if (data.endTime && data.endTime > data.startTime) {
+            const endSec = (data.endTime > 1e11) ? Math.floor(data.endTime / 1000) : Math.floor(data.endTime);
             activity.timestamps = {
-                start: Math.floor(data.startTime / 1000),
-                end: Math.floor(data.endTime / 1000)
+                start: startSec,
+                end: endSec
             };
         } else {
-            activity.timestamps = { start: Math.floor(data.startTime / 1000) };
+            activity.timestamps = { start: startSec };
         }
     }
 
@@ -426,6 +484,7 @@ ipcMain.on('test-discord', (event, data) => {
 
     const now = Math.floor(Date.now() / 1000);
     const activity = {
+        type: 2,
         details: (data && data.title) || 'OST Player - Ultimate',
         state: (data && data.artist) ? `${data.artist} | OST Player` : 'Test Playing Track | OST Player',
         timestamps: {
@@ -450,11 +509,28 @@ ipcMain.on('open-external', (event, url) => {
 
 app.whenReady().then(createWindow);
 
+app.on('before-quit', (e) => {
+    if (discordRpc.connected && !isQuitting) {
+        e.preventDefault();
+        isQuitting = true;
+        discordRpc.clearAndDisconnect().finally(() => {
+            app.quit();
+        });
+        setTimeout(() => { app.quit(); }, 500);
+    }
+});
+
 app.on('window-all-closed', () => {
-    discordRpc.clearActivity();
-    discordRpc.disconnect();
     if (process.platform !== 'darwin') {
-        app.quit();
+        if (discordRpc.connected && !isQuitting) {
+            isQuitting = true;
+            discordRpc.clearAndDisconnect().finally(() => {
+                app.quit();
+            });
+            setTimeout(() => { app.quit(); }, 500);
+        } else {
+            app.quit();
+        }
     }
 });
 
