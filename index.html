@@ -834,16 +834,16 @@
                             <div>
                                 <div class="flex justify-between text-[11px] text-gray-300 mb-1">
                                     <span class="font-bold text-indigo-200">1行目 (Details)</span>
-                                    <span class="text-gray-400">{title}=曲名</span>
+                                    <span class="text-gray-400">アプリ名・モード等</span>
                                 </div>
-                                <input type="text" id="discord-details-input" value="{title}" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
+                                <input type="text" id="discord-details-input" value="OST Player" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
                             </div>
                             <div>
                                 <div class="flex justify-between text-[11px] text-gray-300 mb-1">
                                     <span class="font-bold text-indigo-200">2行目 (State)</span>
-                                    <span class="text-gray-400">{artist}=歌手, {mode}=モード</span>
+                                    <span class="text-gray-400">{title}=曲名, {artist}=歌手</span>
                                 </div>
-                                <input type="text" id="discord-state-input" value="{artist} | {mode}" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
+                                <input type="text" id="discord-state-input" value="{title}" class="w-full bg-gray-950 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-indigo-200 text-xs focus:outline-none focus:border-indigo-400 font-mono shadow-inner">
                             </div>
                         </div>
 
@@ -6500,8 +6500,18 @@
         // --- Discord Rich Presence Manager ---
         let isDiscordEnabled = localStorage.getItem('ost_discord_enabled') !== '0'; // Default ON
         let discordClientId = localStorage.getItem('ost_discord_client_id') || '';
-        let discordDetailsTemplate = localStorage.getItem('ost_discord_details') || '{title}';
-        let discordStateTemplate = localStorage.getItem('ost_discord_state') || '{artist} | {mode}';
+        let savedDetails = localStorage.getItem('ost_discord_details');
+        if (!savedDetails || savedDetails === '{title}') {
+            savedDetails = 'OST Player';
+            localStorage.setItem('ost_discord_details', 'OST Player');
+        }
+        let savedState = localStorage.getItem('ost_discord_state');
+        if (!savedState || savedState === '{artist} | {mode}') {
+            savedState = '{title}';
+            localStorage.setItem('ost_discord_state', '{title}');
+        }
+        let discordDetailsTemplate = savedDetails;
+        let discordStateTemplate = savedState;
         let isDiscordShowTime = localStorage.getItem('ost_discord_show_time') !== '0'; // Default ON
         let discordPlaybackStartTime = 0;
         let discordLastPlayingTrack = null;
@@ -6698,8 +6708,8 @@
             saveDiscordSettings();
             window.electronAPI.testDiscord({
                 clientId: discordClientId,
-                title: 'OST Player - Ultimate',
-                artist: 'Test Playing Track'
+                details: 'OST Player',
+                state: 'テスト楽曲 (Testing Track)'
             });
             showNotification("Discordへテストステータス（再生バー付き）を送信しました！");
         }

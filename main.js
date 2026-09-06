@@ -436,8 +436,8 @@ ipcMain.on('update-discord-presence', (event, data) => {
         return;
     }
 
-    const details = data.details || data.title || '再生中';
-    const state = data.state || (data.artist ? `${data.artist} | ${data.mode || 'OST Player'}` : 'OST Player');
+    const details = data.details || 'OST Player';
+    const state = data.state || (data.artist ? `${data.title} - ${data.artist}` : (data.title || '再生中'));
 
     const activity = {
         type: 2, // 2 = Listening to
@@ -485,8 +485,8 @@ ipcMain.on('test-discord', (event, data) => {
     const now = Math.floor(Date.now() / 1000);
     const activity = {
         type: 2,
-        details: (data && data.title) || 'OST Player - Ultimate',
-        state: (data && data.artist) ? `${data.artist} | OST Player` : 'Test Playing Track | OST Player',
+        details: (data && data.details) || 'OST Player',
+        state: (data && data.state) || (data && data.title) || 'テスト楽曲 (Test Track)',
         timestamps: {
             start: now - 45,
             end: now + 195
