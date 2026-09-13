@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"^(dist|\\.git|\\.continue|filter_logs\\.py|current_features\\.md)(/|$)\""
+    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"^(dist|\\.git|\\.continue|filter_logs\\.py|current_features\\.md|毎回必ずチェック\\.txt|.*\\.txt$)(/|$)\""
   },
   "keywords": [
     "audio",
