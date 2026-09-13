@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
             if (typeof cb === 'function') cb(status);
         });
     },
-    openExternal: (url) => ipcRenderer.send('open-external', url)
+    openExternal: (url) => ipcRenderer.send('open-external', url),
+    readLocalFile: (filePath) => ipcRenderer.invoke('read-local-file', filePath)
 });
 

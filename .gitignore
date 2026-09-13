@@ -17,6 +17,6 @@ node_modules/
 # Build output
 dist/
 
-# AI assistant workspace settings
-.continue/
+# Temporary / test scratch scripts
+scratch/
 

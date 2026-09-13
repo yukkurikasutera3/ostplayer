@@ -507,6 +507,40 @@ ipcMain.on('open-external', (event, url) => {
     }
 });
 
+// IPC Handler to Read Local Files for Playlist JSON Import
+ipcMain.handle('read-local-file', async (event, filePath) => {
+    try {
+        if (!filePath || typeof filePath !== 'string' || !fs.existsSync(filePath)) return null;
+        const stat = fs.statSync(filePath);
+        if (!stat.isFile()) return null;
+        const buffer = fs.readFileSync(filePath);
+        const fileName = path.basename(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        let mime = 'application/octet-stream';
+        if (ext === '.mp3') mime = 'audio/mp3';
+        else if (ext === '.wav') mime = 'audio/wav';
+        else if (ext === '.flac') mime = 'audio/flac';
+        else if (ext === '.ogg') mime = 'audio/ogg';
+        else if (ext === '.m4a' || ext === '.aac') mime = 'audio/mp4';
+        else if (ext === '.mid' || ext === '.midi') mime = 'audio/midi';
+        else if (ext === '.mp4') mime = 'video/mp4';
+        else if (ext === '.webm') mime = 'video/webm';
+        else if (ext === '.mov') mime = 'video/quicktime';
+        else if (ext === '.mkv') mime = 'video/x-matroska';
+        else if (ext === '.sf2' || ext === '.sf3') mime = 'application/octet-stream';
+        return {
+            name: fileName,
+            path: filePath,
+            data: buffer,
+            size: stat.size,
+            mime: mime
+        };
+    } catch (e) {
+        console.error('Error reading local file:', e);
+        return null;
+    }
+});
+
 app.whenReady().then(createWindow);
 
 app.on('before-quit', (e) => {
