@@ -2017,14 +2017,25 @@
                 </div>
             </div>
 
+            <!-- Download Target Asset Info -->
+            <div id="update-modal-asset-container" class="bg-gray-950/80 border border-cyan-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between text-[11px] shrink-0">
+                <span class="text-gray-400">ダウンロード対象:</span>
+                <span id="update-modal-asset-name" class="font-mono text-cyan-300 font-bold truncate max-w-[280px]">OST-Player-v3.2.1-win32-x64.zip</span>
+            </div>
+
             <!-- Footer Actions -->
-            <div class="flex items-center justify-between pt-2 border-t border-gray-800 shrink-0">
-                <button onclick="closeUpdateModal()" class="px-4 py-2 rounded-lg text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition">
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-800 shrink-0">
+                <button onclick="closeUpdateModal()" class="px-3.5 py-2 rounded-lg text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition">
                     あとで
                 </button>
-                <button id="update-modal-download-btn" onclick="openLatestReleaseUrl()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs transition shadow-lg flex items-center space-x-2 active:scale-95">
-                    <span>ダウンロード (GitHub Releases)</span>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button onclick="openLatestReleaseWebPage()" class="px-3 py-2 rounded-lg text-xs text-cyan-300 hover:text-white bg-gray-800 hover:bg-gray-700 border border-cyan-500/40 transition">
+                        Releases ページ
+                    </button>
+                    <button id="update-modal-download-btn" onclick="downloadLatestReleaseAsset()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shadow-lg flex items-center space-x-2 active:scale-95">
+                        <span>最新版を自動ダウンロード (ZIP)</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -8070,6 +8081,7 @@
             const dateEl = document.getElementById('update-modal-release-date');
             const titleEl = document.getElementById('update-modal-release-title');
             const changelogEl = document.getElementById('update-modal-changelog');
+            const assetNameEl = document.getElementById('update-modal-asset-name');
 
             if (currentVerEl) currentVerEl.textContent = `v${APP_VERSION}`;
             if (latestVerEl) latestVerEl.textContent = release.tag_name || release.name || '最新版';
@@ -8084,6 +8096,19 @@
                 changelogEl.textContent = release.body ? release.body.trim() : '(リリースノートの記載はありません)';
             }
 
+            if (assetNameEl) {
+                if (Array.isArray(release.assets) && release.assets.length > 0) {
+                    const winAsset = release.assets.find(a => 
+                        a.name && (a.name.toLowerCase().endsWith('.zip') || a.name.toLowerCase().endsWith('.exe'))
+                    ) || release.assets[0];
+                    const mb = (winAsset.size && winAsset.size > 0) ? ` (${Math.round(winAsset.size / 1024 / 1024)} MB)` : '';
+                    assetNameEl.textContent = `${winAsset.name}${mb}`;
+                } else {
+                    const tag = release.tag_name || 'latest';
+                    assetNameEl.textContent = `ソースコード (${tag}.zip)`;
+                }
+            }
+
             modal.classList.remove('hidden');
         }
         window.openUpdateModal = openUpdateModal;
@@ -8094,19 +8119,56 @@
         }
         window.closeUpdateModal = closeUpdateModal;
 
-        function openLatestReleaseUrl() {
+        function getLatestDownloadUrl() {
+            if (!latestReleaseData) {
+                const repo = getUpdateRepo();
+                return `https://github.com/${repo}/releases/latest`;
+            }
+
+            // 1. Look for attached zip or exe asset
+            if (Array.isArray(latestReleaseData.assets) && latestReleaseData.assets.length > 0) {
+                const winAsset = latestReleaseData.assets.find(a => 
+                    a.name && (a.name.toLowerCase().endsWith('.zip') || a.name.toLowerCase().endsWith('.exe'))
+                );
+                if (winAsset && winAsset.browser_download_url) {
+                    return winAsset.browser_download_url;
+                }
+                if (latestReleaseData.assets[0].browser_download_url) {
+                    return latestReleaseData.assets[0].browser_download_url;
+                }
+            }
+
+            // 2. Direct source code archive ZIP URL (triggers instant browser download)
             const repo = getUpdateRepo();
-            const targetUrl = (latestReleaseData && latestReleaseData.html_url) 
+            const tag = latestReleaseData.tag_name || 'latest';
+            return `https://github.com/${repo}/archive/refs/tags/${tag}.zip`;
+        }
+
+        function downloadLatestReleaseAsset() {
+            const url = getLatestDownloadUrl();
+            if (window.electronAPI && window.electronAPI.openExternal) {
+                window.electronAPI.openExternal(url);
+            } else {
+                window.open(url, '_blank');
+            }
+            showNotification("ダウンロードを開始しました");
+            closeUpdateModal();
+        }
+        window.downloadLatestReleaseAsset = downloadLatestReleaseAsset;
+        window.openLatestReleaseUrl = downloadLatestReleaseAsset; // Backward compatibility
+
+        function openLatestReleaseWebPage() {
+            const repo = getUpdateRepo();
+            const url = (latestReleaseData && latestReleaseData.html_url) 
                 ? latestReleaseData.html_url 
                 : `https://github.com/${repo}/releases/latest`;
             if (window.electronAPI && window.electronAPI.openExternal) {
-                window.electronAPI.openExternal(targetUrl);
+                window.electronAPI.openExternal(url);
             } else {
-                window.open(targetUrl, '_blank');
+                window.open(url, '_blank');
             }
-            closeUpdateModal();
         }
-        window.openLatestReleaseUrl = openLatestReleaseUrl;
+        window.openLatestReleaseWebPage = openLatestReleaseWebPage;
 
         function openGitHubReleasesPage() {
             const repo = getUpdateRepo();
