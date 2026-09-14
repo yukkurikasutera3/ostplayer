@@ -1,5 +1,7 @@
 # OST Player
 
+[ 日本語 | [English](README_EN.md) | [简体中文](README_ZH.md) | [한국어](README_KO.md) ]
+
 高機能マルチモード・オーディオプレイヤー & DJミキサー (Desktop Audio Player with 3D Spatial Audio, SoundFont Synth, Spotify Integration & Visualizers)
 
 ---
@@ -14,7 +16,7 @@
 ## 主な機能 (Key Features)
 
 ### 1. 5+1 プレイヤーモード (Playback & DJ Modes)
-- **Single Mode**: アルバムアート連動ターンテーブル、オートクロスフェード、動画背景同期に対応した標準プレイヤー。
+- **Single Mode**: アルバムアート連動ターンテーブル、オートクロスフェード、動画背景同期に対応した標準プレイヤー。Spotify楽曲の再生にも対応。
 - **Dual Mode**: 2つの独立デッキ (Deck A / Deck B) によるリアルタイムDJミックス、クロスフェーダー、同時再生 (Play Both)。
 - **Multi Mode**: デッキを自由に追加し、複数曲を重ねて一括再生・個別音量調整が可能な多重再生モード。
 - **Studio FX Mode**: 5バンドEQ、Bass Boost、空間リバーブ、ディストーション、ディレイ、トレモロ、ピッチロック付き速度変更 (0.5x〜2.0x)、リアルタイムエクスポート (WAV)。
