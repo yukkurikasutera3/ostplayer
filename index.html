@@ -1048,7 +1048,10 @@
                                     <span>Releases ページを開く</span>
                                 </button>
                                 <button id="update-check-btn" onclick="checkForAppUpdates(true)" class="px-4 py-1.5 rounded-lg bg-cyan-900/80 hover:bg-cyan-600 border border-cyan-500/70 text-cyan-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
-                                    <span id="update-check-spinner" class="hidden animate-spin font-mono text-xs">...</span>
+                                    <svg id="update-check-spinner" class="hidden animate-spin h-3.5 w-3.5 text-cyan-200 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
                                     <span id="update-check-btn-text">更新を確認</span>
                                 </button>
                             </div>
@@ -1114,7 +1117,10 @@
                             </div>
                             <div class="flex items-center space-x-2">
                                 <button id="spotify-sync-btn" onclick="syncSpotifyLibrary()" class="px-3 py-1.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-600 border border-emerald-500/70 text-emerald-100 hover:text-white font-bold text-xs transition flex items-center space-x-1 shadow-md active:scale-95">
-                                    <span id="spotify-sync-spinner" class="hidden animate-spin font-mono text-xs">...</span>
+                                    <svg id="spotify-sync-spinner" class="hidden animate-spin h-3.5 w-3.5 text-emerald-200 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
                                     <span>ライブラリ取得</span>
                                 </button>
                                 <button id="spotify-logout-btn" onclick="logoutSpotify()" class="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-700 border border-rose-500/70 text-rose-200 hover:text-white text-xs transition">
@@ -1127,7 +1133,10 @@
                         <div id="spotify-auth-actions" class="flex items-center justify-between pt-1 border-t border-gray-800">
                             <span class="text-[11px] text-gray-400">ブラウザで認証を行いトークンを取得します</span>
                             <button id="spotify-login-btn" onclick="loginSpotify()" class="px-4 py-1.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-600 border border-emerald-500/70 text-emerald-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
-                                <span id="spotify-login-spinner" class="hidden animate-spin font-mono text-xs">...</span>
+                                <svg id="spotify-login-spinner" class="hidden animate-spin h-3.5 w-3.5 text-emerald-200 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
                                 <span id="spotify-login-btn-text">Spotify でログイン</span>
                             </button>
                         </div>
@@ -8455,10 +8464,11 @@
                     throw new Error('Electron Spotify API が利用できません');
                 }
                 const result = await window.electronAPI.spotifyLogin(clientId);
-                if (result && result.success && result.tokens) {
-                    spotifyAccessToken = result.tokens.access_token;
-                    spotifyRefreshToken = result.tokens.refresh_token || spotifyRefreshToken;
-                    const expiresIn = result.tokens.expires_in || 3600;
+                const tokens = result ? (result.tokens || result.tokenData) : null;
+                if (result && result.success && tokens) {
+                    spotifyAccessToken = tokens.access_token;
+                    spotifyRefreshToken = tokens.refresh_token || spotifyRefreshToken;
+                    const expiresIn = tokens.expires_in || 3600;
                     spotifyExpiresAt = Date.now() + (expiresIn * 1000);
 
                     localStorage.setItem('ost_spotify_access_token', spotifyAccessToken);
@@ -8523,13 +8533,14 @@
                             refreshToken: spotifyRefreshToken,
                             clientId: spotifyClientId
                         });
-                        if (res && res.success && res.tokens) {
-                            spotifyAccessToken = res.tokens.access_token;
-                            if (res.tokens.refresh_token) {
-                                spotifyRefreshToken = res.tokens.refresh_token;
+                        const tokens = res ? (res.tokens || res.tokenData) : null;
+                        if (res && res.success && tokens) {
+                            spotifyAccessToken = tokens.access_token;
+                            if (tokens.refresh_token) {
+                                spotifyRefreshToken = tokens.refresh_token;
                                 localStorage.setItem('ost_spotify_refresh_token', spotifyRefreshToken);
                             }
-                            const expiresIn = res.tokens.expires_in || 3600;
+                            const expiresIn = tokens.expires_in || 3600;
                             spotifyExpiresAt = Date.now() + (expiresIn * 1000);
                             localStorage.setItem('ost_spotify_access_token', spotifyAccessToken);
                             localStorage.setItem('ost_spotify_expires_at', spotifyExpiresAt.toString());

@@ -656,7 +656,7 @@ ipcMain.handle('spotify-login', async (event, clientId) => {
                                 clearTimeout(timer);
                                 cleanup();
                                 if (tokenData.access_token) {
-                                    resolve({ success: true, tokenData });
+                                    resolve({ success: true, tokens: tokenData, tokenData });
                                 } else {
                                     resolve({ success: false, error: tokenData.error_description || tokenData.error || 'トークンの取得に失敗しました' });
                                 }
@@ -723,7 +723,7 @@ ipcMain.handle('spotify-refresh-token', async (event, { refreshToken, clientId }
 
         const data = await res.json();
         if (data.access_token) {
-            return { success: true, tokenData: data };
+            return { success: true, tokens: data, tokenData: data };
         } else {
             return { success: false, error: data.error_description || data.error || 'トークン更新に失敗しました' };
         }
