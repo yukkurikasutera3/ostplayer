@@ -20,3 +20,7 @@ dist/
 # Temporary / test scratch scripts
 scratch/
 
+# Development-only internal checklist (must not be committed to repository)
+毎回必ずチェック.txt
+
+

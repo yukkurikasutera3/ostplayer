@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
 
 const net = require('net');
 
@@ -538,6 +540,195 @@ ipcMain.handle('read-local-file', async (event, filePath) => {
     } catch (e) {
         console.error('Error reading local file:', e);
         return null;
+    }
+});
+
+// --- Spotify OAuth 2.0 PKCE Manager ---
+let spotifyAuthServer = null;
+let currentSpotifyVerifier = null;
+
+function base64UrlEncode(buffer) {
+    return buffer.toString('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+}
+
+function sha256(str) {
+    return crypto.createHash('sha256').update(str).digest();
+}
+
+ipcMain.handle('spotify-login', async (event, clientId) => {
+    if (!clientId || typeof clientId !== 'string' || !clientId.trim()) {
+        return { success: false, error: 'Client ID が指定されていません' };
+    }
+    const cleanClientId = clientId.trim();
+    const port = 8888;
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+    // Clean up any existing auth server
+    if (spotifyAuthServer) {
+        try { spotifyAuthServer.close(); } catch (e) {}
+        spotifyAuthServer = null;
+    }
+
+    // Generate PKCE code_verifier and code_challenge
+    const verifierBuffer = crypto.randomBytes(48);
+    currentSpotifyVerifier = base64UrlEncode(verifierBuffer);
+    const challenge = base64UrlEncode(sha256(currentSpotifyVerifier));
+
+    const scopes = [
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'user-read-currently-playing',
+        'streaming',
+        'playlist-read-private',
+        'playlist-read-collaborative',
+        'user-library-read',
+        'user-read-email',
+        'user-read-private'
+    ].join(' ');
+
+    const authUrl = `https://accounts.spotify.com/authorize?client_id=${encodeURIComponent(cleanClientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${encodeURIComponent(challenge)}&scope=${encodeURIComponent(scopes)}`;
+
+    return new Promise((resolve) => {
+        let isResolved = false;
+
+        const cleanup = () => {
+            if (spotifyAuthServer) {
+                try { spotifyAuthServer.close(); } catch (e) {}
+                spotifyAuthServer = null;
+            }
+        };
+
+        const timer = setTimeout(() => {
+            if (!isResolved) {
+                isResolved = true;
+                cleanup();
+                resolve({ success: false, error: '認証がタイムアウトしました (120秒)' });
+            }
+        }, 120000);
+
+        spotifyAuthServer = http.createServer(async (req, res) => {
+            try {
+                const reqUrl = new URL(req.url, `http://127.0.0.1:${port}`);
+                if (reqUrl.pathname === '/callback') {
+                    const code = reqUrl.searchParams.get('code');
+                    const error = reqUrl.searchParams.get('error');
+
+                    if (error) {
+                        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Spotify 認証エラー</title></head><body style="background:#121212;color:#ff6b6b;font-family:sans-serif;padding:40px;text-align:center;"><h2>Spotify 認証エラー</h2><p>' + error + '</p><p style="color:#888;">このウィンドウを閉じて OST Player に戻ってください。</p></body></html>');
+                        if (!isResolved) {
+                            isResolved = true;
+                            clearTimeout(timer);
+                            cleanup();
+                            resolve({ success: false, error: `Spotify 認証がキャンセルされました: ${error}` });
+                        }
+                        return;
+                    }
+
+                    if (code) {
+                        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Spotify 連携完了</title></head><body style="background:#121212;color:#1ed760;font-family:sans-serif;padding:40px;text-align:center;"><h2>Spotify 連携完了</h2><p>認証に成功しました。OST Player に戻ってください。</p><p style="color:#aaa;font-size:12px;">このウィンドウは閉じて構いません。</p><script>setTimeout(function(){ window.close(); }, 3000);</script></body></html>');
+
+                        // Exchange auth code for tokens
+                        try {
+                            const tokenParams = new URLSearchParams({
+                                client_id: cleanClientId,
+                                grant_type: 'authorization_code',
+                                code: code,
+                                redirect_uri: redirectUri,
+                                code_verifier: currentSpotifyVerifier
+                            });
+
+                            const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                },
+                                body: tokenParams.toString()
+                            });
+
+                            const tokenData = await tokenRes.json();
+                            if (!isResolved) {
+                                isResolved = true;
+                                clearTimeout(timer);
+                                cleanup();
+                                if (tokenData.access_token) {
+                                    resolve({ success: true, tokenData });
+                                } else {
+                                    resolve({ success: false, error: tokenData.error_description || tokenData.error || 'トークンの取得に失敗しました' });
+                                }
+                            }
+                        } catch (tokenErr) {
+                            console.error('Spotify token exchange error:', tokenErr);
+                            if (!isResolved) {
+                                isResolved = true;
+                                clearTimeout(timer);
+                                cleanup();
+                                resolve({ success: false, error: 'トークン交換通信エラー: ' + tokenErr.message });
+                            }
+                        }
+                    }
+                }
+            } catch (handleErr) {
+                console.error('Request handling error:', handleErr);
+            }
+        });
+
+        spotifyAuthServer.on('error', (err) => {
+            console.error('Spotify auth server error:', err);
+            if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timer);
+                cleanup();
+                resolve({ success: false, error: `ローカルサーバー起動エラー (ポート ${port}): ${err.message}` });
+            }
+        });
+
+        spotifyAuthServer.listen(port, '127.0.0.1', () => {
+            shell.openExternal(authUrl);
+        });
+    });
+});
+
+ipcMain.handle('spotify-logout', async () => {
+    if (spotifyAuthServer) {
+        try { spotifyAuthServer.close(); } catch (e) {}
+        spotifyAuthServer = null;
+    }
+    currentSpotifyVerifier = null;
+    return { success: true };
+});
+
+ipcMain.handle('spotify-refresh-token', async (event, { refreshToken, clientId }) => {
+    if (!refreshToken || !clientId) {
+        return { success: false, error: 'パラメーターが不足しています' };
+    }
+    try {
+        const params = new URLSearchParams({
+            client_id: clientId.trim(),
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken.trim()
+        });
+
+        const res = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
+        });
+
+        const data = await res.json();
+        if (data.access_token) {
+            return { success: true, tokenData: data };
+        } else {
+            return { success: false, error: data.error_description || data.error || 'トークン更新に失敗しました' };
+        }
+    } catch (e) {
+        return { success: false, error: e.message };
     }
 });
 

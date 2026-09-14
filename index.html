@@ -24,6 +24,10 @@
     <!-- Audio Metadata Parser (jsmediatags for reliable cover art & ID3 tags) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
 
+    <!-- Spotify Web Playback SDK (loaded on demand after login) -->
+    <!-- Note: SDK script is injected dynamically by initSpotifyWebPlaybackSDK() -->
+
+
     <style>
         :root {
             --theme-bg-main: #111827;
@@ -1053,6 +1057,83 @@
                     </div>
                 </div>
 
+                <!-- Spotify 連携設定 (Spotify Integration) -->
+                <div class="help-section bg-gray-900/90 p-4 rounded-xl border border-emerald-500/50 shadow-lg space-y-3 mb-6">
+                    <div class="flex justify-between items-center border-b border-emerald-500/30 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.307c-.216.354-.679.467-1.033.251-2.827-1.727-6.386-2.118-10.579-1.161-.403.092-.806-.157-.898-.56-.092-.403.157-.806.56-.898 4.593-1.05 8.528-.609 11.699 1.335.354.216.467.679.251 1.033zm1.467-3.262c-.272.443-.852.585-1.295.313-3.236-1.989-8.168-2.564-11.996-1.401-.5.152-1.033-.131-1.185-.631-.152-.5.131-1.033.631-1.185 4.382-1.33 9.818-.691 13.537 1.609.443.272.585.852.313 1.295zm.126-3.393C15.22 8.358 8.847 8.148 5.152 9.27c-.6.182-1.237-.16-1.419-.76-.182-.6.16-1.237.76-1.419 4.246-1.288 11.289-1.045 15.753 1.605.539.32.716 1.02.396 1.559-.32.539-1.02.716-1.551.397z"/>
+                            </svg>
+                            <span class="text-sm font-bold text-emerald-300">Spotify 連携設定 (Spotify Integration)</span>
+                            <span class="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">OAuth 2.0 PKCE</span>
+                        </div>
+                        <span id="spotify-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未連携</span>
+                    </div>
+
+                    <!-- 重要・注意喚起バナー -->
+                    <div class="bg-amber-950/60 border border-amber-500/50 rounded-lg p-3 text-xs space-y-1.5 text-amber-200">
+                        <div class="font-bold text-amber-300 flex items-center space-x-1">
+                            <span class="px-1.5 py-0.5 bg-amber-500/20 rounded border border-amber-500/40 text-[10px]">[重要・利用前の注意喚起]</span>
+                            <span>Spotify 連携における仕様と制限事項</span>
+                        </div>
+                        <ul class="list-disc list-inside space-y-1 text-[11px] text-amber-200/90 leading-relaxed">
+                            <li><strong>Spotify Premium アカウント必須:</strong> Spotify Web Playback SDK によるフル再生およびプレイヤー連携には、Spotify Premium（有料プラン）が必要です。Free アカウントでは 30 秒プレビュー再生または外部 Spotify アプリへのリモート送信となります。</li>
+                            <li><strong>DRM 保護と音声エフェクト制限:</strong> Spotify 音源は著作権保護 (DRM) ストリーミングのため、Web Audio API の Studio エフェクト（EQ、Bitcrusher、リバーブ等）の適用は行われません。曲名・アーティスト・ジャケット画像・シークバー・再生操作は OST Player 上で完全連動します。</li>
+                            <li><strong>Client ID の準備:</strong> ご自身の Spotify Developer アプリの Client ID を入力し、Redirect URI に <code class="bg-black/50 px-1 py-0.5 rounded font-mono text-amber-300">http://127.0.0.1:8888/callback</code> を登録してください。</li>
+                        </ul>
+                    </div>
+
+                    <p class="text-xs text-gray-300 leading-relaxed">
+                        Spotify アカウントと連携することで、お気に入りのプレイリストやライブラリ楽曲を OST Player に読み込み、シームレスに再生・コントロールできます。
+                    </p>
+
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                <span class="font-bold text-emerald-200">Spotify Client ID</span>
+                                <span class="text-gray-400">Spotify Developer Dashboard で取得</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="spotify-client-id-input" placeholder="Spotify App の Client ID を入力" class="flex-1 bg-gray-950 border border-emerald-500/40 rounded-lg px-3 py-1.5 text-emerald-200 text-xs focus:outline-none focus:border-emerald-400 font-mono shadow-inner">
+                                <button id="spotify-dev-portal-btn" onclick="openSpotifyDeveloperPortal()" class="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-xs transition whitespace-nowrap">Dashboard 開く</button>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                ※登録方法: <a href="#" onclick="openSpotifyDeveloperPortal(); return false;" class="text-emerald-400 underline hover:text-emerald-300">Spotify Developer Dashboard</a> にログイン &rarr; [Create App] &rarr; Redirect URIs に <code class="text-emerald-300 font-mono">http://127.0.0.1:8888/callback</code> を追加して保存してください。
+                            </p>
+                        </div>
+
+                        <!-- ユーザー情報表示部 (ログイン時のみ表示) -->
+                        <div id="spotify-user-panel" class="hidden bg-gray-950/80 border border-emerald-500/30 rounded-lg p-2.5 flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5">
+                                <div id="spotify-avatar-placeholder" class="w-8 h-8 rounded-full border border-emerald-500/50 bg-gray-800 flex items-center justify-center text-[10px] text-emerald-300 font-bold shrink-0">SP</div>
+                                <img id="spotify-user-avatar" class="w-8 h-8 rounded-full border border-emerald-500/50 bg-gray-800 object-cover hidden shrink-0" src="" alt="Avatar">
+                                <div>
+                                    <div id="spotify-user-name" class="font-bold text-emerald-300 text-xs">-</div>
+                                    <div id="spotify-user-product" class="text-[10px] text-gray-400">Account: -</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="spotify-sync-btn" onclick="syncSpotifyLibrary()" class="px-3 py-1.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-600 border border-emerald-500/70 text-emerald-100 hover:text-white font-bold text-xs transition flex items-center space-x-1 shadow-md active:scale-95">
+                                    <span id="spotify-sync-spinner" class="hidden animate-spin font-mono text-xs">...</span>
+                                    <span>ライブラリ取得</span>
+                                </button>
+                                <button id="spotify-logout-btn" onclick="logoutSpotify()" class="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-700 border border-rose-500/70 text-rose-200 hover:text-white text-xs transition">
+                                    ログアウト
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ログイン操作部 (未ログイン時) -->
+                        <div id="spotify-auth-actions" class="flex items-center justify-between pt-1 border-t border-gray-800">
+                            <span class="text-[11px] text-gray-400">ブラウザで認証を行いトークンを取得します</span>
+                            <button id="spotify-login-btn" onclick="loginSpotify()" class="px-4 py-1.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-600 border border-emerald-500/70 text-emerald-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
+                                <span id="spotify-login-spinner" class="hidden animate-spin font-mono text-xs">...</span>
+                                <span id="spotify-login-btn-text">Spotify でログイン</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="help-section">
                     <h3 class="help-heading">基本操作</h3>
                     <p class="help-text">音楽ファイルをウィンドウにドラッグ＆ドロップしてライブラリに追加します。再生したいモードを選んでから、リストの曲をクリックしてください。</p>
@@ -1632,6 +1713,7 @@
                     <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50 shrink-0" data-filter="midi">🎹 MIDI</button>
                     <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50 shrink-0" data-filter="audio">🎵 Audio</button>
                     <button id="filter-video-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 hover:border-rose-500/50 shrink-0" data-filter="video">🎬 Video</button>
+                    <button id="filter-spotify-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-emerald-300 hover:border-emerald-500/50 shrink-0" data-filter="spotify">Spotify</button>
                 </div>
             </div>
             <!-- Playlists Section -->
@@ -2347,6 +2429,7 @@
                 initSstpUI();
                 initDiscordUI();
                 initUpdateCheckerUI();
+                initSpotifyUI();
                 startMidiGlobalLoop();
                 
                 // Auto update check on startup (delayed 3.5s to avoid startup lag)
@@ -2718,10 +2801,10 @@
                 btn.addEventListener('click', () => {
                     playlistFilterType = btn.dataset.filter;
                     document.querySelectorAll('.filter-type-btn').forEach(b => {
-                        b.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-blue-300', 'border-yellow-500', 'bg-yellow-500/20', 'text-yellow-300', 'border-green-500', 'bg-green-500/20', 'text-green-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+                        b.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-blue-300', 'border-yellow-500', 'bg-yellow-500/20', 'text-yellow-300', 'border-green-500', 'bg-green-500/20', 'text-green-300', 'border-rose-500', 'bg-rose-500/20', 'text-rose-300', 'border-emerald-500', 'bg-emerald-500/20', 'text-emerald-300');
                         b.classList.add('border-gray-700', 'bg-gray-800', 'text-gray-400');
                     });
-                    const colorMap = { all: 'blue', midi: 'yellow', audio: 'green', video: 'rose' };
+                    const colorMap = { all: 'blue', midi: 'yellow', audio: 'green', video: 'rose', spotify: 'emerald' };
                     const c = colorMap[playlistFilterType] || 'blue';
                     btn.classList.remove('border-gray-700', 'bg-gray-800', 'text-gray-400');
                     btn.classList.add(`border-${c}-500`, `bg-${c}-500/20`, `text-${c}-300`);
@@ -5274,6 +5357,9 @@
                 p.pause(); p.currentTime = 0; 
                 p.playbackRate = 1.0; 
             });
+            if (typeof pauseSpotifyPlayback === 'function' && typeof spotifyIsPlaying !== 'undefined' && spotifyIsPlaying) {
+                pauseSpotifyPlayback();
+            }
             updateVideoBackgroundState(false);
             isSinglePlaying = false; isAutoCrossfading = false; currentSinglePlayerIndex = 0; 
             updateSingleUIState(); updateDualUIState(0); updateDualUIState(1); updateFxUIState(false);
@@ -5999,6 +6085,19 @@
                     updateVisualUIState(true);
                 }
 
+            } else if (track.isSpotify) {
+                updateVideoBackgroundState(false);
+                document.getElementById('single-midi-mixer-btn').classList.add('hidden');
+                document.getElementById('single-piano-roll-btn').classList.add('hidden');
+                document.getElementById('single-midi-export-btn').classList.add('hidden');
+                document.getElementById('midi-mixer-panel').classList.add('hidden');
+                document.getElementById('piano-roll-panel').classList.add('hidden');
+                document.getElementById('single-artwork-area').classList.remove('hidden');
+                isPianoRollOpen = false;
+
+                // --- SPOTIFY PLAYBACK ---
+                playSpotifyTrack(track, autoPlay);
+
             } else {
                 updateVideoBackgroundState(track.isVideo);
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
@@ -6151,6 +6250,8 @@
                 }
                 updateSingleUIState();
                 if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
+            } else if (track && track.isSpotify) {
+                toggleSpotifyPlay();
             } else {
                 let p = players[currentSinglePlayerIndex];
                 AudioCacheManager.getTrackUrl(track).then(trackUrl => {
@@ -6241,6 +6342,8 @@
             const track = playlist[singleTrackIndex];
             if (track && track.isMidi) {
                 seekMidi(getMidiSynth('main'), seekVal);
+            } else if (track && track.isSpotify) {
+                seekSpotify(seekVal);
             } else {
                 let p = players[currentSinglePlayerIndex];
                 if(p.duration) p.currentTime = (seekVal / 100) * p.duration;
@@ -7071,6 +7174,7 @@
                 ui.helpView.classList.remove('hidden-mode');
                 initSstpUI();
                 initUpdateCheckerUI();
+                initSpotifyUI();
             }
         }
 
@@ -7082,6 +7186,8 @@
                 ui.single.title.textContent = t.name + " (MIDI)";
             } else if (t.isVideo) {
                 ui.single.title.textContent = displayTitle + " (Video)";
+            } else if (t.isSpotify) {
+                ui.single.title.textContent = displayTitle + " (Spotify)";
             } else {
                 ui.single.title.textContent = displayTitle;
             }
@@ -7175,7 +7281,8 @@
                     const matchType = playlistFilterType === 'all' 
                         || (playlistFilterType === 'midi' && item.isMidi) 
                         || (playlistFilterType === 'video' && item.isVideo) 
-                        || (playlistFilterType === 'audio' && !item.isMidi && !item.isVideo);
+                        || (playlistFilterType === 'spotify' && item.isSpotify)
+                        || (playlistFilterType === 'audio' && !item.isMidi && !item.isVideo && !item.isSpotify);
                     return matchPlaylist && matchQuery && matchType;
                 });
                 
@@ -7278,7 +7385,9 @@
                 if (track.isMidi) {
                     extInfo = '<span class="text-[9px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">MIDI</span>';
                 } else if (track.isVideo) {
-                    extInfo = '<span class="text-[9px] text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">🎬 VIDEO</span>';
+                    extInfo = '<span class="text-[9px] text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">VIDEO</span>';
+                } else if (track.isSpotify) {
+                    extInfo = '<span class="text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">Spotify</span>';
                 }
                 const coverImg = track.coverUrl ? `<img src="${track.coverUrl}" class="w-4 h-4 rounded object-cover mr-1.5 shrink-0 inline-block shadow-sm">` : '';
                 const artistInline = track.artist ? `<span class="text-xs text-gray-400 font-normal ml-1.5 shrink-0 opacity-75 truncate"> - ${track.artist}</span>` : '';
@@ -7605,6 +7714,12 @@
                             currentSec = status ? (status.currentTime || 0) : 0;
                             duration = status ? (status.maxTime || 0) : (activeTrack.duration || 0);
                         }
+                    } else if (activeTrack.isSpotify) {
+                        isPlaying = !!(isSinglePlaying && typeof spotifyIsPlaying !== 'undefined' && spotifyIsPlaying);
+                        const elapsedMs = (typeof spotifyLastStateTimestamp !== 'undefined' && spotifyLastStateTimestamp > 0) ? (Date.now() - spotifyLastStateTimestamp) : 0;
+                        const basePos = (typeof spotifyLastPositionMs !== 'undefined') ? spotifyLastPositionMs : 0;
+                        currentSec = isPlaying ? Math.min((basePos + elapsedMs) / 1000, activeTrack.duration || 0) : (basePos / 1000);
+                        duration = activeTrack.duration || 0;
                     } else {
                         const p = players[currentSinglePlayerIndex] || players[0];
                         isPlaying = !!(isSinglePlaying && p && !p.paused && !p.ended);
@@ -7914,7 +8029,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.2.0';
+        const APP_VERSION = '3.3.0';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
 
@@ -8207,6 +8322,660 @@
             }
         }
         window.initUpdateCheckerUI = initUpdateCheckerUI;
+
+        // =========================================================================
+        // --- Spotify Web API & Web Playback SDK Engine ---
+        // =========================================================================
+        let spotifyAccessToken = null;
+        let spotifyRefreshToken = null;
+        let spotifyExpiresAt = 0;
+        let spotifyClientId = localStorage.getItem('ost_spotify_client_id') || '';
+        let spotifyUser = null;
+        let spotifyPlayer = null;
+        let spotifyDeviceId = null;
+        let spotifyCurrentTrack = null;
+        let spotifyIsPlaying = false;
+        let spotifyProgressTimer = null;
+        let spotifyLastPositionMs = 0;
+        let spotifyLastStateTimestamp = 0;
+        let isSpotifySdkReady = false;
+
+        function openSpotifyDeveloperPortal() {
+            const url = 'https://developer.spotify.com/dashboard';
+            if (window.electronAPI && window.electronAPI.openExternal) {
+                window.electronAPI.openExternal(url);
+            } else {
+                window.open(url, '_blank');
+            }
+        }
+        window.openSpotifyDeveloperPortal = openSpotifyDeveloperPortal;
+
+        function initSpotifyUI() {
+            const clientIdInput = document.getElementById('spotify-client-id-input');
+            if (clientIdInput) {
+                clientIdInput.value = spotifyClientId;
+                clientIdInput.oninput = (e) => {
+                    spotifyClientId = e.target.value.trim();
+                    localStorage.setItem('ost_spotify_client_id', spotifyClientId);
+                };
+            }
+
+            try {
+                const savedToken = localStorage.getItem('ost_spotify_access_token');
+                const savedRefresh = localStorage.getItem('ost_spotify_refresh_token');
+                const savedExpiresAt = parseInt(localStorage.getItem('ost_spotify_expires_at') || '0', 10);
+                if (savedToken && savedRefresh) {
+                    spotifyAccessToken = savedToken;
+                    spotifyRefreshToken = savedRefresh;
+                    spotifyExpiresAt = savedExpiresAt;
+                    ensureSpotifyToken().then(valid => {
+                        if (valid) {
+                            fetchSpotifyUserProfile();
+                            initSpotifyWebPlaybackSDK();
+                        } else {
+                            updateSpotifyAuthUI(false);
+                        }
+                    }).catch(() => {
+                        updateSpotifyAuthUI(false);
+                    });
+                } else {
+                    updateSpotifyAuthUI(false);
+                }
+            } catch(e) {
+                console.warn('Spotify init state error:', e);
+                updateSpotifyAuthUI(false);
+            }
+        }
+        window.initSpotifyUI = initSpotifyUI;
+
+        function updateSpotifyAuthUI(isLoggedIn) {
+            const statusBadge = document.getElementById('spotify-status-badge');
+            const userPanel = document.getElementById('spotify-user-panel');
+            const authActions = document.getElementById('spotify-auth-actions');
+            const userNameEl = document.getElementById('spotify-user-name');
+            const userProductEl = document.getElementById('spotify-user-product');
+            const userAvatarImg = document.getElementById('spotify-user-avatar');
+            const avatarPlaceholder = document.getElementById('spotify-avatar-placeholder');
+
+            if (isLoggedIn && spotifyUser) {
+                if (statusBadge) {
+                    const isPremium = spotifyUser.product === 'premium';
+                    statusBadge.textContent = isPremium ? '接続中 (Premium)' : '接続中 (Free)';
+                    statusBadge.className = isPremium 
+                        ? 'text-[10px] text-emerald-300 bg-emerald-950 border border-emerald-600 px-2 py-0.5 rounded-full font-mono'
+                        : 'text-[10px] text-amber-300 bg-amber-950 border border-amber-600 px-2 py-0.5 rounded-full font-mono';
+                }
+                if (userPanel) userPanel.classList.remove('hidden');
+                if (authActions) authActions.classList.add('hidden');
+                if (userNameEl) userNameEl.textContent = spotifyUser.display_name || spotifyUser.id || 'Spotify User';
+                if (userProductEl) {
+                    const planText = spotifyUser.product === 'premium' ? 'Premium (フル再生対応)' : 'Free (プレビュー/リモート対応)';
+                    userProductEl.textContent = `Account: ${planText}`;
+                }
+                if (spotifyUser.images && spotifyUser.images.length > 0 && userAvatarImg) {
+                    userAvatarImg.src = spotifyUser.images[0].url;
+                    userAvatarImg.classList.remove('hidden');
+                    if (avatarPlaceholder) avatarPlaceholder.classList.add('hidden');
+                } else {
+                    if (userAvatarImg) userAvatarImg.classList.add('hidden');
+                    if (avatarPlaceholder) avatarPlaceholder.classList.remove('hidden');
+                }
+            } else {
+                if (statusBadge) {
+                    statusBadge.textContent = '未連携';
+                    statusBadge.className = 'text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono';
+                }
+                if (userPanel) userPanel.classList.add('hidden');
+                if (authActions) authActions.classList.remove('hidden');
+            }
+        }
+
+        async function loginSpotify() {
+            const clientIdInput = document.getElementById('spotify-client-id-input');
+            const clientId = (clientIdInput ? clientIdInput.value.trim() : '') || spotifyClientId;
+            if (!clientId) {
+                showNotification('[警告] Spotify Client ID を入力してください');
+                if (clientIdInput) clientIdInput.focus();
+                return;
+            }
+            spotifyClientId = clientId;
+            localStorage.setItem('ost_spotify_client_id', clientId);
+
+            const loginBtn = document.getElementById('spotify-login-btn');
+            const spinner = document.getElementById('spotify-login-spinner');
+            const btnText = document.getElementById('spotify-login-btn-text');
+            if (loginBtn) loginBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'ブラウザで認証中...';
+
+            showNotification('[Spotify] 認証ブラウザを開きました。ログインを完了してください');
+
+            try {
+                if (!window.electronAPI || !window.electronAPI.spotifyLogin) {
+                    throw new Error('Electron Spotify API が利用できません');
+                }
+                const result = await window.electronAPI.spotifyLogin(clientId);
+                if (result && result.success && result.tokens) {
+                    spotifyAccessToken = result.tokens.access_token;
+                    spotifyRefreshToken = result.tokens.refresh_token || spotifyRefreshToken;
+                    const expiresIn = result.tokens.expires_in || 3600;
+                    spotifyExpiresAt = Date.now() + (expiresIn * 1000);
+
+                    localStorage.setItem('ost_spotify_access_token', spotifyAccessToken);
+                    if (spotifyRefreshToken) localStorage.setItem('ost_spotify_refresh_token', spotifyRefreshToken);
+                    localStorage.setItem('ost_spotify_expires_at', spotifyExpiresAt.toString());
+
+                    showNotification('[Spotify] 認証に成功しました');
+                    await fetchSpotifyUserProfile();
+                    initSpotifyWebPlaybackSDK();
+                    await syncSpotifyLibrary(true);
+                } else {
+                    const errMsg = (result && result.error) ? result.error : '認証がキャンセルまたは失敗しました';
+                    showNotification(`[Spotify 認証エラー] ${errMsg}`);
+                }
+            } catch (err) {
+                console.error('Spotify login error:', err);
+                showNotification(`[Spotify エラー] ${err.message || err}`);
+            } finally {
+                if (loginBtn) loginBtn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.textContent = 'Spotify でログイン';
+            }
+        }
+        window.loginSpotify = loginSpotify;
+
+        async function logoutSpotify() {
+            if (spotifyPlayer) {
+                try { spotifyPlayer.disconnect(); } catch(e){}
+                spotifyPlayer = null;
+            }
+            spotifyAccessToken = null;
+            spotifyRefreshToken = null;
+            spotifyExpiresAt = 0;
+            spotifyUser = null;
+            spotifyDeviceId = null;
+            spotifyCurrentTrack = null;
+            spotifyIsPlaying = false;
+            if (spotifyProgressTimer) {
+                clearInterval(spotifyProgressTimer);
+                spotifyProgressTimer = null;
+            }
+
+            localStorage.removeItem('ost_spotify_access_token');
+            localStorage.removeItem('ost_spotify_refresh_token');
+            localStorage.removeItem('ost_spotify_expires_at');
+
+            if (window.electronAPI && window.electronAPI.spotifyLogout) {
+                try { await window.electronAPI.spotifyLogout(); } catch(e){}
+            }
+
+            updateSpotifyAuthUI(false);
+            showNotification('[Spotify] ログアウトしました');
+        }
+        window.logoutSpotify = logoutSpotify;
+
+        async function ensureSpotifyToken() {
+            if (!spotifyAccessToken) return null;
+            if (Date.now() > spotifyExpiresAt - 60000 && spotifyRefreshToken) {
+                try {
+                    if (window.electronAPI && window.electronAPI.spotifyRefreshToken) {
+                        const res = await window.electronAPI.spotifyRefreshToken({
+                            refreshToken: spotifyRefreshToken,
+                            clientId: spotifyClientId
+                        });
+                        if (res && res.success && res.tokens) {
+                            spotifyAccessToken = res.tokens.access_token;
+                            if (res.tokens.refresh_token) {
+                                spotifyRefreshToken = res.tokens.refresh_token;
+                                localStorage.setItem('ost_spotify_refresh_token', spotifyRefreshToken);
+                            }
+                            const expiresIn = res.tokens.expires_in || 3600;
+                            spotifyExpiresAt = Date.now() + (expiresIn * 1000);
+                            localStorage.setItem('ost_spotify_access_token', spotifyAccessToken);
+                            localStorage.setItem('ost_spotify_expires_at', spotifyExpiresAt.toString());
+                            return spotifyAccessToken;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Spotify token refresh failed:', e);
+                }
+            }
+            return spotifyAccessToken;
+        }
+
+        async function fetchSpotifyApi(endpoint, method = 'GET', body = null) {
+            const token = await ensureSpotifyToken();
+            if (!token) throw new Error('Spotify未ログイン');
+            const url = endpoint.startsWith('http') ? endpoint : `https://api.spotify.com/v1/${endpoint}`;
+            const headers = {
+                'Authorization': `Bearer ${token}`
+            };
+            if (body && typeof body === 'object') {
+                headers['Content-Type'] = 'application/json';
+            }
+            const res = await fetch(url, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined
+            });
+            if (res.status === 204) return null;
+            if (!res.ok) {
+                const errJson = await res.json().catch(() => ({}));
+                const msg = errJson.error ? (errJson.error.message || JSON.stringify(errJson.error)) : `HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+            return await res.json();
+        }
+
+        async function fetchSpotifyUserProfile() {
+            try {
+                const data = await fetchSpotifyApi('me');
+                spotifyUser = data;
+                updateSpotifyAuthUI(true);
+                return data;
+            } catch (err) {
+                console.error('Fetch Spotify profile error:', err);
+                updateSpotifyAuthUI(false);
+                return null;
+            }
+        }
+
+        function initSpotifyWebPlaybackSDK() {
+            if (!spotifyAccessToken) return;
+            if (spotifyPlayer) return;
+
+            window.onSpotifyWebPlaybackSDKReady = () => {
+                isSpotifySdkReady = true;
+                const player = new window.Spotify.Player({
+                    name: 'OST Player Desktop',
+                    getOAuthToken: async cb => {
+                        const tok = await ensureSpotifyToken();
+                        cb(tok);
+                    },
+                    volume: (ui.single && ui.single.vol) ? (parseFloat(ui.single.vol.value) || 0.8) : 0.8
+                });
+
+                player.addListener('ready', ({ device_id }) => {
+                    spotifyDeviceId = device_id;
+                    console.log('Spotify Web Playback SDK Ready with Device ID:', device_id);
+                });
+
+                player.addListener('not_ready', ({ device_id }) => {
+                    console.log('Spotify Device ID is offline:', device_id);
+                });
+
+                player.addListener('player_state_changed', state => {
+                    if (!state) return;
+                    spotifyPlayerStateChanged(state);
+                });
+
+                player.addListener('initialization_error', ({ message }) => {
+                    console.warn('Spotify Init Error:', message);
+                });
+
+                player.addListener('authentication_error', ({ message }) => {
+                    console.warn('Spotify Auth Error:', message);
+                    ensureSpotifyToken();
+                });
+
+                player.addListener('account_error', ({ message }) => {
+                    console.warn('Spotify Account Error (Premium required for SDK):', message);
+                    showNotification('[Spotify 注意] フル再生には Spotify Premium が必要です');
+                });
+
+                player.connect();
+                spotifyPlayer = player;
+            };
+
+            if (!document.getElementById('spotify-player-sdk-script')) {
+                const script = document.createElement('script');
+                script.id = 'spotify-player-sdk-script';
+                script.src = 'https://sdk.scdn.co/spotify-player.js';
+                script.async = true;
+                document.head.appendChild(script);
+            } else if (window.Spotify && window.Spotify.Player) {
+                window.onSpotifyWebPlaybackSDKReady();
+            }
+        }
+
+        function spotifyPlayerStateChanged(state) {
+            const isPaused = state.paused;
+            spotifyIsPlaying = !isPaused;
+            spotifyLastPositionMs = state.position;
+            spotifyLastStateTimestamp = Date.now();
+
+            if (currentMode === 'single' || currentMode === 'visual') {
+                isSinglePlaying = spotifyIsPlaying;
+                updateSingleUIState();
+                updateVisualUIState(spotifyIsPlaying);
+            }
+
+            if (state.track_window && state.track_window.current_track) {
+                const currentTrack = state.track_window.current_track;
+                if (singleTrackIndex >= 0 && playlist[singleTrackIndex] && playlist[singleTrackIndex].isSpotify) {
+                    const t = playlist[singleTrackIndex];
+                    if (currentTrack.duration_ms) {
+                        t.duration = currentTrack.duration_ms / 1000;
+                    }
+                }
+            }
+        }
+
+        async function syncSpotifyLibrary(silent = false) {
+            if (!spotifyAccessToken) {
+                showNotification('[Spotify] 先にログインを行ってください');
+                return;
+            }
+
+            const syncBtn = document.getElementById('spotify-sync-btn');
+            const spinner = document.getElementById('spotify-sync-spinner');
+            if (syncBtn) syncBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+
+            try {
+                if (!silent) showNotification('[Spotify] ライブラリとお気に入り楽曲を取得中...');
+
+                let addedCount = 0;
+                const newSpotifyTracks = [];
+
+                // 1. Fetch Liked Songs
+                try {
+                    const savedTracksRes = await fetchSpotifyApi('me/tracks?limit=50');
+                    if (savedTracksRes && savedTracksRes.items) {
+                        savedTracksRes.items.forEach(item => {
+                            if (!item.track) return;
+                            const tr = item.track;
+                            const cover = (tr.album && tr.album.images && tr.album.images[0]) ? tr.album.images[0].url : '';
+                            const artistName = tr.artists ? tr.artists.map(a => a.name).join(', ') : 'Unknown Artist';
+                            newSpotifyTracks.push({
+                                name: tr.name,
+                                tagTitle: tr.name,
+                                artist: artistName,
+                                album: tr.album ? tr.album.name : 'Liked Songs',
+                                coverUrl: cover,
+                                duration: (tr.duration_ms || 0) / 1000,
+                                isSpotify: true,
+                                isMidi: false,
+                                isVideo: false,
+                                uri: tr.uri,
+                                spotifyId: tr.id,
+                                previewUrl: tr.preview_url,
+                                playlistName: 'Spotify Liked'
+                            });
+                            addedCount++;
+                        });
+                    }
+                } catch(e) {
+                    console.warn('Liked songs fetch error:', e);
+                }
+
+                // 2. Fetch User Playlists
+                try {
+                    const playlistsRes = await fetchSpotifyApi('me/playlists?limit=20');
+                    if (playlistsRes && playlistsRes.items) {
+                        for (const pl of playlistsRes.items) {
+                            if (!pl.tracks || pl.tracks.total === 0) continue;
+                            try {
+                                const plTracksRes = await fetchSpotifyApi(`playlists/${pl.id}/tracks?limit=50`);
+                                if (plTracksRes && plTracksRes.items) {
+                                    plTracksRes.items.forEach(item => {
+                                        if (!item.track) return;
+                                        const tr = item.track;
+                                        const cover = (tr.album && tr.album.images && tr.album.images[0]) 
+                                            ? tr.album.images[0].url 
+                                            : ((pl.images && pl.images[0]) ? pl.images[0].url : '');
+                                        const artistName = tr.artists ? tr.artists.map(a => a.name).join(', ') : 'Unknown Artist';
+                                        newSpotifyTracks.push({
+                                            name: tr.name,
+                                            tagTitle: tr.name,
+                                            artist: artistName,
+                                            album: tr.album ? tr.album.name : pl.name,
+                                            coverUrl: cover,
+                                            duration: (tr.duration_ms || 0) / 1000,
+                                            isSpotify: true,
+                                            isMidi: false,
+                                            isVideo: false,
+                                            uri: tr.uri,
+                                            spotifyId: tr.id,
+                                            previewUrl: tr.preview_url,
+                                            playlistName: pl.name || 'Spotify Playlist'
+                                        });
+                                        addedCount++;
+                                    });
+                                }
+                            } catch(pe) {
+                                console.warn('Playlist track fetch error:', pl.name, pe);
+                            }
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Playlists fetch error:', e);
+                }
+
+                const nonSpotifyPlaylist = playlist.filter(t => !t.isSpotify);
+                playlist = [...nonSpotifyPlaylist, ...newSpotifyTracks];
+
+                const spotifyPlaylistNames = [...new Set(newSpotifyTracks.map(t => t.playlistName))];
+                spotifyPlaylistNames.forEach(pName => {
+                    if (!customPlaylists.includes(pName)) {
+                        customPlaylists.push(pName);
+                    }
+                });
+
+                updatePlaylistDropdown();
+                updatePlaylistUI();
+                savePlaylistToStorage();
+
+                showNotification(`[Spotify] ${addedCount} 曲の楽曲を同期しました`);
+            } catch (err) {
+                console.error('Spotify sync error:', err);
+                showNotification(`[Spotify 取得エラー] ${err.message || err}`);
+            } finally {
+                if (syncBtn) syncBtn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+            }
+        }
+        window.syncSpotifyLibrary = syncSpotifyLibrary;
+
+        async function playSpotifyTrack(track, autoPlay = true) {
+            spotifyCurrentTrack = track;
+            spotifyLastPositionMs = 0;
+            spotifyLastStateTimestamp = Date.now();
+
+            if (spotifyProgressTimer) {
+                clearInterval(spotifyProgressTimer);
+                spotifyProgressTimer = null;
+            }
+
+            ui.single.time.textContent = '0:00';
+            ui.single.dur.textContent = formatTime(track.duration || 0);
+            if (ui.single.seek) ui.single.seek.value = 0;
+
+            if (autoPlay) {
+                try {
+                    const token = await ensureSpotifyToken();
+                    if (!token) throw new Error('Spotify未認証');
+
+                    let playedViaApi = false;
+                    if (spotifyDeviceId) {
+                        try {
+                            await fetchSpotifyApi(`me/player/play?device_id=${spotifyDeviceId}`, 'PUT', {
+                                uris: [track.uri]
+                            });
+                            playedViaApi = true;
+                        } catch(e) {
+                            console.warn('Play via device ID failed, trying default device:', e);
+                        }
+                    }
+
+                    if (!playedViaApi) {
+                        try {
+                            await fetchSpotifyApi('me/player/play', 'PUT', {
+                                uris: [track.uri]
+                            });
+                            playedViaApi = true;
+                        } catch(e) {
+                            console.warn('Play via default device failed:', e);
+                        }
+                    }
+
+                    if (!playedViaApi && track.previewUrl) {
+                        currentSinglePlayerIndex = 0;
+                        const p = players[0];
+                        p.src = track.previewUrl;
+                        p.currentTime = 0;
+                        await p.play();
+                        showNotification(`[Spotify プレビュー再生] ${track.name} (30秒)`);
+                    } else if (playedViaApi) {
+                        showNotification(`[Spotify 再生中] ${track.name}`);
+                    }
+                } catch (err) {
+                    console.error('Spotify play error:', err);
+                    if (track.previewUrl) {
+                        currentSinglePlayerIndex = 0;
+                        const p = players[0];
+                        p.src = track.previewUrl;
+                        p.currentTime = 0;
+                        p.play().catch(e => console.warn(e));
+                        showNotification(`[Spotify プレビュー再生] ${track.name}`);
+                    } else {
+                        showNotification(`[Spotify 再生不可] Premium または Spotify アプリの起動が必要です: ${err.message}`);
+                    }
+                }
+
+                isSinglePlaying = true;
+                spotifyIsPlaying = true;
+                updateSingleUIState();
+                updateVisualUIState(true);
+            } else {
+                isSinglePlaying = false;
+                spotifyIsPlaying = false;
+                updateSingleUIState();
+                updateVisualUIState(false);
+            }
+
+            spotifyProgressTimer = setInterval(spotifyProgressSync, 250);
+        }
+        window.playSpotifyTrack = playSpotifyTrack;
+
+        async function toggleSpotifyPlay() {
+            if (spotifyIsPlaying) {
+                pauseSpotifyPlayback();
+            } else {
+                resumeSpotifyPlayback();
+            }
+        }
+        window.toggleSpotifyPlay = toggleSpotifyPlay;
+
+        async function pauseSpotifyPlayback() {
+            try {
+                if (spotifyPlayer) {
+                    await spotifyPlayer.pause();
+                } else {
+                    await fetchSpotifyApi('me/player/pause', 'PUT').catch(() => {});
+                }
+                const p = players[0];
+                if (p && !p.paused) p.pause();
+            } catch(e) {
+                console.warn('Spotify pause error:', e);
+            }
+            spotifyIsPlaying = false;
+            isSinglePlaying = false;
+            updateSingleUIState();
+            updateVisualUIState(false);
+            if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
+        }
+        window.pauseSpotifyPlayback = pauseSpotifyPlayback;
+
+        async function resumeSpotifyPlayback() {
+            try {
+                if (spotifyPlayer) {
+                    await spotifyPlayer.resume();
+                } else {
+                    await fetchSpotifyApi('me/player/play', 'PUT').catch(() => {});
+                }
+                const p = players[0];
+                if (p && p.src && p.paused) p.play().catch(() => {});
+            } catch(e) {
+                console.warn('Spotify resume error:', e);
+            }
+            spotifyIsPlaying = true;
+            isSinglePlaying = true;
+            spotifyLastStateTimestamp = Date.now();
+            updateSingleUIState();
+            updateVisualUIState(true);
+            if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
+        }
+        window.resumeSpotifyPlayback = resumeSpotifyPlayback;
+
+        async function seekSpotify(percent) {
+            const track = playlist[singleTrackIndex];
+            if (!track || !track.duration) return;
+            const targetMs = Math.floor((percent / 100) * track.duration * 1000);
+            spotifyLastPositionMs = targetMs;
+            spotifyLastStateTimestamp = Date.now();
+
+            try {
+                if (spotifyPlayer) {
+                    await spotifyPlayer.seek(targetMs);
+                } else {
+                    await fetchSpotifyApi(`me/player/seek?position_ms=${targetMs}`, 'PUT').catch(() => {});
+                }
+                const p = players[0];
+                if (p && p.duration) {
+                    p.currentTime = (percent / 100) * p.duration;
+                }
+            } catch (e) {
+                console.warn('Spotify seek error:', e);
+            }
+        }
+        window.seekSpotify = seekSpotify;
+
+        function spotifyProgressSync() {
+            if (singleTrackIndex < 0 || !playlist[singleTrackIndex] || !playlist[singleTrackIndex].isSpotify) {
+                if (spotifyProgressTimer) {
+                    clearInterval(spotifyProgressTimer);
+                    spotifyProgressTimer = null;
+                }
+                return;
+            }
+
+            const track = playlist[singleTrackIndex];
+            const durSec = track.duration || 0;
+            if (durSec <= 0) return;
+
+            const p = players[0];
+            let curSec = 0;
+            if (p && p.src && !p.paused && p.duration) {
+                curSec = p.currentTime;
+            } else if (spotifyIsPlaying) {
+                const elapsedMs = Date.now() - spotifyLastStateTimestamp;
+                const posMs = spotifyLastPositionMs + elapsedMs;
+                curSec = Math.min(posMs / 1000, durSec);
+                if (curSec >= durSec) {
+                    changeSingleTrack(1);
+                    return;
+                }
+            } else {
+                curSec = spotifyLastPositionMs / 1000;
+            }
+
+            const pct = Math.min(100, (curSec / durSec) * 100);
+            ui.single.time.textContent = formatTime(curSec);
+            ui.single.dur.textContent = formatTime(durSec);
+            if (document.activeElement !== ui.single.seek) {
+                ui.single.seek.value = pct;
+            }
+            if (ui.mini && ui.mini.seek && document.activeElement !== ui.mini.seek) {
+                ui.mini.seek.value = pct;
+            }
+            if (ui.mini && ui.mini.time) {
+                ui.mini.time.textContent = formatTime(curSec);
+            }
+            if (ui.mini && ui.mini.dur) {
+                ui.mini.dur.textContent = formatTime(durSec);
+            }
+        }
 
         window.setTheme = setTheme;
         window.resetCustomBg = resetCustomBg;
