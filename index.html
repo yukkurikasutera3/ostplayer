@@ -2508,7 +2508,7 @@
                     currentSinglePlayerIndex = 0;
                     if (players[0]) { players[0].pause(); players[0].src = ''; }
                     if (players[1]) { players[1].pause(); players[1].src = ''; }
-                    if (singleTrackIndex !== -1 && playlist[singleTrackIndex] && !playlist[singleTrackIndex].isMidi) {
+                    if (singleTrackIndex !== -1 && playlist[singleTrackIndex] && !playlist[singleTrackIndex].isMidi && !playlist[singleTrackIndex].isSpotify) {
                         AudioCacheManager.getTrackUrl(playlist[singleTrackIndex]).then(url => {
                             if (url && players[0]) players[0].src = url;
                         });
@@ -3607,7 +3607,7 @@
 
                 if (nextTrack.isMidi) {
                     this.getMidiBuffer(nextTrack).catch(() => {});
-                } else {
+                } else if (!nextTrack.isSpotify) {
                     this.getTrackUrl(nextTrack).catch(() => {});
                 }
             }
@@ -5369,7 +5369,7 @@
             // Dual/Multi MIDI Routing is handled dynamically on load/play
         }
 
-        function stopAllAudio() {
+        function stopAllAudio(skipRemoteSpotify = false) {
              // Stop All MIDI & Reset Position to 0
              Object.values(spessaSynthWrappers).forEach(p => { 
                  if(p) { 
@@ -5406,7 +5406,7 @@
                 p.pause(); p.currentTime = 0; 
                 p.playbackRate = 1.0; 
             });
-            if (typeof pauseSpotifyPlayback === 'function' && typeof spotifyIsPlaying !== 'undefined' && spotifyIsPlaying) {
+            if (!skipRemoteSpotify && typeof pauseSpotifyPlayback === 'function' && typeof spotifyIsPlaying !== 'undefined' && spotifyIsPlaying) {
                 pauseSpotifyPlayback();
             }
             updateVideoBackgroundState(false);
@@ -5918,6 +5918,11 @@
                 isFxPlaying = true;
                 synth.playMIDI();
                 updateFxUIState(true);
+            } else if (track.isSpotify) {
+                updateVideoBackgroundState(false);
+                if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name + " (Spotify)";
+                playSpotifyTrack(track, true);
+                updateFxUIState(true);
             } else {
                 updateVideoBackgroundState(track.isVideo);
                 if (ui.fx && ui.fx.title) ui.fx.title.textContent = track.name;
@@ -6062,12 +6067,12 @@
             const track = playlist[index];
             if(audioContext.state === 'suspended') audioContext.resume();
 
-            if(!track.isMidi && isAutoCrossfade && isSinglePlaying && index !== singleTrackIndex && currentMode === 'single') {
+            if(!track.isMidi && !track.isSpotify && isAutoCrossfade && isSinglePlaying && index !== singleTrackIndex && currentMode === 'single') {
                  performAutoCrossfade(index);
                  return;
             }
             
-            stopAllAudio();
+            stopAllAudio(track && track.isSpotify);
             connectAudioGraph(); 
             
             singleTrackIndex = index;
@@ -8079,7 +8084,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.3.2';
+        const APP_VERSION = '3.3.3';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
@@ -9021,6 +9026,40 @@
         }
         window.syncSpotifyLibrary = syncSpotifyLibrary;
 
+        let spotifyPollInterval = null;
+
+        function startSpotifyStatePolling() {
+            if (spotifyPollInterval) clearInterval(spotifyPollInterval);
+            spotifyPollInterval = setInterval(async () => {
+                if (singleTrackIndex < 0 || !playlist[singleTrackIndex] || !playlist[singleTrackIndex].isSpotify) {
+                    clearInterval(spotifyPollInterval);
+                    spotifyPollInterval = null;
+                    return;
+                }
+                if (!spotifyAccessToken) return;
+                try {
+                    const data = await fetchSpotifyApi('me/player').catch(() => null);
+                    if (data) {
+                        if (typeof data.is_playing === 'boolean') {
+                            spotifyIsPlaying = data.is_playing;
+                            isSinglePlaying = spotifyIsPlaying;
+                            updateSingleUIState();
+                            updateVisualUIState(spotifyIsPlaying);
+                        }
+                        if (typeof data.progress_ms === 'number') {
+                            spotifyLastPositionMs = data.progress_ms;
+                            spotifyLastStateTimestamp = Date.now();
+                        }
+                        if (data.device) {
+                            spotifyActiveDevice = data.device;
+                            spotifyDeviceId = data.device.id;
+                            updateSpotifyDevicesUI();
+                        }
+                    }
+                } catch(e) {}
+            }, 3000);
+        }
+
         async function playSpotifyTrack(track, autoPlay = true) {
             spotifyCurrentTrack = track;
             spotifyLastPositionMs = 0;
@@ -9038,36 +9077,64 @@
             if (autoPlay) {
                 try {
                     const token = await ensureSpotifyToken();
-                    if (!token) throw new Error('Spotify未認証');
+                    if (!token) {
+                        showNotification('[Spotify] ログインが必要です。ヘルプ画面でログインしてください');
+                        openHelpModal();
+                        return;
+                    }
 
-                    let playedViaConnect = false;
-                    const targetDev = await resolveSpotifyTargetDevice();
                     const trackUri = track.uri || (`spotify:track:${track.spotifyId}`);
+                    let targetDev = await resolveSpotifyTargetDevice();
+
+                    // If no device is discovered, open desktop app and poll
+                    if (!targetDev) {
+                        openSpotifyDesktopApp(trackUri);
+                        showNotification(`[Spotify] Spotify アプリを起動中... (${track.name})`);
+                        for (let attempt = 1; attempt <= 6; attempt++) {
+                            await new Promise(r => setTimeout(r, 700));
+                            targetDev = await resolveSpotifyTargetDevice();
+                            if (targetDev) break;
+                        }
+                    }
+
+                    let playedSuccessfully = false;
 
                     if (targetDev) {
                         try {
+                            // Ensure target device is active (wake up inactive device)
+                            if (!targetDev.is_active) {
+                                await fetchSpotifyApi('me/player', 'PUT', {
+                                    device_ids: [targetDev.id],
+                                    play: false
+                                }).catch(e => console.warn('Transfer device error:', e));
+                                await new Promise(r => setTimeout(r, 200));
+                            }
+
+                            // Send play command with track URI
                             await fetchSpotifyApi(`me/player/play?device_id=${encodeURIComponent(targetDev.id)}`, 'PUT', {
                                 uris: [trackUri]
                             });
+
                             spotifyDeviceId = targetDev.id;
                             spotifyActiveDevice = targetDev;
-                            playedViaConnect = true;
+                            playedSuccessfully = true;
                             showNotification(`[Spotify Connect] ${targetDev.name} で再生中: ${track.name}`);
-                        } catch(devErr) {
-                            console.warn('Play on target device failed, trying default player:', devErr);
+                        } catch (devErr) {
+                            console.warn('Play on device error:', devErr);
                             try {
-                                await fetchSpotifyApi('me/player/play', 'PUT', {
-                                    uris: [trackUri]
+                                await fetchSpotifyApi('me/player', 'PUT', {
+                                    device_ids: [targetDev.id],
+                                    play: true
                                 });
-                                playedViaConnect = true;
-                                showNotification(`[Spotify Connect] 再生中: ${track.name}`);
-                            } catch(fallbackErr) {
-                                console.warn('Fallback play error:', fallbackErr);
+                                playedSuccessfully = true;
+                                showNotification(`[Spotify Connect] ${targetDev.name} で再生中: ${track.name}`);
+                            } catch (transferErr) {
+                                console.warn('Transfer play error:', transferErr);
                             }
                         }
                     }
 
-                    if (!playedViaConnect) {
+                    if (!playedSuccessfully) {
                         if (track.previewUrl) {
                             currentSinglePlayerIndex = 0;
                             const p = players[0];
@@ -9080,14 +9147,11 @@
                             showNotification(`[Spotify プレビュー再生] ${track.name} (30秒)`);
                         } else {
                             openSpotifyDesktopApp(trackUri);
-                            showNotification(`[Spotify] Spotify アプリを起動して再生を開始しました (${track.name})`);
-                            setTimeout(() => {
-                                getSpotifyDevices();
-                            }, 2000);
+                            showNotification(`[Spotify] Spotify アプリで再生を開始しました: ${track.name}`);
                         }
                     }
 
-                    // Sync current volume to Spotify Connect device
+                    // Sync volume to Spotify Connect
                     const currentVol = (ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.8;
                     syncSpotifyVolume(currentVol);
 
@@ -9098,17 +9162,9 @@
                     if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 } catch (err) {
                     console.error('Spotify play error:', err);
-                    if (track.previewUrl) {
-                        currentSinglePlayerIndex = 0;
-                        const p = players[0];
-                        p.src = track.previewUrl;
-                        p.currentTime = 0;
-                        p.play().catch(e => console.warn(e));
-                        showNotification(`[Spotify プレビュー再生] ${track.name}`);
-                    } else {
-                        openSpotifyDesktopApp(track.uri || (`spotify:track:${track.spotifyId}`));
-                        showNotification(`[Spotify] Spotify アプリで再生を開始しました: ${track.name}`);
-                    }
+                    const errMsg = err.message || String(err);
+                    showNotification(`[Spotify 再生] ${errMsg}`);
+                    openSpotifyDesktopApp(track.uri || (`spotify:track:${track.spotifyId}`));
                     isSinglePlaying = true;
                     spotifyIsPlaying = true;
                     updateSingleUIState();
@@ -9122,6 +9178,7 @@
             }
 
             spotifyProgressTimer = setInterval(spotifyProgressSync, 250);
+            startSpotifyStatePolling();
         }
         window.playSpotifyTrack = playSpotifyTrack;
 
@@ -9137,7 +9194,7 @@
         async function pauseSpotifyPlayback() {
             try {
                 const p = players[0];
-                if (p && !p.paused && p.src) p.pause();
+                if (p && !p.paused && p.src && !p.src.startsWith('spotify:')) p.pause();
                 await fetchSpotifyApi('me/player/pause', 'PUT').catch(() => {});
             } catch(e) {
                 console.warn('Spotify pause error:', e);
@@ -9153,15 +9210,20 @@
         async function resumeSpotifyPlayback() {
             try {
                 const p = players[0];
-                if (p && p.src && p.paused && currentSinglePlayerIndex === 0) {
+                if (p && p.src && p.paused && currentSinglePlayerIndex === 0 && !p.src.startsWith('spotify:')) {
                     p.play().catch(() => {});
                 } else {
+                    const targetDev = spotifyActiveDevice || (await resolveSpotifyTargetDevice());
+                    const trackUri = spotifyCurrentTrack ? (spotifyCurrentTrack.uri || `spotify:track:${spotifyCurrentTrack.spotifyId}`) : null;
+                    const devParam = targetDev ? `?device_id=${encodeURIComponent(targetDev.id)}` : '';
+                    
                     try {
-                        await fetchSpotifyApi('me/player/play', 'PUT');
+                        await fetchSpotifyApi(`me/player/play${devParam}`, 'PUT');
                     } catch(e) {
-                        const targetDev = await resolveSpotifyTargetDevice();
-                        if (targetDev) {
-                            await fetchSpotifyApi(`me/player/play?device_id=${encodeURIComponent(targetDev.id)}`, 'PUT').catch(() => {});
+                        if (trackUri && targetDev) {
+                            await fetchSpotifyApi(`me/player/play?device_id=${encodeURIComponent(targetDev.id)}`, 'PUT', {
+                                uris: [trackUri]
+                            }).catch(() => {});
                         }
                     }
                 }
@@ -9186,10 +9248,12 @@
 
             try {
                 const p = players[0];
-                if (p && p.src && p.duration) {
+                if (p && p.src && p.duration && !p.src.startsWith('spotify:')) {
                     p.currentTime = (percent / 100) * p.duration;
                 } else {
-                    await fetchSpotifyApi(`me/player/seek?position_ms=${targetMs}`, 'PUT').catch(() => {});
+                    const targetDev = spotifyActiveDevice || (await resolveSpotifyTargetDevice());
+                    const devParam = targetDev ? `?device_id=${encodeURIComponent(targetDev.id)}` : '';
+                    await fetchSpotifyApi(`me/player/seek${devParam}&position_ms=${targetMs}`.replace('?&', '?'), 'PUT').catch(() => {});
                 }
             } catch (e) {
                 console.warn('Spotify seek error:', e);
@@ -9212,7 +9276,7 @@
 
             const p = players[0];
             let curSec = 0;
-            if (p && p.src && !p.paused && p.duration) {
+            if (p && p.src && !p.paused && p.duration && !p.src.startsWith('spotify:')) {
                 curSec = p.currentTime;
             } else if (spotifyIsPlaying) {
                 const elapsedMs = Date.now() - spotifyLastStateTimestamp;
