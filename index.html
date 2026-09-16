@@ -1019,7 +1019,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.2.0</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.3.2</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -2109,12 +2109,12 @@
             <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-cyan-950/60 p-3 rounded-xl border border-cyan-500/40 shrink-0 flex items-center justify-between text-xs">
                 <div>
                     <span class="text-gray-400 text-[10px] block">現在のバージョン</span>
-                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.2.0</span>
+                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.3.2</span>
                 </div>
                 <div class="text-cyan-400 font-bold text-sm">→</div>
                 <div>
                     <span class="text-gray-400 text-[10px] block">最新バージョン</span>
-                    <span id="update-modal-latest-ver" class="font-mono text-cyan-300 font-extrabold text-sm">v3.3.0</span>
+                    <span id="update-modal-latest-ver" class="font-mono text-cyan-300 font-extrabold text-sm">-</span>
                 </div>
                 <div class="text-right">
                     <span class="text-gray-400 text-[10px] block">公開日</span>
@@ -2135,21 +2135,36 @@
 
             <!-- Download Target Asset Info -->
             <div id="update-modal-asset-container" class="bg-gray-950/80 border border-cyan-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between text-[11px] shrink-0">
-                <span class="text-gray-400">ダウンロード対象:</span>
-                <span id="update-modal-asset-name" class="font-mono text-cyan-300 font-bold truncate max-w-[280px]">OST-Player-v3.2.1-win32-x64.zip</span>
+                <span class="text-gray-400">更新パッケージ:</span>
+                <span id="update-modal-asset-name" class="font-mono text-cyan-300 font-bold truncate max-w-[280px]">-</span>
+            </div>
+
+            <!-- Progress Container (Updating State) -->
+            <div id="update-modal-progress-container" class="hidden bg-gray-950 border border-cyan-500/50 rounded-xl p-3.5 space-y-2 shrink-0">
+                <div class="flex justify-between items-center text-xs">
+                    <span id="update-progress-status" class="font-bold text-cyan-300">ダウンロード中...</span>
+                    <span id="update-progress-pct" class="font-mono font-bold text-cyan-200">0%</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden p-0.5 border border-gray-700">
+                    <div id="update-progress-bar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-full rounded-full transition-all duration-150 w-0"></div>
+                </div>
+                <p id="update-progress-detail" class="text-[10px] text-gray-400 font-mono">準備中...</p>
             </div>
 
             <!-- Footer Actions -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-800 shrink-0">
-                <button onclick="closeUpdateModal()" class="px-3.5 py-2 rounded-lg text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition">
+            <div id="update-modal-footer" class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-800 shrink-0">
+                <button id="update-modal-close-btn" onclick="closeUpdateModal()" class="px-3.5 py-2 rounded-lg text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition">
                     あとで
                 </button>
                 <div class="flex items-center space-x-2">
-                    <button onclick="openLatestReleaseWebPage()" class="px-3 py-2 rounded-lg text-xs text-cyan-300 hover:text-white bg-gray-800 hover:bg-gray-700 border border-cyan-500/40 transition">
-                        Releases ページ
+                    <button id="update-modal-browser-btn" onclick="downloadLatestReleaseAsset(true)" class="px-3 py-2 rounded-lg text-xs text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 border border-gray-600 transition" title="ブラウザ経由で ZIP を手動ダウンロード">
+                        ブラウザで手動保存
                     </button>
-                    <button id="update-modal-download-btn" onclick="downloadLatestReleaseAsset()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shadow-lg flex items-center space-x-2 active:scale-95">
-                        <span>最新版を自動ダウンロード (ZIP)</span>
+                    <button id="update-modal-apply-btn" onclick="startOneClickAutoUpdate()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs transition shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center space-x-2 active:scale-95">
+                        <svg class="w-4 h-4 text-emerald-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span>今すぐワンクリック更新 (自動再起動)</span>
                     </button>
                 </div>
             </div>
@@ -8064,9 +8079,10 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.3.1';
+        const APP_VERSION = '3.3.2';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
+        let isAutoUpdating = false;
 
         function getUpdateRepo() {
             const saved = localStorage.getItem('ost_update_repo');
@@ -8232,6 +8248,12 @@
             const titleEl = document.getElementById('update-modal-release-title');
             const changelogEl = document.getElementById('update-modal-changelog');
             const assetNameEl = document.getElementById('update-modal-asset-name');
+            const progressContainer = document.getElementById('update-modal-progress-container');
+            const footerActions = document.getElementById('update-modal-footer');
+
+            isAutoUpdating = false;
+            if (progressContainer) progressContainer.classList.add('hidden');
+            if (footerActions) footerActions.classList.remove('hidden');
 
             if (currentVerEl) currentVerEl.textContent = `v${APP_VERSION}`;
             if (latestVerEl) latestVerEl.textContent = release.tag_name || release.name || '最新版';
@@ -8264,6 +8286,10 @@
         window.openUpdateModal = openUpdateModal;
 
         function closeUpdateModal() {
+            if (isAutoUpdating) {
+                showNotification("アップデート処理中のため閉じられません");
+                return;
+            }
             const modal = document.getElementById('update-modal');
             if (modal) modal.classList.add('hidden');
         }
@@ -8294,15 +8320,83 @@
             return `https://github.com/${repo}/archive/refs/tags/${tag}.zip`;
         }
 
-        function downloadLatestReleaseAsset() {
+        async function startOneClickAutoUpdate() {
+            if (isAutoUpdating) return;
+            const downloadUrl = getLatestDownloadUrl();
+            if (!downloadUrl) {
+                showNotification("[更新エラー] ダウンロード先URLが見つかりませんでした");
+                return;
+            }
+
+            if (!window.electronAPI || !window.electronAPI.performAutoUpdate) {
+                downloadLatestReleaseAsset(true);
+                return;
+            }
+
+            isAutoUpdating = true;
+            const progressContainer = document.getElementById('update-modal-progress-container');
+            const footerActions = document.getElementById('update-modal-footer');
+            const statusEl = document.getElementById('update-progress-status');
+            const pctEl = document.getElementById('update-progress-pct');
+            const barEl = document.getElementById('update-progress-bar');
+            const detailEl = document.getElementById('update-progress-detail');
+
+            if (progressContainer) progressContainer.classList.remove('hidden');
+            if (footerActions) footerActions.classList.add('hidden');
+            if (statusEl) statusEl.textContent = "最新パッケージをダウンロード中...";
+            if (pctEl) pctEl.textContent = "0%";
+            if (barEl) barEl.style.width = "0%";
+            if (detailEl) detailEl.textContent = "ダウンロードを開始しています...";
+
+            if (window.electronAPI.onUpdateProgress) {
+                window.electronAPI.onUpdateProgress((data) => {
+                    if (!data) return;
+                    if (data.stage === 'downloading') {
+                        if (statusEl) statusEl.textContent = "最新パッケージをダウンロード中...";
+                        if (pctEl) pctEl.textContent = `${data.percent}%`;
+                        if (barEl) barEl.style.width = `${data.percent}%`;
+                        if (detailEl) detailEl.textContent = data.text || '';
+                    } else if (data.stage === 'extracting') {
+                        if (statusEl) statusEl.textContent = "アーカイブを展開・検証中...";
+                        if (pctEl) pctEl.textContent = "100%";
+                        if (barEl) barEl.style.width = "100%";
+                        if (detailEl) detailEl.textContent = "ファイルを展開しています...";
+                    } else if (data.stage === 'applying') {
+                        if (statusEl) statusEl.textContent = "更新を適用してアプリを再起動します...";
+                        if (detailEl) detailEl.textContent = "アプリが自動的に再起動します。しばらくお待ちください...";
+                    }
+                });
+            }
+
+            try {
+                const res = await window.electronAPI.performAutoUpdate(downloadUrl);
+                if (res && !res.success) {
+                    throw new Error(res.error || "自動更新処理に失敗しました");
+                }
+            } catch (err) {
+                console.error("Auto update error:", err);
+                isAutoUpdating = false;
+                if (statusEl) statusEl.textContent = "自動更新エラー";
+                if (detailEl) detailEl.textContent = err.message || String(err);
+                if (footerActions) footerActions.classList.remove('hidden');
+                showNotification(`[更新エラー] ${err.message || err}`);
+            }
+        }
+        window.startOneClickAutoUpdate = startOneClickAutoUpdate;
+
+        function downloadLatestReleaseAsset(isManual = false) {
             const url = getLatestDownloadUrl();
             if (window.electronAPI && window.electronAPI.openExternal) {
                 window.electronAPI.openExternal(url);
             } else {
                 window.open(url, '_blank');
             }
-            showNotification("ダウンロードを開始しました");
-            closeUpdateModal();
+            if (isManual) {
+                showNotification("ブラウザでダウンロードを開始しました");
+            } else {
+                showNotification("ダウンロードを開始しました");
+                closeUpdateModal();
+            }
         }
         window.downloadLatestReleaseAsset = downloadLatestReleaseAsset;
         window.openLatestReleaseUrl = downloadLatestReleaseAsset; // Backward compatibility

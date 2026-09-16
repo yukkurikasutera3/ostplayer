@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readLocalFile: (filePath) => ipcRenderer.invoke('read-local-file', filePath),
     spotifyLogin: (clientId) => ipcRenderer.invoke('spotify-login', clientId),
     spotifyLogout: () => ipcRenderer.invoke('spotify-logout'),
-    spotifyRefreshToken: (data) => ipcRenderer.invoke('spotify-refresh-token', data)
+    spotifyRefreshToken: (data) => ipcRenderer.invoke('spotify-refresh-token', data),
+    performAutoUpdate: (downloadUrl) => ipcRenderer.invoke('perform-auto-update', downloadUrl),
+    onUpdateProgress: (cb) => {
+        ipcRenderer.on('update-progress', (event, data) => {
+            if (typeof cb === 'function') cb(data);
+        });
+    }
 });
 

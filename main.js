@@ -2,9 +2,11 @@ const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
-
 const net = require('net');
+const os = require('os');
+const { spawn, exec } = require('child_process');
 
 let mainWindow;
 
@@ -729,6 +731,183 @@ ipcMain.handle('spotify-refresh-token', async (event, { refreshToken, clientId }
         }
     } catch (e) {
         return { success: false, error: e.message };
+    }
+});
+
+// --- One-Click In-App Auto Updater IPC Handler ---
+function downloadFileWithRedirects(url, destPath, progressCb, maxRedirects = 10) {
+    return new Promise((resolve, reject) => {
+        if (maxRedirects <= 0) return reject(new Error('リダイレクト回数が上限を超えました'));
+
+        const client = url.startsWith('https') ? https : http;
+        const options = {
+            headers: {
+                'User-Agent': 'OST-Player-AutoUpdater/3.3.2'
+            }
+        };
+
+        const req = client.get(url, options, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                let redirectUrl = res.headers.location;
+                if (!redirectUrl.startsWith('http')) {
+                    const parsedUrl = new URL(url);
+                    redirectUrl = new URL(redirectUrl, parsedUrl.origin).href;
+                }
+                return downloadFileWithRedirects(redirectUrl, destPath, progressCb, maxRedirects - 1)
+                    .then(resolve)
+                    .catch(reject);
+            }
+
+            if (res.statusCode !== 200) {
+                return reject(new Error(`ダウンロード失敗: HTTP ${res.statusCode}`));
+            }
+
+            const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+            let receivedBytes = 0;
+            const fileStream = fs.createWriteStream(destPath);
+
+            res.on('data', (chunk) => {
+                receivedBytes += chunk.length;
+                if (typeof progressCb === 'function') {
+                    progressCb(receivedBytes, totalBytes);
+                }
+            });
+
+            res.pipe(fileStream);
+
+            fileStream.on('finish', () => {
+                fileStream.close(() => resolve(destPath));
+            });
+
+            fileStream.on('error', (err) => {
+                fs.unlink(destPath, () => {});
+                reject(err);
+            });
+        });
+
+        req.on('error', (err) => {
+            fs.unlink(destPath, () => {});
+            reject(err);
+        });
+
+        req.setTimeout(120000, () => {
+            req.destroy(new Error('ダウンロードがタイムアウトしました (120秒)'));
+        });
+    });
+}
+
+ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
+    try {
+        if (!downloadUrl || typeof downloadUrl !== 'string') {
+            return { success: false, error: 'ダウンロードURLが無効です' };
+        }
+
+        const tempDir = path.join(os.tmpdir(), 'ostplayer-update-' + Date.now());
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        const zipPath = path.join(tempDir, 'update.zip');
+        const extractDir = path.join(tempDir, 'extracted');
+        fs.mkdirSync(extractDir, { recursive: true });
+
+        event.sender.send('update-progress', { stage: 'downloading', percent: 0, text: '最新パッケージをダウンロード中...' });
+
+        await downloadFileWithRedirects(downloadUrl, zipPath, (received, total) => {
+            const percent = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
+            const receivedMB = (received / 1024 / 1024).toFixed(1);
+            const totalMB = total > 0 ? (total / 1024 / 1024).toFixed(1) : '?';
+            event.sender.send('update-progress', {
+                stage: 'downloading',
+                percent,
+                received,
+                total,
+                text: `ダウンロード中... (${receivedMB} MB / ${totalMB} MB [${percent}%])`
+            });
+        });
+
+        event.sender.send('update-progress', { stage: 'extracting', percent: 100, text: 'アーカイブを展開中...' });
+
+        await new Promise((resolve, reject) => {
+            const psCmd = `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}' -Force`;
+            exec(`powershell -NoProfile -NonInteractive -Command "${psCmd}"`, (err, stdout, stderr) => {
+                if (err) {
+                    console.error('Extraction error:', err, stderr);
+                    return reject(new Error('アーカイブ展開に失敗しました: ' + (stderr || err.message)));
+                }
+                resolve();
+            });
+        });
+
+        event.sender.send('update-progress', { stage: 'applying', percent: 100, text: '更新を適用してアプリを再起動します...' });
+
+        const isPackaged = app.isPackaged;
+        const appDir = isPackaged ? path.dirname(process.execPath) : app.getAppPath();
+        const execPath = process.execPath;
+        const currentPid = process.pid;
+
+        // Check if extracted folder has a root wrapper directory
+        let sourceDir = extractDir;
+        const items = fs.readdirSync(extractDir);
+        if (items.length === 1 && fs.statSync(path.join(extractDir, items[0])).isDirectory()) {
+            sourceDir = path.join(extractDir, items[0]);
+        }
+
+        const batPath = path.join(tempDir, 'apply_update.bat');
+        let batScript = '';
+
+        if (isPackaged) {
+            batScript = `@echo off
+chcp 65001 > NUL
+timeout /t 1 /nobreak > NUL
+taskkill /PID ${currentPid} /F > NUL 2>&1
+timeout /t 1 /nobreak > NUL
+
+robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /R:3 /W:1 > NUL
+
+start "" "${execPath}"
+timeout /t 3 /nobreak > NUL
+rmdir /S /Q "${tempDir}" > NUL 2>&1
+exit
+`;
+        } else {
+            batScript = `@echo off
+chcp 65001 > NUL
+timeout /t 1 /nobreak > NUL
+taskkill /PID ${currentPid} /F > NUL 2>&1
+timeout /t 1 /nobreak > NUL
+
+robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /R:3 /W:1 /XD dist .git node_modules > NUL
+
+start "" "${execPath}" "${appDir}"
+timeout /t 3 /nobreak > NUL
+rmdir /S /Q "${tempDir}" > NUL 2>&1
+exit
+`;
+        }
+
+        fs.writeFileSync(batPath, batScript, 'utf8');
+
+        const child = spawn('cmd.exe', ['/c', batPath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        child.unref();
+
+        setTimeout(() => {
+            isQuitting = true;
+            if (discordRpc.connected) {
+                discordRpc.clearAndDisconnect().finally(() => {
+                    app.quit();
+                });
+            } else {
+                app.quit();
+            }
+        }, 600);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Auto update error:', error);
+        return { success: false, error: error.message || String(error) };
     }
 });
 
