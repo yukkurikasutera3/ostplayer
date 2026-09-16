@@ -504,7 +504,7 @@ ipcMain.on('test-discord', (event, data) => {
 
 // IPC Listener for Opening External URLs Safely
 ipcMain.on('open-external', (event, url) => {
-    if (url && typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    if (url && typeof url === 'string' && /^(https?:\/\/|spotify:)/i.test(url)) {
         shell.openExternal(url);
     }
 });

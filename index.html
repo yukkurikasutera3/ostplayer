@@ -1077,11 +1077,11 @@
                     <div class="bg-amber-950/60 border border-amber-500/50 rounded-lg p-3 text-xs space-y-1.5 text-amber-200">
                         <div class="font-bold text-amber-300 flex items-center space-x-1">
                             <span class="px-1.5 py-0.5 bg-amber-500/20 rounded border border-amber-500/40 text-[10px]">[重要・利用前の注意喚起]</span>
-                            <span>Spotify 連携における仕様と制限事項</span>
+                            <span>Spotify 連携における仕様と再生方法</span>
                         </div>
                         <ul class="list-disc list-inside space-y-1 text-[11px] text-amber-200/90 leading-relaxed">
-                            <li><strong>Spotify Premium アカウント必須:</strong> Spotify Web Playback SDK によるフル再生およびプレイヤー連携には、Spotify Premium（有料プラン）が必要です。Free アカウントでは 30 秒プレビュー再生または外部 Spotify アプリへのリモート送信となります。</li>
-                            <li><strong>DRM 保護と音声エフェクト制限:</strong> Spotify 音源は著作権保護 (DRM) ストリーミングのため、Web Audio API の Studio エフェクト（EQ、Bitcrusher、リバーブ等）の適用は行われません。曲名・アーティスト・ジャケット画像・シークバー・再生操作は OST Player 上で完全連動します。</li>
+                            <li><strong>Spotify Connect 連携再生:</strong> Spotify デスクトップアプリまたはスマートフォン/Webを起動しておくと、OST Player から自動的にそのデバイスへ楽曲が送信され、高音質でシームレスに同期再生されます（アプリ未起動時は自動で Spotify デスクトップアプリを起動します）。</li>
+                            <li><strong>DRM 保護と音声エフェクト制限:</strong> Spotify 音源は著作権保護 (DRM) ストリーミングのため、Web Audio API の Studio エフェクト（EQ、Bitcrusher、リバーブ等）の適用は行われません。曲名・アーティスト・ジャケット画像・シークバー・再生音量・Discord Presence は OST Player 上で完全連動します。</li>
                             <li><strong>Client ID の準備:</strong> ご自身の Spotify Developer アプリの Client ID を入力し、Redirect URI に <code class="bg-black/50 px-1 py-0.5 rounded font-mono text-amber-300">http://127.0.0.1:8888/callback</code> を登録してください。</li>
                         </ul>
                     </div>
@@ -1127,6 +1127,31 @@
                                     ログアウト
                                 </button>
                             </div>
+                        </div>
+
+                        <!-- Spotify Connect デバイス情報 (ログイン時のみ表示) -->
+                        <div id="spotify-devices-panel" class="hidden bg-gray-950/80 border border-emerald-500/25 rounded-lg p-2.5 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    <span class="text-xs font-bold text-emerald-200">Spotify Connect 再生デバイス</span>
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    <button onclick="openSpotifyDesktopApp()" class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-200 hover:text-white text-[10px] transition font-bold shadow-sm" title="Spotify デスクトップアプリを起動">
+                                        アプリ起動
+                                    </button>
+                                    <button onclick="refreshSpotifyDevicesUI(true)" class="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-800 border border-emerald-600 text-emerald-300 hover:text-white text-[10px] transition font-bold shadow-sm" title="接続中のデバイスを再検出">
+                                        デバイス再検出
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="spotify-device-info" class="text-[11px] text-gray-300 font-mono bg-black/50 px-2.5 py-1.5 rounded border border-gray-800 flex items-center justify-between">
+                                <span id="spotify-device-name">デバイスを検出中...</span>
+                                <span id="spotify-device-type" class="text-[10px] text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">CONNECT</span>
+                            </div>
+                            <p class="text-[10px] text-gray-400 leading-normal">
+                                ※Spotify Connect により、PC やスマホの Spotify アプリを通じて高音質で楽曲が再生されます。曲送り・音量・Discord 連携・シークは本アプリから自動制御されます。
+                            </p>
                         </div>
 
                         <!-- ログイン操作部 (未ログイン時) -->
@@ -6372,6 +6397,7 @@
             }
             const synth = (typeof getMidiSynth === 'function') ? getMidiSynth('main', false) : null;
             if(synth && typeof synth.setMasterVol === 'function') synth.setMasterVol(vol);
+            if(typeof syncSpotifyVolume === 'function') syncSpotifyVolume(vol);
         }
 
         // --- Mini Player Toggle & Marquee ---
@@ -8342,11 +8368,14 @@
         let spotifyUser = null;
         let spotifyPlayer = null;
         let spotifyDeviceId = null;
+        let spotifyDevices = [];
+        let spotifyActiveDevice = null;
         let spotifyCurrentTrack = null;
         let spotifyIsPlaying = false;
         let spotifyProgressTimer = null;
         let spotifyLastPositionMs = 0;
         let spotifyLastStateTimestamp = 0;
+        let spotifyVolumeDebounceTimer = null;
         let isSpotifySdkReady = false;
 
         function openSpotifyDeveloperPortal() {
@@ -8358,6 +8387,16 @@
             }
         }
         window.openSpotifyDeveloperPortal = openSpotifyDeveloperPortal;
+
+        function openSpotifyDesktopApp(trackUri = null) {
+            const uri = trackUri || 'spotify:';
+            if (window.electronAPI && window.electronAPI.openExternal) {
+                window.electronAPI.openExternal(uri);
+            } else {
+                window.open(uri, '_blank');
+            }
+        }
+        window.openSpotifyDesktopApp = openSpotifyDesktopApp;
 
         function initSpotifyUI() {
             const clientIdInput = document.getElementById('spotify-client-id-input');
@@ -8381,6 +8420,7 @@
                         if (valid) {
                             fetchSpotifyUserProfile();
                             initSpotifyWebPlaybackSDK();
+                            getSpotifyDevices();
                         } else {
                             updateSpotifyAuthUI(false);
                         }
@@ -8418,7 +8458,7 @@
                 if (authActions) authActions.classList.add('hidden');
                 if (userNameEl) userNameEl.textContent = spotifyUser.display_name || spotifyUser.id || 'Spotify User';
                 if (userProductEl) {
-                    const planText = spotifyUser.product === 'premium' ? 'Premium (フル再生対応)' : 'Free (プレビュー/リモート対応)';
+                    const planText = spotifyUser.product === 'premium' ? 'Premium (Spotify Connect 連動)' : 'Free (Spotify Connect / プレビュー)';
                     userProductEl.textContent = `Account: ${planText}`;
                 }
                 if (spotifyUser.images && spotifyUser.images.length > 0 && userAvatarImg) {
@@ -8429,6 +8469,7 @@
                     if (userAvatarImg) userAvatarImg.classList.add('hidden');
                     if (avatarPlaceholder) avatarPlaceholder.classList.remove('hidden');
                 }
+                updateSpotifyDevicesUI();
             } else {
                 if (statusBadge) {
                     statusBadge.textContent = '未連携';
@@ -8436,8 +8477,100 @@
                 }
                 if (userPanel) userPanel.classList.add('hidden');
                 if (authActions) authActions.classList.remove('hidden');
+                updateSpotifyDevicesUI();
             }
         }
+
+        async function getSpotifyDevices() {
+            if (!spotifyAccessToken) return [];
+            try {
+                const res = await fetchSpotifyApi('me/player/devices');
+                spotifyDevices = (res && res.devices) ? res.devices : [];
+                const activeDev = spotifyDevices.find(d => d.is_active);
+                spotifyActiveDevice = activeDev || (spotifyDevices.length > 0 ? spotifyDevices[0] : null);
+                if (activeDev) {
+                    spotifyDeviceId = activeDev.id;
+                }
+                updateSpotifyDevicesUI();
+                return spotifyDevices;
+            } catch(e) {
+                console.warn('Get Spotify devices error:', e);
+                return [];
+            }
+        }
+        window.getSpotifyDevices = getSpotifyDevices;
+
+        function updateSpotifyDevicesUI() {
+            const devicesPanel = document.getElementById('spotify-devices-panel');
+            const deviceNameEl = document.getElementById('spotify-device-name');
+            const deviceTypeEl = document.getElementById('spotify-device-type');
+            if (!devicesPanel) return;
+
+            if (spotifyAccessToken && spotifyUser) {
+                devicesPanel.classList.remove('hidden');
+                if (spotifyDevices && spotifyDevices.length > 0) {
+                    const active = spotifyDevices.find(d => d.is_active) || spotifyDevices[0];
+                    if (deviceNameEl) {
+                        deviceNameEl.textContent = `${active.name} (${active.type || 'Computer'})${active.is_active ? ' [アクティブ]' : ''}`;
+                        deviceNameEl.className = active.is_active ? 'text-emerald-300 font-bold text-xs' : 'text-gray-300 text-xs';
+                    }
+                    if (deviceTypeEl) {
+                        deviceTypeEl.textContent = active.type || 'CONNECT';
+                        deviceTypeEl.className = active.is_active
+                            ? 'text-[10px] text-emerald-300 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-600 font-bold font-mono'
+                            : 'text-[10px] text-gray-400 bg-gray-900 px-2 py-0.5 rounded border border-gray-700 font-mono';
+                    }
+                } else {
+                    if (deviceNameEl) {
+                        deviceNameEl.textContent = '再生デバイス未接続 (Spotify アプリを起動してください)';
+                        deviceNameEl.className = 'text-amber-300/80 text-[11px]';
+                    }
+                    if (deviceTypeEl) {
+                        deviceTypeEl.textContent = 'STANDBY';
+                        deviceTypeEl.className = 'text-[10px] text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800 font-mono';
+                    }
+                }
+            } else {
+                devicesPanel.classList.add('hidden');
+            }
+        }
+        window.updateSpotifyDevicesUI = updateSpotifyDevicesUI;
+
+        async function refreshSpotifyDevicesUI(showToast = false) {
+            const devs = await getSpotifyDevices();
+            if (showToast) {
+                if (devs && devs.length > 0) {
+                    const devNames = devs.map(d => `${d.name} (${d.type || 'Device'})`).join(', ');
+                    showNotification(`[Spotify Connect] ${devs.length} 台のデバイスを検出: ${devNames}`);
+                } else {
+                    showNotification('[Spotify Connect] 再生デバイスが見つかりません。Spotify アプリを起動してください');
+                }
+            }
+        }
+        window.refreshSpotifyDevicesUI = refreshSpotifyDevicesUI;
+
+        async function resolveSpotifyTargetDevice() {
+            const devices = await getSpotifyDevices();
+            if (!devices || devices.length === 0) return null;
+            const active = devices.find(d => d.is_active);
+            if (active) return active;
+            const computer = devices.find(d => (d.type && d.type.toLowerCase() === 'computer'));
+            return computer || devices[0];
+        }
+
+        function syncSpotifyVolume(vol) {
+            if (!spotifyAccessToken) return;
+            if (spotifyVolumeDebounceTimer) clearTimeout(spotifyVolumeDebounceTimer);
+            spotifyVolumeDebounceTimer = setTimeout(async () => {
+                try {
+                    const volPercent = Math.min(100, Math.max(0, Math.round(vol * 100)));
+                    await fetchSpotifyApi(`me/player/volume?volume_percent=${volPercent}`, 'PUT');
+                } catch(e) {
+                    // Ignore volume sync errors if device is disconnected or restricted
+                }
+            }, 120);
+        }
+        window.syncSpotifyVolume = syncSpotifyVolume;
 
         async function loginSpotify() {
             const clientIdInput = document.getElementById('spotify-client-id-input');
@@ -8478,6 +8611,7 @@
                     showNotification('[Spotify] 認証に成功しました');
                     await fetchSpotifyUserProfile();
                     initSpotifyWebPlaybackSDK();
+                    await getSpotifyDevices();
                     await syncSpotifyLibrary(true);
                 } else {
                     const errMsg = (result && result.error) ? result.error : '認証がキャンセルまたは失敗しました';
@@ -8504,6 +8638,8 @@
             spotifyExpiresAt = 0;
             spotifyUser = null;
             spotifyDeviceId = null;
+            spotifyDevices = [];
+            spotifyActiveDevice = null;
             spotifyCurrentTrack = null;
             spotifyIsPlaying = false;
             if (spotifyProgressTimer) {
@@ -8520,6 +8656,7 @@
             }
 
             updateSpotifyAuthUI(false);
+            updateSpotifyDevicesUI();
             showNotification('[Spotify] ログアウトしました');
         }
         window.logoutSpotify = logoutSpotify;
@@ -8583,6 +8720,7 @@
                 const data = await fetchSpotifyApi('me');
                 spotifyUser = data;
                 updateSpotifyAuthUI(true);
+                getSpotifyDevices();
                 return data;
             } catch (err) {
                 console.error('Fetch Spotify profile error:', err);
@@ -8609,10 +8747,12 @@
                 player.addListener('ready', ({ device_id }) => {
                     spotifyDeviceId = device_id;
                     console.log('Spotify Web Playback SDK Ready with Device ID:', device_id);
+                    getSpotifyDevices();
                 });
 
                 player.addListener('not_ready', ({ device_id }) => {
                     console.log('Spotify Device ID is offline:', device_id);
+                    getSpotifyDevices();
                 });
 
                 player.addListener('player_state_changed', state => {
@@ -8630,8 +8770,7 @@
                 });
 
                 player.addListener('account_error', ({ message }) => {
-                    console.warn('Spotify Account Error (Premium required for SDK):', message);
-                    showNotification('[Spotify 注意] フル再生には Spotify Premium が必要です');
+                    console.warn('Spotify Account Error:', message);
                 });
 
                 player.connect();
@@ -8807,39 +8946,62 @@
                     const token = await ensureSpotifyToken();
                     if (!token) throw new Error('Spotify未認証');
 
-                    let playedViaApi = false;
-                    if (spotifyDeviceId) {
+                    let playedViaConnect = false;
+                    const targetDev = await resolveSpotifyTargetDevice();
+                    const trackUri = track.uri || (`spotify:track:${track.spotifyId}`);
+
+                    if (targetDev) {
                         try {
-                            await fetchSpotifyApi(`me/player/play?device_id=${spotifyDeviceId}`, 'PUT', {
-                                uris: [track.uri]
+                            await fetchSpotifyApi(`me/player/play?device_id=${encodeURIComponent(targetDev.id)}`, 'PUT', {
+                                uris: [trackUri]
                             });
-                            playedViaApi = true;
-                        } catch(e) {
-                            console.warn('Play via device ID failed, trying default device:', e);
+                            spotifyDeviceId = targetDev.id;
+                            spotifyActiveDevice = targetDev;
+                            playedViaConnect = true;
+                            showNotification(`[Spotify Connect] ${targetDev.name} で再生中: ${track.name}`);
+                        } catch(devErr) {
+                            console.warn('Play on target device failed, trying default player:', devErr);
+                            try {
+                                await fetchSpotifyApi('me/player/play', 'PUT', {
+                                    uris: [trackUri]
+                                });
+                                playedViaConnect = true;
+                                showNotification(`[Spotify Connect] 再生中: ${track.name}`);
+                            } catch(fallbackErr) {
+                                console.warn('Fallback play error:', fallbackErr);
+                            }
                         }
                     }
 
-                    if (!playedViaApi) {
-                        try {
-                            await fetchSpotifyApi('me/player/play', 'PUT', {
-                                uris: [track.uri]
-                            });
-                            playedViaApi = true;
-                        } catch(e) {
-                            console.warn('Play via default device failed:', e);
+                    if (!playedViaConnect) {
+                        if (track.previewUrl) {
+                            currentSinglePlayerIndex = 0;
+                            const p = players[0];
+                            p.src = track.previewUrl;
+                            p.currentTime = 0;
+                            if (singleGainNodes[0] && singleGainNodes[0].gain) {
+                                singleGainNodes[0].gain.value = parseFloat(ui.single.vol.value) || 0.8;
+                            }
+                            await p.play();
+                            showNotification(`[Spotify プレビュー再生] ${track.name} (30秒)`);
+                        } else {
+                            openSpotifyDesktopApp(trackUri);
+                            showNotification(`[Spotify] Spotify アプリを起動して再生を開始しました (${track.name})`);
+                            setTimeout(() => {
+                                getSpotifyDevices();
+                            }, 2000);
                         }
                     }
 
-                    if (!playedViaApi && track.previewUrl) {
-                        currentSinglePlayerIndex = 0;
-                        const p = players[0];
-                        p.src = track.previewUrl;
-                        p.currentTime = 0;
-                        await p.play();
-                        showNotification(`[Spotify プレビュー再生] ${track.name} (30秒)`);
-                    } else if (playedViaApi) {
-                        showNotification(`[Spotify 再生中] ${track.name}`);
-                    }
+                    // Sync current volume to Spotify Connect device
+                    const currentVol = (ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.8;
+                    syncSpotifyVolume(currentVol);
+
+                    isSinglePlaying = true;
+                    spotifyIsPlaying = true;
+                    updateSingleUIState();
+                    updateVisualUIState(true);
+                    if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 } catch (err) {
                     console.error('Spotify play error:', err);
                     if (track.previewUrl) {
@@ -8850,14 +9012,14 @@
                         p.play().catch(e => console.warn(e));
                         showNotification(`[Spotify プレビュー再生] ${track.name}`);
                     } else {
-                        showNotification(`[Spotify 再生不可] Premium または Spotify アプリの起動が必要です: ${err.message}`);
+                        openSpotifyDesktopApp(track.uri || (`spotify:track:${track.spotifyId}`));
+                        showNotification(`[Spotify] Spotify アプリで再生を開始しました: ${track.name}`);
                     }
+                    isSinglePlaying = true;
+                    spotifyIsPlaying = true;
+                    updateSingleUIState();
+                    updateVisualUIState(true);
                 }
-
-                isSinglePlaying = true;
-                spotifyIsPlaying = true;
-                updateSingleUIState();
-                updateVisualUIState(true);
             } else {
                 isSinglePlaying = false;
                 spotifyIsPlaying = false;
@@ -8880,13 +9042,9 @@
 
         async function pauseSpotifyPlayback() {
             try {
-                if (spotifyPlayer) {
-                    await spotifyPlayer.pause();
-                } else {
-                    await fetchSpotifyApi('me/player/pause', 'PUT').catch(() => {});
-                }
                 const p = players[0];
-                if (p && !p.paused) p.pause();
+                if (p && !p.paused && p.src) p.pause();
+                await fetchSpotifyApi('me/player/pause', 'PUT').catch(() => {});
             } catch(e) {
                 console.warn('Spotify pause error:', e);
             }
@@ -8900,13 +9058,19 @@
 
         async function resumeSpotifyPlayback() {
             try {
-                if (spotifyPlayer) {
-                    await spotifyPlayer.resume();
-                } else {
-                    await fetchSpotifyApi('me/player/play', 'PUT').catch(() => {});
-                }
                 const p = players[0];
-                if (p && p.src && p.paused) p.play().catch(() => {});
+                if (p && p.src && p.paused && currentSinglePlayerIndex === 0) {
+                    p.play().catch(() => {});
+                } else {
+                    try {
+                        await fetchSpotifyApi('me/player/play', 'PUT');
+                    } catch(e) {
+                        const targetDev = await resolveSpotifyTargetDevice();
+                        if (targetDev) {
+                            await fetchSpotifyApi(`me/player/play?device_id=${encodeURIComponent(targetDev.id)}`, 'PUT').catch(() => {});
+                        }
+                    }
+                }
             } catch(e) {
                 console.warn('Spotify resume error:', e);
             }
@@ -8927,14 +9091,11 @@
             spotifyLastStateTimestamp = Date.now();
 
             try {
-                if (spotifyPlayer) {
-                    await spotifyPlayer.seek(targetMs);
+                const p = players[0];
+                if (p && p.src && p.duration) {
+                    p.currentTime = (percent / 100) * p.duration;
                 } else {
                     await fetchSpotifyApi(`me/player/seek?position_ms=${targetMs}`, 'PUT').catch(() => {});
-                }
-                const p = players[0];
-                if (p && p.duration) {
-                    p.currentTime = (percent / 100) * p.duration;
                 }
             } catch (e) {
                 console.warn('Spotify seek error:', e);
