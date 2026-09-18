@@ -519,7 +519,7 @@
                 <div id="chord-wheel-panel" class="hidden bg-gray-900/95 border border-purple-500/30 rounded-xl p-3 sm:p-4 my-2 flex flex-col items-center">
                     <div class="w-full flex justify-between items-center mb-2 pb-1.5 border-b border-gray-800">
                         <h4 class="text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center space-x-1.5">
-                            <span>🔘</span><span>Circle of Fifths Chord Visualizer</span>
+                            <span>Circle of Fifths Chord Visualizer</span>
                         </h4>
                         <button id="close-chord-wheel-btn" class="text-gray-500 hover:text-white text-xs cursor-pointer">✕ 閉じる</button>
                     </div>
@@ -578,13 +578,13 @@
                                 <span>MIDI Mixer</span>
                             </button>
                             <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10 cursor-pointer" title="ピアノロール">
-                                <span>🎹 Piano Roll</span>
+                                <span>Piano Roll</span>
                             </button>
                             <button id="single-chord-wheel-btn" class="hidden text-purple-400 hover:text-purple-300 transition flex items-center text-xs space-x-1 border border-purple-500/30 px-2 py-0.5 rounded bg-purple-500/10 cursor-pointer" title="五度圏コードホイール (和音リアルタイム解析)">
-                                <span>🔘 Chord Wheel</span>
+                                <span>Chord Wheel</span>
                             </button>
                             <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="WAVオーディオファイルにエクスポート書き出し">
-                                <span>💾 WAV書き出し</span>
+                                <span>WAV書き出し</span>
                             </button>
                         </div>
 
@@ -2341,9 +2341,7 @@
         let isSwapLREnabled = false;
         let isMonoMixEnabled = false;
 
-        // Chord Wheel State
-        let isChordWheelOpen = false;
-        
+
         // FX Presets (supports 11-band / 10-band EQ)
         const fxPresets = {
             flat: { name: "Flat", eq: [0,0,0,0,0,0,0,0,0,0,0], bass: 0, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
@@ -3057,27 +3055,13 @@
 
             // Chord Wheel Panel Listeners
             const chordWheelBtn = document.getElementById('single-chord-wheel-btn');
-            const chordWheelPanel = document.getElementById('chord-wheel-panel');
             const closeChordWheelBtn = document.getElementById('close-chord-wheel-btn');
-            if (chordWheelBtn && chordWheelPanel) {
-                chordWheelBtn.addEventListener('click', () => {
-                    isChordWheelOpen = chordWheelPanel.classList.contains('hidden');
-                    chordWheelPanel.classList.toggle('hidden');
-                    chordWheelBtn.classList.toggle('bg-purple-600', isChordWheelOpen);
-                    chordWheelBtn.classList.toggle('text-white', isChordWheelOpen);
-                    if (isChordWheelOpen) {
-                        const canvas = document.getElementById('circle-of-fifths-canvas');
-                        if (canvas) drawChordWheel(canvas, {});
-                    }
-                });
+            if (chordWheelBtn) {
+                chordWheelBtn.addEventListener('click', toggleChordWheel);
             }
-            if (closeChordWheelBtn && chordWheelPanel) {
+            if (closeChordWheelBtn) {
                 closeChordWheelBtn.addEventListener('click', () => {
-                    isChordWheelOpen = false;
-                    chordWheelPanel.classList.add('hidden');
-                    if (chordWheelBtn) {
-                        chordWheelBtn.classList.remove('bg-purple-600', 'text-white');
-                    }
+                    if (isChordWheelOpen) toggleChordWheel();
                 });
             }
 
@@ -3859,6 +3843,9 @@
                         return;
                     }
                     triggerMidiChannelLed(ch);
+                    if (typeof triggerChordWheelNoteOn === 'function') {
+                        triggerChordWheelNoteOn(msg[1], msg[2]);
+                    }
                     originalSend(msg, time);
                 } else if (cmd === 0xc0) {
                     // Program change (Instrument)
@@ -6346,6 +6333,7 @@
                 initMidiMixerUI();
                 document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
                 document.getElementById('single-piano-roll-btn').classList.remove('hidden');
+                document.getElementById('single-chord-wheel-btn').classList.remove('hidden');
                 document.getElementById('single-midi-export-btn').classList.remove('hidden');
                 
                 ui.single.title.textContent = track.name + " (MIDI)";
@@ -6362,11 +6350,14 @@
                 updateVideoBackgroundState(track.isVideo);
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
                 document.getElementById('single-piano-roll-btn').classList.add('hidden');
+                document.getElementById('single-chord-wheel-btn').classList.add('hidden');
                 document.getElementById('single-midi-export-btn').classList.add('hidden');
                 document.getElementById('midi-mixer-panel').classList.add('hidden');
                 document.getElementById('piano-roll-panel').classList.add('hidden');
+                document.getElementById('chord-wheel-panel').classList.add('hidden');
                 document.getElementById('single-artwork-area').classList.remove('hidden');
                 isPianoRollOpen = false;
+                isChordWheelOpen = false;
                 
                 // --- AUDIO PLAYBACK ---
                 currentSinglePlayerIndex = 0; 
@@ -6703,7 +6694,271 @@
         }
         window.togglePianoRoll = togglePianoRoll;
 
-        // 🎹 Synthesia-Style Vertical Falling Notes & 88-Key Piano Keyboard Engine
+        // --- Circle of Fifths (五度圏コードホイール) Engine ---
+        let isChordWheelOpen = false;
+        let chordWheelAnimId = null;
+        const chordPitchIntensities = new Float32Array(12); // 0=C, 1=C#, 2=D, 3=D#, 4=E, 5=F, 6=F#, 7=G, 8=G#, 9=A, 10=A#, 11=B
+
+        // Circle of Fifths order around the wheel clockwise starting from 12 o'clock
+        const circleOfFifthsLayout = [
+            { major: "C",  minor: "Am",  majorPitch: 0,  minorPitch: 9 },
+            { major: "G",  minor: "Em",  majorPitch: 7,  minorPitch: 4 },
+            { major: "D",  minor: "Bm",  majorPitch: 2,  minorPitch: 11 },
+            { major: "A",  minor: "F#m", majorPitch: 9,  minorPitch: 6 },
+            { major: "E",  minor: "C#m", majorPitch: 4,  minorPitch: 1 },
+            { major: "B",  minor: "G#m", majorPitch: 11, minorPitch: 8 },
+            { major: "F#", minor: "D#m", majorPitch: 6,  minorPitch: 3 },
+            { major: "Db", minor: "Bbm", majorPitch: 1,  minorPitch: 10 },
+            { major: "Ab", minor: "Fm",  majorPitch: 8,  minorPitch: 5 },
+            { major: "Eb", minor: "Cm",  majorPitch: 3,  minorPitch: 0 },
+            { major: "Bb", minor: "Gm",  majorPitch: 10, minorPitch: 7 },
+            { major: "F",  minor: "Dm",  majorPitch: 5,  minorPitch: 2 }
+        ];
+
+        const chordTemplates = [
+            { intervals: [0, 4, 7], suffix: "", typeName: "Major Triad" },
+            { intervals: [0, 3, 7], suffix: "m", typeName: "Minor Triad" },
+            { intervals: [0, 4, 7, 10], suffix: "7", typeName: "Dominant 7th" },
+            { intervals: [0, 4, 7, 11], suffix: "maj7", typeName: "Major 7th" },
+            { intervals: [0, 3, 7, 10], suffix: "m7", typeName: "Minor 7th" },
+            { intervals: [0, 3, 6], suffix: "dim", typeName: "Diminished Triad" },
+            { intervals: [0, 4, 8], suffix: "aug", typeName: "Augmented Triad" },
+            { intervals: [0, 5, 7], suffix: "sus4", typeName: "Suspended 4th" },
+            { intervals: [0, 2, 7], suffix: "sus2", typeName: "Suspended 2nd" }
+        ];
+
+        const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        function triggerChordWheelNoteOn(note, vel = 100) {
+            if (note === undefined || note === null) return;
+            const pitch = note % 12;
+            const intensity = Math.min(1.0, Math.max(0.3, vel / 127));
+            chordPitchIntensities[pitch] = Math.max(chordPitchIntensities[pitch], intensity);
+        }
+        window.triggerChordWheelNoteOn = triggerChordWheelNoteOn;
+
+        function detectChord() {
+            const threshold = 0.15;
+            let activeCount = 0;
+            for (let i = 0; i < 12; i++) {
+                if (chordPitchIntensities[i] > threshold) activeCount++;
+            }
+            if (activeCount < 2) return { name: "--", type: "No Chord", activePitches: [] };
+
+            let bestMatch = null;
+            let highestScore = -1;
+
+            for (let root = 0; root < 12; root++) {
+                for (const tmpl of chordTemplates) {
+                    let score = 0;
+                    let matches = 0;
+                    for (const interval of tmpl.intervals) {
+                        const p = (root + interval) % 12;
+                        if (chordPitchIntensities[p] > threshold) {
+                            score += chordPitchIntensities[p];
+                            matches++;
+                        } else {
+                            score -= 0.5;
+                        }
+                    }
+                    for (let p = 0; p < 12; p++) {
+                        if (chordPitchIntensities[p] > threshold && !tmpl.intervals.map(i => (root + i) % 12).includes(p)) {
+                            score -= 0.3 * chordPitchIntensities[p];
+                        }
+                    }
+
+                    if (matches >= 2 && score > highestScore) {
+                        highestScore = score;
+                        bestMatch = {
+                            name: pitchNames[root] + tmpl.suffix,
+                            type: `${pitchNames[root]} ${tmpl.typeName}`,
+                            root: root,
+                            intervals: tmpl.intervals
+                        };
+                    }
+                }
+            }
+
+            if (bestMatch && highestScore > 0.8) {
+                return bestMatch;
+            }
+            return { name: "--", type: "Analyzing...", activePitches: [] };
+        }
+
+        function drawChordWheelCanvas() {
+            const canvas = document.getElementById('circle-of-fifths-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const W = canvas.width;
+            const H = canvas.height;
+            const cx = W / 2;
+            const cy = H / 2;
+            const outerR = W * 0.44;
+            const innerR = W * 0.28;
+            const centerR = W * 0.16;
+
+            ctx.clearRect(0, 0, W, H);
+
+            // 1. Draw concentric background rings
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(147, 51, 234, 0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, centerR, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(10, 15, 30, 0.95)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            // 2. Draw 12 Radial Segments and Node Positions
+            const activeCoords = [];
+
+            for (let i = 0; i < 12; i++) {
+                const angle = (i * (Math.PI * 2) / 12) - (Math.PI / 2);
+                const item = circleOfFifthsLayout[i];
+
+                const majorX = cx + Math.cos(angle) * ((outerR + innerR) / 2);
+                const majorY = cy + Math.sin(angle) * ((outerR + innerR) / 2);
+                const minorX = cx + Math.cos(angle) * ((innerR + centerR) / 2);
+                const minorY = cy + Math.sin(angle) * ((innerR + centerR) / 2);
+
+                const majorIntensity = chordPitchIntensities[item.majorPitch];
+                const minorIntensity = chordPitchIntensities[item.minorPitch];
+
+                if (majorIntensity > 0.1) {
+                    activeCoords.push({ x: majorX, y: majorY, intensity: majorIntensity, label: item.major });
+                }
+
+                // Radial divider lines
+                const divAngle = angle + (Math.PI / 12);
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(divAngle) * centerR, cy + Math.sin(divAngle) * centerR);
+                ctx.lineTo(cx + Math.cos(divAngle) * outerR, cy + Math.sin(divAngle) * outerR);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Draw Major Key Node
+                ctx.save();
+                if (majorIntensity > 0.1) {
+                    ctx.shadowColor = 'rgba(168, 85, 247, 0.9)';
+                    ctx.shadowBlur = 12 * majorIntensity;
+                    ctx.fillStyle = `rgba(192, 132, 252, ${0.4 + majorIntensity * 0.6})`;
+                    ctx.beginPath();
+                    ctx.arc(majorX, majorY, 13 + (majorIntensity * 4), 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px sans-serif';
+                } else {
+                    ctx.fillStyle = 'rgba(216, 180, 254, 0.7)';
+                    ctx.font = '10px sans-serif';
+                }
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.major, majorX, majorY);
+                ctx.restore();
+
+                // Draw Minor Key Node
+                ctx.save();
+                if (minorIntensity > 0.1) {
+                    ctx.shadowColor = 'rgba(56, 189, 248, 0.9)';
+                    ctx.shadowBlur = 10 * minorIntensity;
+                    ctx.fillStyle = `rgba(56, 189, 248, ${0.4 + minorIntensity * 0.6})`;
+                    ctx.beginPath();
+                    ctx.arc(minorX, minorY, 10 + (minorIntensity * 3), 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 10px sans-serif';
+                } else {
+                    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+                    ctx.font = '9px sans-serif';
+                }
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.minor, minorX, minorY);
+                ctx.restore();
+            }
+
+            // 3. Draw Connecting Geometric Polygon
+            if (activeCoords.length >= 2) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(activeCoords[0].x, activeCoords[0].y);
+                for (let i = 1; i < activeCoords.length; i++) {
+                    ctx.lineTo(activeCoords[i].x, activeCoords[i].y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(192, 132, 252, 0.85)';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = 'rgba(168, 85, 247, 0.8)';
+                ctx.shadowBlur = 8;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 4. Update Center Text
+            const detected = detectChord();
+            const chordNameEl = document.getElementById('chord-name-display');
+            const chordTypeEl = document.getElementById('chord-type-display');
+            if (chordNameEl) chordNameEl.textContent = detected.name;
+            if (chordTypeEl) chordTypeEl.textContent = detected.type;
+
+            // 5. Decay Intensities smoothly
+            for (let i = 0; i < 12; i++) {
+                chordPitchIntensities[i] *= 0.92;
+                if (chordPitchIntensities[i] < 0.01) chordPitchIntensities[i] = 0;
+            }
+
+            if (isChordWheelOpen) {
+                chordWheelAnimId = requestAnimationFrame(drawChordWheelCanvas);
+            }
+        }
+
+        function toggleChordWheel() {
+            isChordWheelOpen = !isChordWheelOpen;
+            const panel = document.getElementById('chord-wheel-panel');
+            const btn = document.getElementById('single-chord-wheel-btn');
+            if (panel) {
+                if (isChordWheelOpen) {
+                    panel.classList.remove('hidden');
+                    if (btn) {
+                        btn.classList.add('bg-purple-600', 'text-white');
+                    }
+                    if (chordWheelAnimId) cancelAnimationFrame(chordWheelAnimId);
+                    chordWheelAnimId = requestAnimationFrame(drawChordWheelCanvas);
+                } else {
+                    panel.classList.add('hidden');
+                    if (btn) {
+                        btn.classList.remove('bg-purple-600', 'text-white');
+                    }
+                    if (chordWheelAnimId) {
+                        cancelAnimationFrame(chordWheelAnimId);
+                        chordWheelAnimId = null;
+                    }
+                }
+            }
+        }
+        window.toggleChordWheel = toggleChordWheel;
+
+        // Synthesia-Style Vertical Falling Notes & 88-Key Piano Keyboard Engine
         let pianoRollParticles = [];
 
         function isPianoBlackKey(note) {
@@ -10586,11 +10841,14 @@
                     });
                 }
 
-                // 2. Synthesizer noteOn event to flash channel LEDs in MIDI mixer
+                // 2. Synthesizer noteOn event to flash channel LEDs in MIDI mixer & feed Chord Wheel
                 if (this.synth && this.synth.eventHandler && typeof this.synth.eventHandler.addEvent === 'function') {
                     this.synth.eventHandler.addEvent("noteOn", "spessa_synth_note_on", (e) => {
                         if (e && e.channel !== undefined && typeof triggerMidiChannelLed === 'function') {
                             triggerMidiChannelLed(e.channel);
+                        }
+                        if (e && (e.midiNote !== undefined || e.note !== undefined) && typeof triggerChordWheelNoteOn === 'function') {
+                            triggerChordWheelNoteOn(e.midiNote !== undefined ? e.midiNote : e.note, e.velocity || 100);
                         }
                     });
                 }
