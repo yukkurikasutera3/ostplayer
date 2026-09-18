@@ -1,6 +1,6 @@
 # OST Player - 現状機能・要素一覧 (Current Features)
 
-OST Player (v3.4.0) に現在実装されている全機能および画面構成要素の一覧です。
+OST Player (v3.4.1) に現在実装されている全機能および画面構成要素の一覧です。
 
 ---
 
