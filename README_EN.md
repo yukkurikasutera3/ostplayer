@@ -2,113 +2,114 @@
 
 [ [日本語](README.md) | English | [简体中文](README_ZH.md) | [한국어](README_KO.md) ]
 
-High-performance Multi-Mode Desktop Audio Player & DJ Mixer (Desktop Audio Player with 3D Spatial Audio, SoundFont Synth, Spotify Integration & Visualizers)
+High-performance Multi-Mode Desktop Audio Player & DJ Mixer (Desktop Audio Player with 3D Spatial Audio, SoundFont Synth, Studio EQ & Visualizers)
 
 ---
 
 ## Overview
 
 **OST Player** is a next-generation desktop audio player built on Electron and the Web Audio API.
-It integrates local audio and video playback, high-fidelity SoundFont (.sf2 / .sf3) MIDI synthesis, native Spotify Web Playback SDK streaming, 3D Spatial Audio (8D Orbit), a 5-band graphic equalizer with studio reverb, immersive fullscreen visualizers, Discord Rich Presence (RPC), and SSP (Ukagaka) SSTP speech integration into a unified, glassmorphic user interface.
+It integrates local audio and video playback, high-fidelity SoundFont (.sf2 / .sf3) MIDI synthesis, a 10-band studio graphic EQ with vocal cut (karaoke mode), 0ms seamless game OST looping, Circle of Fifths chord analysis, 3D Spatial Audio (8D Orbit), immersive fullscreen visualizers, Discord Rich Presence (RPC), and SSP (Ukagaka) SSTP speech integration into a unified, glassmorphic user interface.
 
 ---
 
 ## Key Features
 
 ### 1. 5+1 Playback & DJ Modes
-- **Single Mode**: Standard player featuring turntable artwork animation, auto crossfade, video background synchronization, and Spotify playback support.
-- **Dual Mode**: Real-time DJ mixer with two independent decks (Deck A / Deck B), crossfader, and simultaneous playback (Play Both).
-- **Multi Mode**: Multi-deck player allowing unlimited concurrent tracks with synchronized start/stop and per-deck volume controls.
-- **Studio FX Mode**: Real-time audio processing with a 5-band EQ, bass boost, spatial reverb, distortion, delay, tremolo, speed/pitch lock (0.5x - 2.0x), and WAV export.
-- **Visual Mode**: Dynamic fullscreen visualizers reacting in real-time to audio frequencies (Quantum Orb, Neon Spectrum, Laser Wave, Radial Vortex, Starfield 3D Galaxy).
-- **Help View**: Integrated control center for external services (Spotify, Discord RPC, SSP SSTP, Software Updates), update log, and keyboard shortcuts.
+- **Single Mode**: Standard player featuring turntable artwork animation, auto crossfade, video background synchronization, 0ms game loop, and Circle of Fifths chord wheel display.
+- **Dual Mode**: Dual independent decks (Deck A / Deck B) for real-time DJ mixing, crossfader, and simultaneous playback (Play Both).
+- **Multi Mode**: Add unlimited decks for layered playback and individual volume controls.
+- **Studio FX Mode**: 10-band studio EQ (5/10 band toggle), center channel vocal remover (karaoke), stereo pan (L/R balance), Swap L/R, Mono Mix, Bitcrusher, tape delay, ambient sound effects (rain/vinyl noise), pitch-locked tempo adjustments (0.5x–2.0x), and WAV export.
+- **Visual Mode**: Fullscreen dynamic audio visualizers reactive to spectrum and beat (Quantum Orb, Neon Spectrum, Laser Wave, Radial Vortex, Starfield 3D Galaxy).
+- **Help View**: Integrated control center for external services (Discord RPC, SSP SSTP, Software Updates), update log, and keyboard shortcuts.
 
-### 2. Native Spotify Web API & Web Playback SDK Integration
-- **Secure OAuth 2.0 PKCE Authentication**: Zero-secret PKCE flow with local loopback callback (`http://127.0.0.1:8888/callback`) for seamless in-app authentication.
-- **Direct In-App Streaming**: Playback via Spotify Web Playback SDK (Premium) with automatic 30s preview and Spotify Connect fallback for Free accounts.
-- **Library & Playlist Synchronization**: One-click sync for Liked Songs and user playlists with dedicated "Spotify" filter buttons.
+### 2. Studio Sound & Center Channel Vocal Remover
+- **10-Band Graphic Equalizer**: 31Hz to 16kHz independent frequency sliders with 5-Band / 10-Band switchable modes.
+- **Center Channel Vocal Remover (Vocal Cut)**: Removes centered vocal frequencies via out-of-phase stereo cancellation with an adjustable intensity slider (0%–100%).
+- **Stereo Pan & Channel Routing**: Stereo balance slider, Swap L/R channel inversion, and Mono Mix for single-earphone monitoring.
 
-### 3. MIDI & SoundFont (.sf2 / .sf3) Synthesis Engine
-- **SpessaSynth Core & WebAudioTinySynth**: High-quality SoundFont rendering combined with ultra-lightweight fallback synthesis.
-- **SoundFont Hot-Swapping**: Instant SoundFont switching during runtime without needing an application restart.
-- **16-Channel MIDI Mixer**: Real-time control of volume, mute, solo, and instrument selection (Program Change) per channel with active note LEDs.
-- **Instant Instrument Reflection & Preset Lock**: Instant voice cutoff and immediate new instrument triggering, protected from MIDI sequence override.
-- **Track-Specific Mixer Persistence**: Automatic saving and restoration of 16-channel mixing balance for each MIDI track.
-- **High-Speed Piano Roll**: Neon waterfall visualizer displaying active notes in real-time.
-- **MIDI to WAV Export**: Offline high-speed rendering of SoundFont MIDI playback into lossless WAV audio files.
+### 3. Game OST 0ms Seamless Loop Point Engine
+- Automatically parses `LOOPSTART`, `LOOPLENGTH`, and `LOOPEND` tags from OGG, FLAC, MP3, and WAV files.
+- 0ms hardware buffer seek when reaching the loop end point, creating seamless infinite background music.
+- 4-way loop toggle: Off, All, 1, and Game OST Infinite Loop.
 
-### 4. Video Playback & Background Synchronization
-- **Hardware-Level 0ms Latency**: Direct Web Audio routing from video elements for zero audio-video desync.
-- **Video Background Mode**: Seamless projection of video tracks across the entire application background.
-- **Real-Time Visual Filters**: Dynamic background blur, dark overlay opacity, and card opacity sliders.
+### 4. Circle of Fifths Chord Wheel Visualizer
+- Real-time chord progression and note breakdown analysis during MIDI playback.
+- Geometric neon polygon rendering and chord name identification directly on the Circle of Fifths wheel.
 
-### 5. 3D Spatial Audio & 8D Orbit
-- **HRTF 3D PannerNode**: Web Audio API binaural positioning.
-- **8D Auto-Orbit Mode**: Automated 360-degree rotational audio orbiting around the listener.
-- **2D Panner Pad**: Interactive drag-and-drop spatial positioner.
+### 5. MIDI & SoundFont (.sf2 / .sf3) Synthesis Engine
+- **SpessaSynth Core & WebAudioTinySynth**: High-fidelity SoundFont rendering and lightweight MIDI synthesis.
+- **Hot-Swappable SoundFonts**: Switch custom SoundFonts during active sessions with immediate voice re-binding.
+- **16-Channel MIDI Mixer**: Real-time per-channel volume, mute, solo, and instrument (Program Change) control.
+- **Instant Instrument Switching & Preset Lock**: Instant voice clearing when changing instruments; protected against accidental MIDI program change overrides.
+- **Per-Track Preset Persistence**: Automatically saves and restores 16-channel mixing configurations per song.
+- **High-Performance Piano Roll**: Sharp, waterfall neon note visualization.
+- **Fast MIDI-to-WAV Export**: Direct audio rendering to high-quality `.wav` files.
 
-### 6. Discord Rich Presence & SSP (Ukagaka) SSTP Integration
-- **Discord RPC**: Native Windows Named Pipe IPC displaying track name, artist, elapsed/total time live progress bar, and listening activity.
-- **SSP (Ukagaka) SSTP**: DirectSSTP 1.1 support with ID3 tag priority resolution, customizable SakuraScript templates, and port configuration.
+### 6. Video Playback & Background Synchronization
+- **Zero Latency (0ms Hardware Sync)**: Direct Web Audio API stream routing for perfectly synced audio and video.
+- **Background Video Mode**: Projections of video playback behind the UI cards.
+- **Dynamic Background FX**: Real-time Blur, Darkness Overlay, and Glass Card Opacity sliders.
 
-### 7. Trophy Room & Hidden Achievements System
-- 40 unique achievements across playback, MIDI, audio FX, DJing, visual themes, and secrets.
-- Real-time toast notifications on unlock with custom chime synthesis and 6-tier player title progression.
+### 7. 3D Spatial Audio & 8D Orbit
+- **HRTF 3D PannerNode**: Web Audio binaural positioning.
+- **8D Auto-Orbit**: Automatic 360-degree sound rotation around the listener.
+- **2D Panner Pad**: Interactive X/Y drag pad for positioning sound in 2D space.
 
-### 8. In-App Update Checker
-- Automated GitHub Releases API integration with version comparison.
-- In-app release notes viewer and direct one-click Windows ZIP package downloads.
+### 8. Discord Rich Presence (RPC) & SSP (Ukagaka) SSTP Integration
+- **Discord RPC**: Zero-dependency Windows Named Pipe IPC. Broadcasts track title, artist, and elapsed/total duration progress bars.
+- **SSP (Ukagaka) SSTP Integration**: DirectSSTP 1.1 compliant. Parses ID3 tags and triggers ghost speech with customizable SakuraScript templates.
+
+### 9. Trophy Room & Achievement System
+- 40 hidden achievements spanning playback, MIDI, audio FX, DJing, visualizer stages, and easter eggs.
+- Achievement unlock toast notifications and a 6-tier player title progression system.
+
+### 10. One-Click In-App Auto Updater
+- Connects to GitHub Releases API to detect updates automatically.
+- One-click in-place automatic downloading, unzipping, file replacement, and restart directly within the app.
 
 ---
 
 ## Supported Formats
 
-| Category | Supported Extensions |
+| Type | Extensions |
 | :--- | :--- |
-| **Audio** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma` |
-| **MIDI** | `.mid`, `.midi` |
-| **SoundFont** | `.sf2`, `.sf3` |
-| **Video** | `.mp4`, `.webm`, `.mov`, `.mkv`, `.m4v`, `.avi`, `.ts`, `.ogv` |
-| **Streaming** | Spotify (Web Playback SDK / Web API) |
-| **Playlist** | JSON Backup (Import / Export) |
+| **Audio Files** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma` |
+| **MIDI Files** | `.mid`, `.midi` |
+| **SoundFonts** | `.sf2`, `.sf3` |
+| **Video Files** | `.mp4`, `.webm`, `.mov`, `.mkv`, `.m4v`, `.avi`, `.ts`, `.ogv` |
+| **Playlists** | JSON backup (with full local file restoration) |
 
 ---
 
-## Requirements
+## System Requirements
 
-- **Operating System**: Windows 10 / 11 (64-bit)
+- **OS**: Windows 10 / 11 (64-bit)
 - **Node.js**: v18.0.0 or higher (when building from source)
 - **Electron**: v31.x
-- **For Spotify Integration**: A Spotify Account (Spotify Premium recommended for full playback) and a Client ID from Spotify Developer Dashboard
 
 ---
 
 ## Getting Started
 
-### 1. Using Prebuilt Release (Recommended)
-Download the latest `OST-Player-vX.X.X-win32-x64.zip` from [GitHub Releases](https://github.com/yukkurikasutera3/ostplayer/releases), extract the archive to your desired directory, and launch `OST Player.exe`.
+### 1. Using the Release Package (Recommended)
+Download the latest `OST-Player-vX.X.X-win32-x64.zip` from [GitHub Releases](https://github.com/yukkurikasutera3/ostplayer/releases), extract it, and run `OST Player.exe`.
 
 ### 2. Running from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/yukkurikasutera3/ostplayer.git
 cd ostplayer
-
-# Install dependencies
 npm install
-
-# Start the application
 npm start
 ```
 
-### 3. Building Packages
+### 3. Packaging
 
 ```bash
-# Build portable Windows 64-bit binary
 npm run pack
 ```
-Packaged binaries will be located in `dist/OST Player-win32-x64/`.
+Binaries will be output to `dist/OST Player-win32-x64/`.
 
 ---
 
@@ -116,35 +117,17 @@ Packaged binaries will be located in `dist/OST Player-win32-x64/`.
 
 | Key | Action |
 | :--- | :--- |
-| `Space` | Play / Pause (All modes) |
+| `Space` | Play / Pause |
 | `F11` | Toggle Fullscreen |
-| `1` - `6` | Switch Player Mode (1: Single, 2: Dual, 3: Multi, 4: FX, 5: Visual, 6: Help) |
-| `←` / `→` | Previous / Next Track (Single / FX / Visual) |
+| `1` – `6` | Mode Switching (1: Single, 2: Dual, 3: Multi, 4: FX, 5: Visual, 6: Help) |
+| `←` / `→` | Previous / Next Track |
 | `↑` / `↓` | Adjust Master Volume |
-| `[` / `]` | Move Dual Mode Crossfader |
-| `M` | Toggle Master Mute |
-
----
-
-## External Services Setup Guide
-
-### Spotify Setup
-1. Log in to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a new application.
-2. In the app settings, add `http://127.0.0.1:8888/callback` under Redirect URIs and save.
-3. Copy the **Client ID**.
-4. In OST Player, go to the Help View -> Spotify Integration card, paste your Client ID, and click "Login (OAuth PKCE)".
-
-### Discord Rich Presence Setup
-- Simply launch OST Player while Discord is running; the application will automatically connect via local Named Pipes.
-- You can customize display templates and timer options in the Help View.
-
-### SSP (Ukagaka) SSTP Setup
-- Launch your Ukagaka ghost (SSP) and turn on "SSP SSTP Integration" in the OST Player Help View.
-- Customize SakuraScript templates (e.g., `\0\s[0]Now playing: {title} by {artist}\e`) as desired.
+| `[` / `]` | Move Crossfader (Dual Mode) |
+| `M` | Master Mute Toggle |
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-Third-party libraries including SpessaSynth and WebAudioTinySynth are distributed under their respective open-source licenses.
+Third-party libraries (SpessaSynth, WebAudioTinySynth, etc.) belong to their respective open-source licenses.
