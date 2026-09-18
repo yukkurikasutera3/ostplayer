@@ -5,7 +5,11 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"^(dist|\\.git|\\.continue|filter_logs\\.py|current_features\\.md|毎回必ずチェック\\.txt|.*\\.txt$)(/|$)\""
+    "pack": "electron-packager . \"OST Player\" --platform=win32 --arch=x64 --overwrite --out=dist --ignore=\"^(dist|\\.git|\\.continue|filter_logs\\.py|current_features\\.md|毎回必ずチェック\\.txt|.*\\.txt$|android|mobile|www|scripts)(/|$)\"",
+    "android:prepare": "node scripts/prepare-mobile.js",
+    "android:sync": "node scripts/prepare-mobile.js && cap sync android",
+    "android:build": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1",
+    "android:open": "cap open android"
   },
   "keywords": [
     "audio",
@@ -18,6 +22,9 @@
   "author": "Antigravity",
   "license": "MIT",
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "electron": "^31.3.0",
     "electron-packager": "^17.1.2"
   }

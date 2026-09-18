@@ -1,0 +1,14 @@
+{
+  "appId": "com.ostplayer.app",
+  "appName": "OST Player",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>OST Player - Ultimate (Full MIDI Support)</title>
     <script>
         const _origWarn = console.warn;
@@ -10,7 +10,7 @@
             if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
             _origWarn.apply(console, args);
         };
-        // ⚡ 起動時のテーマ即時適用（リロード時のチラつき・未反映を完全防止）
+        // 起動時のテーマ即時適用（リロード時のチラつき・未反映を完全防止）
         try {
             const _savedTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
             document.documentElement.classList.add('theme-' + _savedTheme);
@@ -23,6 +23,15 @@
 
     <!-- Audio Metadata Parser (jsmediatags for reliable cover art & ID3 tags) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
+    <!-- Platform Detection & Bridges (Desktop / Mobile / Web) -->
+    <script src="src/platform/detector.js"></script>
+    <script src="src/platform/desktop-bridge.js"></script>
+    <script src="src/platform/mobile-bridge.js"></script>
+    <script src="src/ui/mobile-nav.js"></script>
+
+    <!-- Mobile Responsive Stylesheet -->
+    <link rel="stylesheet" href="src/ui/responsive.css">
 
 
     <style>
@@ -426,13 +435,13 @@
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg><span id="trophy-count-badge" class="text-[9px] text-amber-400">0/40</span>
                     </button>
 
-                    <!-- 独立したHelpボタン -->
-                    <button id="help-mode-btn" onclick="setPlayerMode('help')" class="px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
+                    <!-- 独立したHelpボタン (デスクトップ専用、スマホは下部ナビに統合) -->
+                    <button id="help-mode-btn" onclick="setPlayerMode('help')" class="desktop-only px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-300 bg-gray-900 hover:text-white hover:bg-gray-700 transition-colors select-none focus:outline-none shrink-0">
                         Help
                     </button>
 
-                    <!-- ミニプレイヤー切替 -->
-                    <button id="mini-toggle-btn" onclick="toggleMiniPlayer()" class="px-2 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white hover:bg-cyan-900/50 transition-colors select-none focus:outline-none shrink-0" title="ミニプレイヤー切替">
+                    <!-- ミニプレイヤー切替 (デスクトップ専用) -->
+                    <button id="mini-toggle-btn" onclick="toggleMiniPlayer()" class="desktop-only px-2 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white hover:bg-cyan-900/50 transition-colors select-none focus:outline-none shrink-0" title="ミニプレイヤー切替">
                         Mini
                     </button>
 
@@ -451,6 +460,9 @@
                     </div>
                     <h2 id="single-title" class="text-xl sm:text-2xl font-bold truncate text-white mb-1 px-4 max-w-full">No Track Selected</h2>
                     <p id="single-status" class="text-xs sm:text-sm text-gray-400">リストから曲を選択してください</p>
+                    <div id="single-game-loop-badge" class="hidden mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 flex items-center space-x-1 shadow-sm">
+                        <span>🎮</span><span>GAME LOOP DETECTED</span>
+                    </div>
                 </div>
 
                 <!-- MIDI Mixer Panel (Collapsible) -->
@@ -496,10 +508,27 @@
                         <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center">
                             <span class="mr-1.5">🎹</span> Waterfall Piano Visualizer
                         </h4>
-                        <button id="close-piano-roll-btn" class="text-gray-500 hover:text-white text-xs">✕ 閉じる</button>
+                        <button id="close-piano-roll-btn" class="text-gray-500 hover:text-white text-xs cursor-pointer">✕ 閉じる</button>
                     </div>
                     <div class="w-full h-48 sm:h-56 bg-gray-950 rounded-lg overflow-hidden border border-gray-800 relative">
                         <canvas id="piano-roll-canvas" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- 🔘 Chord Wheel (Circle of Fifths) Panel (Collapsible) -->
+                <div id="chord-wheel-panel" class="hidden bg-gray-900/95 border border-purple-500/30 rounded-xl p-3 sm:p-4 my-2 flex flex-col items-center">
+                    <div class="w-full flex justify-between items-center mb-2 pb-1.5 border-b border-gray-800">
+                        <h4 class="text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center space-x-1.5">
+                            <span>🔘</span><span>Circle of Fifths Chord Visualizer</span>
+                        </h4>
+                        <button id="close-chord-wheel-btn" class="text-gray-500 hover:text-white text-xs cursor-pointer">✕ 閉じる</button>
+                    </div>
+                    <div class="relative w-56 h-56 sm:w-64 sm:h-64 my-1 flex items-center justify-center">
+                        <canvas id="circle-of-fifths-canvas" width="256" height="256" class="w-full h-full block"></canvas>
+                        <div id="chord-wheel-center-text" class="absolute flex flex-col items-center justify-center pointer-events-none text-center">
+                            <span id="chord-name-display" class="text-xl sm:text-2xl font-black text-purple-300 tracking-wider drop-shadow-[0_0_12px_rgba(168,85,247,0.9)]">--</span>
+                            <span id="chord-type-display" class="text-[9px] font-medium text-gray-400">No Chord</span>
+                        </div>
                     </div>
                 </div>
 
@@ -535,7 +564,7 @@
                     
                     <div class="flex justify-between items-center flex-wrap gap-2">
                         <div class="flex items-center space-x-2 sm:space-x-3 flex-wrap gap-y-1">
-                            <button id="loop-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1" title="ループ切り替え (オフ -> 全曲 -> 1曲)">
+                            <button id="loop-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1" title="ループ切り替え (オフ -> 全曲 -> 1曲 -> ゲーム無限ループ)">
                                 <svg id="loop-icon-all" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                                 <svg id="loop-icon-one" class="hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path><text x="8.5" y="16.5" font-size="8" font-weight="bold" fill="currentColor">1</text></svg>
                                 <span id="loop-text">Loop</span>
@@ -544,12 +573,15 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
                                 <span>Shuffle</span>
                             </button>
-                            <button id="single-midi-mixer-btn" class="hidden text-yellow-500 hover:text-yellow-400 transition flex items-center text-xs space-x-1 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10" title="MIDIミキサー">
+                            <button id="single-midi-mixer-btn" class="hidden text-yellow-500 hover:text-yellow-400 transition flex items-center text-xs space-x-1 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10 cursor-pointer" title="MIDIミキサー">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
                                 <span>MIDI Mixer</span>
                             </button>
-                            <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10" title="ピアノロール">
+                            <button id="single-piano-roll-btn" class="hidden text-cyan-400 hover:text-cyan-300 transition flex items-center text-xs space-x-1 border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10 cursor-pointer" title="ピアノロール">
                                 <span>🎹 Piano Roll</span>
+                            </button>
+                            <button id="single-chord-wheel-btn" class="hidden text-purple-400 hover:text-purple-300 transition flex items-center text-xs space-x-1 border border-purple-500/30 px-2 py-0.5 rounded bg-purple-500/10 cursor-pointer" title="五度圏コードホイール (和音リアルタイム解析)">
+                                <span>🔘 Chord Wheel</span>
                             </button>
                             <button id="single-midi-export-btn" class="hidden text-emerald-400 hover:text-emerald-300 transition flex items-center text-xs space-x-1 border border-emerald-500/30 px-2 py-0.5 rounded bg-emerald-500/10 cursor-pointer" title="WAVオーディオファイルにエクスポート書き出し">
                                 <span>💾 WAV書き出し</span>
@@ -702,33 +734,64 @@
 
                 <div class="bg-gray-800/80 p-4 rounded-xl border border-purple-900/50 flex-1 flex flex-col overflow-y-auto min-h-0 pb-6">
                     <!-- EQ & Effects Controls -->
-                    <div class="mb-4 bg-gray-900/50 p-2 rounded-lg">
+                    <div class="mb-4 bg-gray-900/50 p-2.5 rounded-lg border border-purple-900/40">
                         <div class="flex justify-between items-center mb-2">
-                            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Equalizer</div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Equalizer</span>
+                                <div class="flex bg-gray-800 rounded p-0.5 border border-gray-700 text-[9px]">
+                                    <button id="eq-band-toggle-5" class="px-2 py-0.5 rounded font-bold transition bg-purple-600 text-white cursor-pointer" title="標準 5バンド表示">5-Band</button>
+                                    <button id="eq-band-toggle-10" class="px-2 py-0.5 rounded font-bold transition text-gray-400 hover:text-white cursor-pointer" title="本格 10バンド表示">10-Band</button>
+                                </div>
+                            </div>
                             <select id="fx-preset" class="bg-gray-800 text-xs text-purple-300 border border-purple-900/50 rounded px-2 py-1 focus:outline-none focus:border-purple-500">
                                 <option value="custom">Custom</option>
                             </select>
                         </div>
-                        <div class="flex justify-between items-end px-1 h-28">
+                        <!-- 10 Band Equalizer Sliders -->
+                        <div class="flex justify-between items-end px-1 h-28 overflow-x-auto gap-1" id="eq-sliders-wrap">
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-31" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">31Hz</span>
+                            </div>
                             <div class="flex flex-col items-center space-y-1">
                                 <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-60" min="-12" max="12" value="0"></div>
-                                <span class="text-[10px] text-gray-500">60Hz</span>
+                                <span class="text-[9px] text-gray-400">60Hz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-125" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">125Hz</span>
                             </div>
                             <div class="flex flex-col items-center space-y-1">
                                 <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-250" min="-12" max="12" value="0"></div>
-                                <span class="text-[10px] text-gray-500">250Hz</span>
+                                <span class="text-[9px] text-gray-400">250Hz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-500" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">500Hz</span>
                             </div>
                             <div class="flex flex-col items-center space-y-1">
                                 <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-1k" min="-12" max="12" value="0"></div>
-                                <span class="text-[10px] text-gray-500">1kHz</span>
+                                <span class="text-[9px] text-gray-400">1kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-2k" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">2kHz</span>
                             </div>
                             <div class="flex flex-col items-center space-y-1">
                                 <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-4k" min="-12" max="12" value="0"></div>
-                                <span class="text-[10px] text-gray-500">4kHz</span>
+                                <span class="text-[9px] text-gray-400">4kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-8k" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">8kHz</span>
                             </div>
                             <div class="flex flex-col items-center space-y-1">
                                 <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-12k" min="-12" max="12" value="0"></div>
-                                <span class="text-[10px] text-gray-500">12kHz</span>
+                                <span class="text-[9px] text-gray-400">12kHz</span>
+                            </div>
+                            <div class="flex flex-col items-center space-y-1 eq-band-10-only hidden">
+                                <div class="vertical-range-wrap"><input type="range" class="vertical-range eq-slider" id="eq-16k" min="-12" max="12" value="0"></div>
+                                <span class="text-[9px] text-gray-400">16kHz</span>
                             </div>
                         </div>
                     </div>
@@ -819,6 +882,45 @@
                         <div class="relative w-20 h-20 bg-gray-950 rounded-full border border-indigo-500/40 flex items-center justify-center cursor-crosshair shrink-0 select-none" id="panner-2d-pad" title="ドラッグして3D音源位置を自由変更">
                             <div class="w-2 h-2 bg-gray-500 rounded-full" title="聴き手（中央）"></div>
                             <div id="panner-source-dot" class="absolute w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] pointer-events-none transform -translate-x-1/2 -translate-y-1/2" style="left: 50%; top: 50%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 🎤 Vocal Cut / Karaoke Panel -->
+                    <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-rose-500/40 space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center space-x-1">
+                                    <span>🎤</span><span>Vocal Cut / Karaoke Mode</span>
+                                </span>
+                                <span class="text-[9px] text-gray-400">センター定位のボーカルを逆位相低減</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="studio-vocal-cancel-enable" class="sr-only peer">
+                                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-rose-500"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center space-x-3 pt-1">
+                            <span class="text-[10px] text-gray-300 font-semibold shrink-0">カット強度</span>
+                            <input type="range" id="studio-vocal-cut-slider" min="0" max="100" step="5" value="80" class="w-full h-1 bg-gray-600 rounded cursor-pointer accent-rose-400">
+                            <span id="studio-vocal-cut-val" class="text-[10px] font-mono text-rose-300 font-bold w-10 text-right">80%</span>
+                        </div>
+                    </div>
+
+                    <!-- 🎚️ Stereo Pan, L/R Swap & Mono Mix Panel -->
+                    <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-cyan-500/40 space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
+                            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center space-x-1">
+                                <span>🎚️</span><span>Stereo Pan & Channel Control</span>
+                            </span>
+                            <div class="flex items-center space-x-1.5">
+                                <button id="fx-swap-lr-btn" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 transition cursor-pointer" title="左右チャンネルを反転">Swap L/R</button>
+                                <button id="fx-mono-btn" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 transition cursor-pointer" title="左右をモノラルに統合">Mono Mix</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 pt-1">
+                            <span class="text-[10px] text-gray-400 font-semibold shrink-0">Pan (L / R)</span>
+                            <input type="range" id="fx-pan-slider" min="-1" max="1" step="0.05" value="0" class="w-full h-1 bg-gray-600 rounded cursor-pointer accent-cyan-400" title="ダブルクリックで中央リセット">
+                            <span id="fx-pan-val" class="text-[10px] font-mono text-cyan-300 font-bold w-14 text-right">Center</span>
                         </div>
                     </div>
 
@@ -914,11 +1016,10 @@
             <div id="help-view" class="flex-1 flex flex-col hidden-mode p-4 overflow-y-auto bg-gray-800/80 rounded-lg">
                 <h2 class="text-xl font-bold text-white mb-4">OST Player Help</h2>
 
-                <!-- 👻 SSP (伺か) SSTP 連携設定 -->
-                <div class="help-section bg-gray-900/90 p-4 rounded-xl border border-pink-500/50 shadow-lg space-y-3 mb-6">
+                <!-- SSP (伺か) SSTP 連携設定 (デスクトップ専用) -->
+                <div class="help-section desktop-only bg-gray-900/90 p-4 rounded-xl border border-pink-500/50 shadow-lg space-y-3 mb-6">
                     <div class="flex justify-between items-center border-b border-pink-500/30 pb-2">
                         <div class="flex items-center space-x-2">
-                            <span class="text-lg">👻</span>
                             <span class="text-sm font-bold text-pink-300">SSP (伺か) SSTP 楽曲再生連携設定</span>
                             <span class="text-[10px] text-pink-400 bg-pink-950/80 border border-pink-800 px-2 py-0.5 rounded-full font-mono">DirectSSTP 1.1</span>
                         </div>
@@ -946,14 +1047,14 @@
                                 <span class="text-[10px] text-gray-500">(標準: 9801)</span>
                             </div>
                             <button onclick="testSstpSpeech()" class="px-4 py-1.5 rounded-lg bg-pink-900/70 hover:bg-pink-600 border border-pink-500/70 text-pink-100 hover:text-white font-bold text-xs transition flex items-center space-x-1.5 shadow-md active:scale-95">
-                                <span>💬</span><span>テスト発話</span>
+                                <span>テスト発話</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Discord Rich Presence 連携設定 -->
-                <div class="help-section bg-gray-900/90 p-4 rounded-xl border border-indigo-500/50 shadow-lg space-y-3 mb-6">
+                <!-- Discord Rich Presence 連携設定 (デスクトップ専用) -->
+                <div class="help-section desktop-only bg-gray-900/90 p-4 rounded-xl border border-indigo-500/50 shadow-lg space-y-3 mb-6">
                     <div class="flex justify-between items-center border-b border-indigo-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-indigo-300">Discord Rich Presence 連携設定</span>
@@ -1604,11 +1705,11 @@
             </div>
             
             <div class="mt-2.5 pt-2 border-t border-gray-700/40 flex justify-between items-center text-xs text-gray-500 shrink-0">
-                <span>※ ファイルやフォルダをドラッグ&ドロップして追加</span>
+                <span class="hidden md:inline">※ ファイルやフォルダをドラッグ&ドロップして追加</span>
                 <div class="flex items-center space-x-2">
-                    <!-- Changelog / Help Button -->
-                    <button onclick="setPlayerMode('help')" class="px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="更新履歴とヘルプを表示">
-                        <span>📜</span><span>更新履歴</span>
+                    <!-- Changelog / Help Button (Desktop only, mobile has bottom nav Help) -->
+                    <button onclick="setPlayerMode('help')" class="hidden md:flex px-3 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white hover:bg-purple-950 transition-colors select-none focus:outline-none items-center space-x-1" title="更新履歴とヘルプを表示">
+                        <span>更新履歴</span>
                     </button>
                     <!-- Record Session Button -->
                     <button id="record-btn" class="px-3 py-1 rounded-full border border-red-500/50 text-[10px] font-bold text-red-400 bg-gray-900 hover:text-white hover:bg-red-950 transition-colors select-none focus:outline-none flex items-center space-x-1" title="セッションを録音する">
@@ -1715,6 +1816,26 @@
             </div>
         </div>
     </div>
+    
+    <!-- Mobile Bottom Navigation (Visible on screens <= 768px) -->
+    <nav id="mobile-bottom-nav" class="hidden">
+        <button class="mobile-nav-btn active" data-tab="player" onclick="MobileNav.setTab('player')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+            <span>Player</span>
+        </button>
+        <button class="mobile-nav-btn" data-tab="playlist" onclick="MobileNav.setTab('playlist')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span>Playlist</span>
+        </button>
+        <button class="mobile-nav-btn" data-tab="fx" onclick="MobileNav.setTab('fx')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            <span>FX</span>
+        </button>
+        <button class="mobile-nav-btn" data-tab="help" onclick="MobileNav.setTab('help')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>Help</span>
+        </button>
+    </nav>
     
     <!-- テーマ & カスタム背景モーダル -->
     <div id="theme-modal" class="fixed inset-0 bg-black/80 items-center justify-center z-[9999] hidden transition-opacity duration-200">
@@ -2022,8 +2143,13 @@
             <!-- Header -->
             <div class="flex justify-between items-center border-b border-gray-800 pb-3 shrink-0">
                 <div class="flex items-center space-x-2.5">
-                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-bold text-xs font-mono">
-                        UP
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/25 to-blue-600/25 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.35)] shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+                            <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+                        </svg>
                     </div>
                     <div>
                         <h3 class="text-base sm:text-lg font-bold text-cyan-300">
@@ -2191,7 +2317,7 @@
         let singleSources = [null, null];
         
         // FX Nodes
-        let eqNodes = []; // 5 bands
+        let eqNodes = []; // 11 bands (31Hz to 16kHz)
         let bassNode = null;
         let distNode = null; // Distortion
         let tremoloNode = null; // Gain for Tremolo
@@ -2208,21 +2334,30 @@
         let panner3DNode = null;
         let is8DOrbiting = false;
         let is3DManualActive = false;
+
+        // Stereo Pan & Channel Routing Nodes
+        let masterStereoPanNode = null;
+        let masterChannelRouterNode = null;
+        let isSwapLREnabled = false;
+        let isMonoMixEnabled = false;
+
+        // Chord Wheel State
+        let isChordWheelOpen = false;
         
-        // FX Presets
+        // FX Presets (supports 11-band / 10-band EQ)
         const fxPresets = {
-            flat: { name: "Flat", eq: [0,0,0,0,0], bass: 0, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
-            bass: { name: "Bass Boost", eq: [8,5,0,0,0], bass: 15, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
-            rock: { name: "Rock", eq: [4,2,-2,3,4], bass: 6, dist: 15, echo: 0, trem: 0, reverb: 0.1, spd: 1.0 },
-            pop: { name: "Pop", eq: [0,3,5,3,0], bass: 2, dist: 0, echo: 0, trem: 0, reverb: 0.05, spd: 1.0 },
-            jazz: { name: "Jazz", eq: [4,2,0,2,-2], bass: 4, dist: 0, echo: 0, trem: 0.1, reverb: 0.2, spd: 1.0 },
-            classic: { name: "Classic", eq: [3,2,0,2,3], bass: 3, dist: 0, echo: 0, trem: 0, reverb: 0.4, spd: 1.0 },
-            radio: { name: "Old Radio", eq: [-12,-5,8,-5,-12], bass: 0, dist: 25, echo: 0, trem: 0.4, reverb: 0, spd: 1.0 },
-            nightcore: { name: "Nightcore", eq: [-2,0,4,6,4], bass: 4, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.3 },
-            slowed: { name: "Slowed+Reverb", eq: [6,4,0,-2,-4], bass: 8, dist: 0, echo: 0.1, trem: 0, reverb: 0.5, spd: 0.85 },
-            psychedelic: { name: "Psychedelic", eq: [0,0,0,0,0], bass: 0, dist: 5, echo: 0.4, trem: 0.6, reverb: 0.3, spd: 1.0 },
-            telephone: { name: "Telephone", eq: [-20,-10,10,-10,-20], bass: 0, dist: 40, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
-            arena: { name: "Arena", eq: [4,2,0,2,4], bass: 8, dist: 0, echo: 0.3, trem: 0, reverb: 0.7, spd: 1.0 }
+            flat: { name: "Flat", eq: [0,0,0,0,0,0,0,0,0,0,0], bass: 0, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            bass: { name: "Bass Boost", eq: [10,8,6,3,0,0,0,0,0,0,0], bass: 15, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            rock: { name: "Rock", eq: [5,4,3,1,-2,0,2,3,4,4,5], bass: 6, dist: 15, echo: 0, trem: 0, reverb: 0.1, spd: 1.0 },
+            pop: { name: "Pop", eq: [-1,0,2,4,5,4,3,2,1,0,0], bass: 2, dist: 0, echo: 0, trem: 0, reverb: 0.05, spd: 1.0 },
+            jazz: { name: "Jazz", eq: [3,4,3,1,0,1,2,1,0,-1,-2], bass: 4, dist: 0, echo: 0, trem: 0.1, reverb: 0.2, spd: 1.0 },
+            classic: { name: "Classic", eq: [4,3,2,1,0,1,2,2,3,3,4], bass: 3, dist: 0, echo: 0, trem: 0, reverb: 0.4, spd: 1.0 },
+            radio: { name: "Old Radio", eq: [-18,-15,-8,2,8,6,-2,-6,-12,-15,-18], bass: 0, dist: 25, echo: 0, trem: 0.4, reverb: 0, spd: 1.0 },
+            nightcore: { name: "Nightcore", eq: [-4,-2,0,2,4,5,6,5,4,4,5], bass: 4, dist: 0, echo: 0, trem: 0, reverb: 0, spd: 1.3 },
+            slowed: { name: "Slowed+Reverb", eq: [8,7,5,3,0,-2,-3,-4,-4,-5,-6], bass: 8, dist: 0, echo: 0.1, trem: 0, reverb: 0.5, spd: 0.85 },
+            psychedelic: { name: "Psychedelic", eq: [2,0,-2,2,4,2,-2,3,5,2,0], bass: 0, dist: 5, echo: 0.4, trem: 0.6, reverb: 0.3, spd: 1.0 },
+            telephone: { name: "Telephone", eq: [-24,-20,-15,0,10,8,0,-12,-18,-20,-24], bass: 0, dist: 40, echo: 0, trem: 0, reverb: 0, spd: 1.0 },
+            arena: { name: "Arena", eq: [5,4,3,1,0,1,2,3,4,4,5], bass: 8, dist: 0, echo: 0.3, trem: 0, reverb: 0.7, spd: 1.0 }
         };
 
         // UI References
@@ -2259,7 +2394,9 @@
                 shuffle: document.getElementById('shuffle-btn'),
                 xfadeCheck: document.getElementById('single-crossfade-toggle'),
                 xfadeSlider: document.getElementById('single-crossfade-slider'),
-                pianoRollBtn: document.getElementById('single-piano-roll-btn')
+                pianoRollBtn: document.getElementById('single-piano-roll-btn'),
+                chordWheelBtn: document.getElementById('single-chord-wheel-btn'),
+                gameLoopBadge: document.getElementById('single-game-loop-badge')
             },
 
             // Mini UI
@@ -2282,6 +2419,15 @@
                 panel: document.getElementById('piano-roll-panel'),
                 canvas: document.getElementById('piano-roll-canvas'),
                 closeBtn: document.getElementById('close-piano-roll-btn')
+            },
+
+            // Chord Wheel UI
+            chordWheel: {
+                panel: document.getElementById('chord-wheel-panel'),
+                canvas: document.getElementById('circle-of-fifths-canvas'),
+                closeBtn: document.getElementById('close-chord-wheel-btn'),
+                nameDisplay: document.getElementById('chord-name-display'),
+                typeDisplay: document.getElementById('chord-type-display')
             },
 
             // Dual UI
@@ -2331,9 +2477,13 @@
                 vol: document.getElementById('fx-vol'),
                 exportBtn: document.getElementById('fx-download-btn'),
                 eq: [
-                    document.getElementById('eq-60'), document.getElementById('eq-250'),
-                    document.getElementById('eq-1k'), document.getElementById('eq-4k'), document.getElementById('eq-12k')
-                ],
+                    document.getElementById('eq-31'), document.getElementById('eq-60'),
+                    document.getElementById('eq-125'), document.getElementById('eq-250'),
+                    document.getElementById('eq-500'), document.getElementById('eq-1k'),
+                    document.getElementById('eq-2k'), document.getElementById('eq-4k'),
+                    document.getElementById('eq-8k'), document.getElementById('eq-12k'),
+                    document.getElementById('eq-16k')
+                ].filter(Boolean),
                 bass: document.getElementById('fx-bass'), bassVal: document.getElementById('bass-val'),
                 dist: document.getElementById('fx-dist'), distVal: document.getElementById('dist-val'),
                 echo: document.getElementById('fx-echo'), echoVal: document.getElementById('echo-val'),
@@ -2408,6 +2558,7 @@
                 initSstpUI();
                 initDiscordUI();
                 initUpdateCheckerUI();
+                initMobileMediaSessionControls();
                 startMidiGlobalLoop();
                 
                 // Auto update check on startup (delayed 3.5s to avoid startup lag)
@@ -2839,7 +2990,98 @@
                 });
             }
 
-            // --- Studio Mode Event Listeners ---
+            // 5-Band / 10-Band EQ Toggle Listeners
+            const eqToggle5 = document.getElementById('eq-band-toggle-5');
+            const eqToggle10 = document.getElementById('eq-band-toggle-10');
+            if (eqToggle5 && eqToggle10) {
+                eqToggle5.addEventListener('click', () => {
+                    eqToggle5.classList.add('bg-purple-600', 'text-white');
+                    eqToggle5.classList.remove('text-gray-400');
+                    eqToggle10.classList.remove('bg-purple-600', 'text-white');
+                    eqToggle10.classList.add('text-gray-400');
+                    document.querySelectorAll('.eq-band-10-only').forEach(el => el.classList.add('hidden'));
+                });
+                eqToggle10.addEventListener('click', () => {
+                    eqToggle10.classList.add('bg-purple-600', 'text-white');
+                    eqToggle10.classList.remove('text-gray-400');
+                    eqToggle5.classList.remove('bg-purple-600', 'text-white');
+                    eqToggle5.classList.add('text-gray-400');
+                    document.querySelectorAll('.eq-band-10-only').forEach(el => el.classList.remove('hidden'));
+                });
+            }
+
+            // Stereo Pan & Channel Control Listeners
+            const panSlider = document.getElementById('fx-pan-slider');
+            const panVal = document.getElementById('fx-pan-val');
+            const swapLrBtn = document.getElementById('fx-swap-lr-btn');
+            const monoBtn = document.getElementById('fx-mono-btn');
+            if (panSlider) {
+                panSlider.addEventListener('input', (e) => {
+                    initAudio();
+                    const v = parseFloat(e.target.value);
+                    if (masterStereoPanNode && audioContext) {
+                        masterStereoPanNode.pan.setValueAtTime(v, audioContext.currentTime);
+                    }
+                    if (panVal) {
+                        if (Math.abs(v) < 0.05) panVal.textContent = 'Center';
+                        else if (v < 0) panVal.textContent = `L ${Math.round(Math.abs(v)*100)}%`;
+                        else panVal.textContent = `R ${Math.round(v*100)}%`;
+                    }
+                });
+                panSlider.addEventListener('dblclick', () => {
+                    panSlider.value = 0;
+                    if (masterStereoPanNode && audioContext) masterStereoPanNode.pan.setValueAtTime(0, audioContext.currentTime);
+                    if (panVal) panVal.textContent = 'Center';
+                });
+            }
+            if (swapLrBtn) {
+                swapLrBtn.addEventListener('click', () => {
+                    initAudio();
+                    isSwapLREnabled = !isSwapLREnabled;
+                    swapLrBtn.classList.toggle('bg-cyan-600', isSwapLREnabled);
+                    swapLrBtn.classList.toggle('text-white', isSwapLREnabled);
+                    updateMasterEffectsRouting();
+                    showNotification(`左右チャンネル反転 (Swap L/R): ${isSwapLREnabled ? 'ON' : 'OFF'}`);
+                });
+            }
+            if (monoBtn) {
+                monoBtn.addEventListener('click', () => {
+                    initAudio();
+                    isMonoMixEnabled = !isMonoMixEnabled;
+                    monoBtn.classList.toggle('bg-cyan-600', isMonoMixEnabled);
+                    monoBtn.classList.toggle('text-white', isMonoMixEnabled);
+                    updateMasterEffectsRouting();
+                    showNotification(`モノラル合成 (Mono Mix): ${isMonoMixEnabled ? 'ON' : 'OFF'}`);
+                });
+            }
+
+            // Chord Wheel Panel Listeners
+            const chordWheelBtn = document.getElementById('single-chord-wheel-btn');
+            const chordWheelPanel = document.getElementById('chord-wheel-panel');
+            const closeChordWheelBtn = document.getElementById('close-chord-wheel-btn');
+            if (chordWheelBtn && chordWheelPanel) {
+                chordWheelBtn.addEventListener('click', () => {
+                    isChordWheelOpen = chordWheelPanel.classList.contains('hidden');
+                    chordWheelPanel.classList.toggle('hidden');
+                    chordWheelBtn.classList.toggle('bg-purple-600', isChordWheelOpen);
+                    chordWheelBtn.classList.toggle('text-white', isChordWheelOpen);
+                    if (isChordWheelOpen) {
+                        const canvas = document.getElementById('circle-of-fifths-canvas');
+                        if (canvas) drawChordWheel(canvas, {});
+                    }
+                });
+            }
+            if (closeChordWheelBtn && chordWheelPanel) {
+                closeChordWheelBtn.addEventListener('click', () => {
+                    isChordWheelOpen = false;
+                    chordWheelPanel.classList.add('hidden');
+                    if (chordWheelBtn) {
+                        chordWheelBtn.classList.remove('bg-purple-600', 'text-white');
+                    }
+                });
+            }
+
+            // Bitcrusher Listeners
             const crushEnable = document.getElementById('studio-bitcrusher-enable');
             const bitSlider = document.getElementById('studio-bit-slider');
             const rateSlider = document.getElementById('studio-rate-slider');
@@ -4231,6 +4473,43 @@
             return vocalCancelNode;
         }
 
+        function getOrCreateChannelRouterNode() {
+            if (!audioContext) return null;
+            if (masterChannelRouterNode) return masterChannelRouterNode;
+
+            try {
+                const bufferSize = 2048;
+                masterChannelRouterNode = audioContext.createScriptProcessor(bufferSize, 2, 2);
+                masterChannelRouterNode.onaudioprocess = (e) => {
+                    const inL = e.inputBuffer.getChannelData(0);
+                    const inR = e.inputBuffer.getChannelData(1);
+                    const outL = e.outputBuffer.getChannelData(0);
+                    const outR = e.outputBuffer.getChannelData(1);
+                    const len = inL.length;
+
+                    if (isMonoMixEnabled) {
+                        for (let i = 0; i < len; i++) {
+                            const mono = (inL[i] + inR[i]) * 0.5;
+                            outL[i] = mono;
+                            outR[i] = mono;
+                        }
+                    } else if (isSwapLREnabled) {
+                        for (let i = 0; i < len; i++) {
+                            outL[i] = inR[i];
+                            outR[i] = inL[i];
+                        }
+                    } else {
+                        outL.set(inL);
+                        outR.set(inR);
+                    }
+                };
+            } catch(e) {
+                console.error("Channel router creation error:", e);
+            }
+
+            return masterChannelRouterNode;
+        }
+
         let vinylNoiseNode = null;
         let vinylGainNode = null;
         let isVinylEnabled = false;
@@ -5038,8 +5317,8 @@
 
             updateNormRouting();
 
-            // Create FX Nodes
-            const freqs = [60, 250, 1000, 4000, 12000];
+            // Create FX Nodes (11 bands / 10-band studio EQ)
+            const freqs = [31, 60, 125, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000];
             eqNodes = freqs.map(f => {
                 const bq = audioContext.createBiquadFilter();
                 bq.type = 'peaking'; bq.frequency.value = f; bq.gain.value = 0;
@@ -5047,6 +5326,10 @@
             });
             bassNode = audioContext.createBiquadFilter();
             bassNode.type = 'lowshelf'; bassNode.frequency.value = 100; bassNode.gain.value = 0;
+
+            try {
+                masterStereoPanNode = audioContext.createStereoPanner();
+            } catch(e) { masterStereoPanNode = null; }
             
             distNode = audioContext.createWaveShaper();
             distNode.curve = makeDistortionCurve(0);
@@ -5151,6 +5434,8 @@
                 if (panner3DNode) panner3DNode.disconnect();
                 if (bitcrusherNode) bitcrusherNode.disconnect();
                 if (vocalCancelNode) vocalCancelNode.disconnect();
+                if (masterChannelRouterNode) masterChannelRouterNode.disconnect();
+                if (masterStereoPanNode) masterStereoPanNode.disconnect();
             } catch(e) {}
 
             let chainNode = masterHighpassNode;
@@ -5173,6 +5458,19 @@
                     chainNode.connect(vocalNode);
                     chainNode = vocalNode;
                 }
+            }
+
+            if (isSwapLREnabled || isMonoMixEnabled) {
+                const router = getOrCreateChannelRouterNode();
+                if (router) {
+                    chainNode.connect(router);
+                    chainNode = router;
+                }
+            }
+
+            if (masterStereoPanNode) {
+                chainNode.connect(masterStereoPanNode);
+                chainNode = masterStereoPanNode;
             }
 
             chainNode.connect(masterGainNode);
@@ -6256,6 +6554,19 @@
             if (i !== currentSinglePlayerIndex) return;
             const p = players[i];
             if(isNaN(p.duration)) return;
+
+            // 🎮 Game Loop Point Auto-Seek (0ms Instant Seamless Jump)
+            const currentTrack = playlist[singleTrackIndex];
+            if (currentTrack && currentTrack.gameLoop && currentTrack.gameLoop.hasLoop && (loopMode === 3 || loopMode === 2 || loopMode === 0)) {
+                const gl = currentTrack.gameLoop;
+                if (gl.loopEndSec && gl.loopStartSec !== undefined) {
+                    if (p.currentTime >= gl.loopEndSec) {
+                        p.currentTime = gl.loopStartSec;
+                        return;
+                    }
+                }
+            }
+
             const formattedCur = formatTime(p.currentTime);
             const formattedDur = formatTime(p.duration);
             ui.single.time.textContent = formattedCur;
@@ -6279,9 +6590,14 @@
         function handleSingleEnded(i) {
             if (i !== currentSinglePlayerIndex) return;
             if(isAutoCrossfading) return; 
-            if (loopMode === 2) { 
+            const currentTrack = playlist[singleTrackIndex];
+            if (loopMode === 3 || loopMode === 2) { 
                 const p = players[i];
-                p.currentTime = 0;
+                if (currentTrack && currentTrack.gameLoop && currentTrack.gameLoop.loopStartSec !== undefined) {
+                    p.currentTime = currentTrack.gameLoop.loopStartSec;
+                } else {
+                    p.currentTime = 0;
+                }
                 p.play().catch(e => console.log(e));
             } else if (loopMode === 1) { 
                 changeSingleTrack(1);
@@ -7199,8 +7515,8 @@
         }
 
         function toggleLoop() {
-            loopMode = (loopMode + 1) % 3;
-            ui.single.loopBtn.classList.remove('text-gray-500', 'text-blue-400');
+            loopMode = (loopMode + 1) % 4; // 0: Off, 1: All, 2: 1, 3: Game Loop
+            ui.single.loopBtn.classList.remove('text-gray-500', 'text-blue-400', 'text-emerald-400');
             ui.single.loopIconAll.classList.add('hidden');
             ui.single.loopIconOne.classList.add('hidden');
             ui.single.loopText.textContent = "Loop";
@@ -7213,10 +7529,15 @@
                 ui.single.loopBtn.classList.add('text-blue-400');
                 ui.single.loopIconAll.classList.remove('hidden');
                 ui.single.loopText.textContent = "All";
-            } else {
+            } else if (loopMode === 2) {
                 ui.single.loopBtn.classList.add('text-blue-400');
                 ui.single.loopIconOne.classList.remove('hidden');
                 ui.single.loopText.textContent = "1";
+            } else if (loopMode === 3) {
+                ui.single.loopBtn.classList.add('text-emerald-400');
+                ui.single.loopIconAll.classList.remove('hidden');
+                ui.single.loopText.textContent = "Game";
+                showNotification("🎮 ゲームサントラ・シームレス無限ループ (ON)");
             }
         }
 
@@ -7827,8 +8148,87 @@
                 startTime: discordPlaybackStartTime,
                 endTime: endTime
             });
+
+            broadcastMediaSession();
         }
         window.broadcastDiscordPresence = broadcastDiscordPresence;
+
+        function broadcastMediaSession() {
+            if (!window.MobileBridge || !window.MobileBridge.isAvailable) return;
+            const { activeTrack, isPlaying, currentSec, duration } = getActivePlaybackInfo();
+            if (activeTrack) {
+                const title = (activeTrack.tagTitle && activeTrack.tagTitle.trim()) ? activeTrack.tagTitle.trim() : (activeTrack.name || 'Unknown Track');
+                const artist = (activeTrack.artist && activeTrack.artist.trim()) ? activeTrack.artist.trim() : 'OST Player';
+                const album = (activeTrack.album && activeTrack.album.trim()) ? activeTrack.album.trim() : '';
+                const coverArt = activeTrack.coverArt || activeTrack.albumArt || null;
+
+                window.MobileBridge.updateMetadata({
+                    title: title,
+                    artist: artist,
+                    album: album,
+                    coverArt: coverArt
+                });
+                window.MobileBridge.setPlaybackState(isPlaying);
+                window.MobileBridge.setPositionState({
+                    duration: duration,
+                    position: currentSec,
+                    playbackRate: 1.0
+                });
+                if (isPlaying) {
+                    window.MobileBridge.requestWakeLock();
+                } else {
+                    window.MobileBridge.releaseWakeLock();
+                }
+            } else {
+                window.MobileBridge.setPlaybackState(false);
+                window.MobileBridge.releaseWakeLock();
+            }
+        }
+        window.broadcastMediaSession = broadcastMediaSession;
+
+        function initMobileMediaSessionControls() {
+            if (!window.MobileBridge || !window.MobileBridge.isAvailable) return;
+            window.MobileBridge.initMediaActionHandlers({
+                onPlay: () => {
+                    if (currentMode === 'single') {
+                        if (singlePlayer && singlePlayer.paused) togglePlay();
+                    } else if (currentMode === 'fx') {
+                        if (fxAudio && fxAudio.paused) toggleFxPlay();
+                    } else if (currentMode === 'dual') {
+                        toggleDualPlay();
+                    } else if (currentMode === 'multi') {
+                        toggleMultiPlay();
+                    }
+                },
+                onPause: () => {
+                    if (currentMode === 'single') {
+                        if (singlePlayer && !singlePlayer.paused) togglePlay();
+                    } else if (currentMode === 'fx') {
+                        if (fxAudio && !fxAudio.paused) toggleFxPlay();
+                    } else if (currentMode === 'dual') {
+                        toggleDualPlay();
+                    } else if (currentMode === 'multi') {
+                        toggleMultiPlay();
+                    }
+                },
+                onPrev: () => {
+                    playPreviousTrack();
+                },
+                onNext: () => {
+                    playNextTrack();
+                },
+                onSeek: (details) => {
+                    if (details.seekTime !== undefined) {
+                        if (currentMode === 'single') {
+                            seekTo(details.seekTime);
+                        } else if (currentMode === 'fx') {
+                            seekFxTo(details.seekTime);
+                        }
+                    }
+                }
+            });
+        }
+        window.initMobileMediaSessionControls = initMobileMediaSessionControls;
 
         function testDiscordPresence() {
             if (!window.electronAPI || !window.electronAPI.testDiscord) {
@@ -9590,6 +9990,37 @@
             return null;
         }
 
+        async function detectGameLoopPoints(file) {
+            if (!file) return null;
+            try {
+                const headBuf = await file.slice(0, 65536).arrayBuffer();
+                const headText = new TextDecoder('latin1').decode(headBuf);
+                
+                const startMatch = headText.match(/(?:LOOPSTART|LOOP_START|SAMPLE_START|LOOP)=([0-9.]+)/i);
+                const lengthMatch = headText.match(/(?:LOOPLENGTH|LOOP_LENGTH|LOOP_LEN)=([0-9.]+)/i);
+                const endMatch = headText.match(/(?:LOOPEND|LOOP_END|SAMPLE_END)=([0-9.]+)/i);
+
+                if (startMatch || endMatch) {
+                    let startVal = startMatch ? parseFloat(startMatch[1]) : 0;
+                    let endVal = endMatch ? parseFloat(endMatch[1]) : (lengthMatch ? startVal + parseFloat(lengthMatch[1]) : null);
+                    
+                    let isSampleUnits = startVal > 1000 || (endVal && endVal > 1000);
+                    let startSec = isSampleUnits ? (startVal / 44100) : startVal;
+                    let endSec = endVal ? (isSampleUnits ? (endVal / 44100) : endVal) : null;
+
+                    return {
+                        hasLoop: true,
+                        loopStartSec: startSec,
+                        loopEndSec: endSec,
+                        loopStartSample: isSampleUnits ? startVal : Math.round(startVal * 44100),
+                        loopEndSample: endVal ? (isSampleUnits ? endVal : Math.round(endVal * 44100)) : null
+                    };
+                }
+            } catch(e) {}
+            return null;
+        }
+        window.detectGameLoopPoints = detectGameLoopPoints;
+
         async function ensureTrackMetadata(track) {
             if (!track || track.isMidi || track.isVideo || track.metadataLoaded || !track.file) return track;
             try {
@@ -9599,9 +10030,13 @@
                     if (meta.artist && meta.artist.trim()) track.artist = meta.artist.trim();
                     if (meta.album && meta.album.trim()) track.album = meta.album.trim();
                     if (meta.coverUrl) track.coverUrl = meta.coverUrl;
-                    if (track.id !== undefined && typeof updateTrackMetadataInDB === 'function') {
-                        updateTrackMetadataInDB(track.id, track);
-                    }
+                }
+                const loopPoints = await detectGameLoopPoints(track.file);
+                if (loopPoints) {
+                    track.gameLoop = loopPoints;
+                }
+                if (track.id !== undefined && typeof updateTrackMetadataInDB === 'function') {
+                    updateTrackMetadataInDB(track.id, track);
                 }
             } catch(e) {
                 console.warn("Metadata parse error:", e);
