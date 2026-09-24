@@ -416,7 +416,7 @@
                         <button id="btn-mode-dual" onclick="setPlayerMode('dual')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Dual</button>
                         <button id="btn-mode-multi" onclick="setPlayerMode('multi')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Multi</button>
                         <button id="btn-mode-fx" onclick="setPlayerMode('fx')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">FX</button>
-                        <button id="btn-mode-visual" onclick="setPlayerMode('visual')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Visual</button>
+                        <button id="btn-mode-sync" onclick="setPlayerMode('sync')" class="w-1/5 h-6 text-center text-[10px] z-10 font-bold rounded-full cursor-pointer transition-all duration-200 text-gray-300 hover:text-white bg-transparent">Sync</button>
                     </div>
                 </div>
 
@@ -445,12 +445,6 @@
                     <!-- 実績＆トロフィールーム ボタン -->
                     <button id="trophy-modal-btn" onclick="openTrophyModal()" class="px-2 py-1 rounded-full border border-amber-500/50 text-[10px] font-bold text-amber-300 bg-gray-900/90 hover:text-white hover:bg-amber-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="実績＆トロフィールーム (全40種)">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg><span id="trophy-count-badge" class="text-[9px] text-amber-400">0/40</span>
-                    </button>
-
-                    <!-- P2P Sync Session / DJ Room ボタン -->
-                    <button id="sync-room-btn" onclick="openSyncModal()" class="px-2 py-1 rounded-full border border-emerald-500/60 text-[10px] font-bold text-emerald-300 bg-gray-900/90 hover:text-white hover:bg-emerald-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="P2P 同期リスニング & DJ Room (Phase 2)">
-                        <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-                        <span id="sync-btn-label">Sync</span>
                     </button>
 
                     <!-- 独立したHelpボタン (デスクトップ専用、スマホは下部ナビに統合) -->
@@ -971,48 +965,157 @@
                 </div>
             </div>
             
-            <!-- === VISUAL PLAYER VIEW === -->
-            <div id="visual-view" class="flex-1 flex flex-col hidden-mode relative overflow-hidden bg-gray-950 rounded-xl border border-gray-700/80 shadow-2xl">
-                <canvas id="main-visualizer" class="absolute inset-0 w-full h-full"></canvas>
+            <!-- === P2P SYNC & DJ ROOM VIEW === -->
+            <div id="sync-view" class="flex-1 flex flex-col hidden-mode p-3 sm:p-4 overflow-hidden bg-gray-950 rounded-xl border border-emerald-500/40 shadow-2xl space-y-3">
                 
-                <!-- Visualizer Header Overlay -->
-                <div class="absolute top-3 left-4 right-4 flex justify-between items-center z-10 select-none pointer-events-auto">
-                    <div class="flex items-center space-x-2 bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-700/80 shadow-lg">
-                        <span class="text-xs">✨</span>
-                        <span class="text-xs font-bold text-white tracking-wide">Immersive Visualizer</span>
-                    </div>
-
-                    <!-- Visual Style Switcher -->
-                    <div class="flex items-center space-x-1.5 bg-gray-900/85 backdrop-blur-md p-1 rounded-full border border-gray-700/80 shadow-lg overflow-x-auto max-w-full">
-                        <button class="visual-type-btn bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200 shadow-sm" data-type="spectrum">📊 Spectrum</button>
-                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200" data-type="wave">〰️ Wave</button>
-                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200" data-type="circle">⭕ Radial</button>
-                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200" data-type="starfield">🌌 Starfield</button>
-                        <button class="visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200" data-type="orb">🔮 Quantum Orb</button>
+                <!-- DJ Ticker Overlay (If announced) -->
+                <div id="sync-dj-ticker" class="hidden bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/60 rounded-xl p-2.5 px-3 flex items-center justify-between text-xs text-emerald-200 shadow-lg animate-pulse shrink-0">
+                    <div class="flex items-center space-x-2 truncate">
+                        <span class="text-xs">📢</span>
+                        <span class="font-bold text-emerald-400 shrink-0">DJ ANNOUNCE:</span>
+                        <span id="sync-dj-ticker-text" class="font-bold truncate">---</span>
                     </div>
                 </div>
 
-                <!-- Visualizer Bottom Controller Overlay -->
-                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-gray-950/80 to-transparent p-4 sm:p-5 flex flex-col space-y-3 z-10 pointer-events-auto">
-                    <div class="flex justify-between items-center px-2">
-                        <div class="flex-1 min-w-0 pr-4">
-                            <h2 id="visual-title" class="text-lg sm:text-xl font-black truncate text-white drop-shadow-lg tracking-wide">No Track Selected</h2>
-                            <p id="visual-artist" class="text-xs text-blue-300/90 truncate mt-0.5">OST Player Visual Stage</p>
+                <!-- Main 2-Column Dashboard -->
+                <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 min-h-0 overflow-hidden">
+                    
+                    <!-- Left Column: Connection & Member Manager -->
+                    <div class="flex flex-col space-y-3 min-h-0 overflow-hidden">
+                        
+                        <!-- View 1: 接続前 (Setup View) -->
+                        <div id="sync-setup-view" class="space-y-3 flex-1 overflow-y-auto pr-1">
+                            <!-- Host Card -->
+                            <div class="bg-gray-900/90 border border-emerald-500/40 rounded-xl p-3.5 space-y-2.5 shadow-md">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                                    <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider">DJ として部屋を作る (Host)</h4>
+                                </div>
+                                <p class="text-[11px] text-gray-400 leading-relaxed">
+                                    あなたがホストとなり、再生中の楽曲・MIDIや操作を参加者全員へリアルタイム配信します。
+                                </p>
+                                <div class="bg-gray-950 border border-gray-800 rounded-lg p-2.5 flex items-center justify-between">
+                                    <div>
+                                        <span class="text-[9px] text-gray-500 block">発行ルームコード (6桁)</span>
+                                        <span id="sync-generated-code" class="text-lg font-mono font-extrabold text-emerald-300 tracking-widest">------</span>
+                                    </div>
+                                    <button onclick="copyGeneratedCode()" class="text-[10px] px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">コピー</button>
+                                </div>
+                                <button id="sync-create-room-btn" onclick="startHostRoom()" class="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer">
+                                    DJ ルームを開設
+                                </button>
+                            </div>
+
+                            <!-- Listener Card -->
+                            <div class="bg-gray-900/90 border border-cyan-500/40 rounded-xl p-3.5 space-y-2.5 shadow-md">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                                    <h4 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">リスナーとして参加 (Listener)</h4>
+                                </div>
+                                <p class="text-[11px] text-gray-400 leading-relaxed">
+                                    ホストが発行した 6 桁のルームコードを入力して、ミリ秒完全同期リスニングに参加します。
+                                </p>
+                                <div class="bg-gray-950 border border-gray-800 rounded-lg p-2 flex items-center space-x-2">
+                                    <input type="text" id="sync-join-code-input" maxlength="6" placeholder="6桁コード (例: 749215)" class="flex-1 bg-transparent border-0 text-center font-mono font-bold text-base text-cyan-300 tracking-widest focus:outline-none placeholder-gray-600">
+                                </div>
+                                <button id="sync-join-room-btn" onclick="joinListenerRoom()" class="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(6,182,212,0.3)] active:scale-95 cursor-pointer">
+                                    ルームに接続
+                                </button>
+                            </div>
+
+                            <div id="sync-setup-status" class="text-center text-[10px] text-gray-500 py-1 hidden font-mono">
+                                接続ステータス: 待機中
+                            </div>
                         </div>
-                        <div class="flex items-center space-x-3 shrink-0">
-                            <button id="visual-prev" class="text-gray-300 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition active:scale-95" title="前の曲">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
-                            </button>
-                            <button id="visual-play" class="bg-blue-600 hover:bg-blue-500 text-white rounded-full p-2.5 shadow-xl transition active:scale-95 shadow-blue-500/30" title="再生 / 一時停止">
-                                <svg id="visual-play-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                <svg id="visual-pause-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                            </button>
-                            <button id="visual-next" class="text-gray-300 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition active:scale-95" title="次の曲">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
-                            </button>
+
+                        <!-- View 2: 接続中 (Active Session View) -->
+                        <div id="sync-active-view" class="space-y-3 hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                            <!-- Info Bar -->
+                            <div class="bg-gray-900/90 border border-emerald-500/40 rounded-xl p-2.5 flex items-center justify-between text-xs shrink-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                    <span class="text-gray-400 text-[10px]">ROOM:</span>
+                                    <span id="sync-active-room-code" class="font-mono font-extrabold text-emerald-300 text-base tracking-wider">------</span>
+                                    <span id="sync-active-role-badge" class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 font-mono">[Host]</span>
+                                </div>
+                                <button onclick="leaveSyncSession()" class="px-2.5 py-1 rounded bg-red-950/80 hover:bg-red-800 text-red-200 border border-red-500/50 text-[10px] font-bold transition cursor-pointer">
+                                    切断
+                                </button>
+                            </div>
+
+                            <!-- Sync Radar & Status -->
+                            <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-3 space-y-2 text-xs">
+                                <div class="flex justify-between items-center text-[10px] text-gray-400 border-b border-gray-800 pb-1">
+                                    <span class="font-bold text-emerald-300 uppercase">Sync Monitor</span>
+                                    <span id="sync-latency-badge" class="font-mono">Ping: -- ms</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                    <div class="bg-gray-950 p-2 rounded-lg border border-gray-800/80">
+                                        <span class="text-gray-500 block">RTT Latency</span>
+                                        <span id="sync-radar-ping-val" class="font-mono font-bold text-emerald-400 text-xs">-- ms</span>
+                                    </div>
+                                    <div class="bg-gray-950 p-2 rounded-lg border border-gray-800/80">
+                                        <span class="text-gray-500 block">参加者数</span>
+                                        <span class="font-mono font-bold text-cyan-400 text-xs"><span id="sync-members-count">1</span> 名</span>
+                                    </div>
+                                </div>
+
+                                <!-- File Transfer Progress Bar -->
+                                <div id="sync-file-progress-container" class="hidden bg-gray-950 border border-indigo-500/40 rounded-lg p-2 space-y-1">
+                                    <div class="flex justify-between text-[10px] text-indigo-200">
+                                        <span id="sync-file-progress-label">楽曲データ受信中...</span>
+                                        <span id="sync-file-progress-pct" class="font-mono">0%</span>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                        <div id="sync-file-progress-bar" class="h-full bg-indigo-500 transition-all duration-150" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Members List -->
+                            <div class="flex-1 min-h-0 flex flex-col bg-gray-900/80 border border-gray-800 rounded-xl p-2.5 overflow-hidden">
+                                <span class="text-[10px] font-bold text-gray-400 uppercase mb-1.5 block">Members</span>
+                                <div id="sync-members-list" class="space-y-1.5 flex-1 overflow-y-auto pr-1">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column: DJ Live Chat & Announce -->
+                    <div class="flex flex-col bg-gray-900/80 border border-gray-800 rounded-xl p-3 min-h-0 overflow-hidden">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-1.5 mb-2 shrink-0">
+                            <span class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center space-x-1">
+                                <span>💬</span><span>DJ Room Live Timeline</span>
+                            </span>
+                            <span class="text-[9px] text-gray-500 font-mono">P2P Mesh Chat</span>
+                        </div>
+
+                        <!-- Chat Timeline -->
+                        <div id="sync-chat-timeline" class="flex-1 bg-gray-950/90 border border-gray-800/80 rounded-xl p-2.5 space-y-2 overflow-y-auto text-xs min-h-0 mb-2">
+                            <div class="text-center text-gray-500 text-[10px] py-3 font-mono">
+                                --- DJ Room タイムライン ---
+                            </div>
+                        </div>
+
+                        <!-- Chat Input Form -->
+                        <div class="space-y-1.5 shrink-0">
+                            <div class="flex space-x-2">
+                                <input type="text" id="sync-chat-input" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter') sendSyncChat()" class="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
+                                <button onclick="sendSyncChat()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition active:scale-95 cursor-pointer">
+                                    送信
+                                </button>
+                            </div>
+                            <div id="sync-host-announce-toggle" class="flex items-center space-x-1.5 text-[10px] text-emerald-300">
+                                <input type="checkbox" id="sync-is-announce-chk" class="rounded border-gray-700 text-emerald-600 focus:ring-0 cursor-pointer">
+                                <label for="sync-is-announce-chk" class="cursor-pointer">DJ アナウンスとして送信 (上部ティッカーに強調表示)</label>
+                            </div>
                         </div>
                     </div>
+
                 </div>
+
             </div>
 
             <!-- === HELP VIEW === -->
@@ -1120,7 +1223,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.4.1</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.5.1</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1204,9 +1307,33 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.4.1 Precision & Polish</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.5.1 Achievements Fix & Polish</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.5.1 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.5.1] 隠し実績システム更新 & P2P Sync連動 & トロフィールーム最適化</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-25</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>実績システムの刷新:</strong> 旧Visualモード依存により達成不能となっていた実績を P2P Sync & DJ Room（ルーム開設・参加、チャット/アナウンス送信）連携へと更新し、全40種類の実績を正常に達成可能に修正。</li>
+                                <li><strong>トロフィールームUI改善:</strong> 全40種類のカテゴリー別タブカウントおよび実績取得判定の整合性を強化。</li>
+                            </ul>
+                        </div>
+                        <!-- v3.5.0 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-gray-700/50">
+                            <div class="flex items-center justify-between text-gray-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.5.0] P2P 同期リスニング & DJ Room モード (WebRTC)</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-24</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>6桁コード P2P 接続:</strong> 完全サーバーレスでセキュアなワンタップ接続。</li>
+                                <li><strong>高精度ミリ秒再生同期:</strong> RTT 自動計測補正により、再生・一時停止・シークを完全同期。</li>
+                                <li><strong>リクエストキュー & 投票:</strong> リスナーからの曲リクエストと Upvote 投票選曲。</li>
+                                <li><strong>DJ アナウンス & チャット:</strong> リアルタイム曲紹介テロップとタイムラインチャット。</li>
+                            </ul>
+                        </div>
                         <!-- v3.4.1 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -1296,7 +1423,7 @@
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-07</span>
                             </div>
                             <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
-                                <li><strong>全 31 種類の隠し実績システム (Achievements):</strong> リスニング、MIDI、音響FX、3Dオーディオ、ビジュアル、シークレット等多彩な実績とトースト通知・アンロック音を搭載。</li>
+                                <li><strong>全 40 種類の隠し実績システム (Achievements):</strong> リスニング、MIDI、音響FX、3Dオーディオ、DJ・Sync、シークレット等多彩な実績とトースト通知・アンロック音を搭載。</li>
                                 <li><strong>トロフィールーム & プレイヤー称号:</strong> 実績一覧・進捗率・6段階のプレイヤー称号を表示する専用モーダル。</li>
                                 <li><strong>踊るスピニングキャット「Oia Uia!」:</strong> 低確率でランダム出現する回転キャットのイースターエッグ。</li>
                             </ul>
@@ -2139,12 +2266,12 @@
 
             <!-- Category Filter Tabs -->
             <div class="flex items-center space-x-1 text-[11px] overflow-x-auto pb-1 shrink-0 select-none">
-                <button onclick="filterAchievements('all')" id="ach-filter-all" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-amber-500 bg-amber-500/20 text-amber-300 shrink-0">すべて (33)</button>
+                <button onclick="filterAchievements('all')" id="ach-filter-all" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-amber-500 bg-amber-500/20 text-amber-300 shrink-0">すべて (40)</button>
                 <button onclick="filterAchievements('playback')" id="ach-filter-playback" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-blue-300 shrink-0">🎵 再生・基本</button>
                 <button onclick="filterAchievements('midi')" id="ach-filter-midi" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 shrink-0">🎹 MIDI・音源</button>
                 <button onclick="filterAchievements('audiofx')" id="ach-filter-audiofx" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-purple-300 shrink-0">🌀 音響FX・3D</button>
-                <button onclick="filterAchievements('dj')" id="ach-filter-dj" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 shrink-0">🎚️ DJ・機能</button>
-                <button onclick="filterAchievements('visual')" id="ach-filter-visual" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 shrink-0">🎨 テーマ・演出</button>
+                <button onclick="filterAchievements('dj')" id="ach-filter-dj" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 shrink-0">🎚️ DJ・同期</button>
+                <button onclick="filterAchievements('visual')" id="ach-filter-visual" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 shrink-0">🎨 テーマ・背景</button>
                 <button onclick="filterAchievements('secrets')" id="ach-filter-secrets" class="ach-tab-btn px-3 py-1 rounded-full font-bold transition border border-gray-700 bg-gray-800 text-gray-400 hover:text-pink-300 shrink-0">🌟 シークレット</button>
             </div>
 
@@ -2261,200 +2388,7 @@
         <button onclick="closeDjTicker()" class="text-gray-400 hover:text-white text-xs ml-2">✕</button>
     </div>
 
-    <!-- P2P Sync Session / DJ Room モーダル (Phase 2) -->
-    <div id="sync-session-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
-        <div class="modal-content bg-gray-900 border border-emerald-500/50 rounded-2xl p-5 max-w-xl w-full mx-4 shadow-[0_0_50px_rgba(16,185,129,0.25)] flex flex-col space-y-3.5 text-gray-200 max-h-[90vh]">
-            
-            <!-- Modal Header -->
-            <div class="flex justify-between items-center border-b border-gray-800 pb-2.5 shrink-0">
-                <div class="flex items-center space-x-2.5">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <h3 class="text-base font-bold text-emerald-300">P2P 同期リスニング & DJ Room</h3>
-                            <span class="text-[9px] bg-emerald-950/90 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">Phase 2</span>
-                        </div>
-                        <p class="text-[10px] text-gray-400">WebRTC 直接暗号化通信によるミリ秒再生同期 & DJ セッション</p>
-                    </div>
-                </div>
-                <button onclick="closeSyncModal()" class="text-gray-400 hover:text-white text-sm bg-gray-800 hover:bg-gray-700 w-7 h-7 rounded-full flex items-center justify-center transition">✕</button>
-            </div>
 
-            <!-- View 1: 接続前 (Idle / Setup View) -->
-            <div id="sync-setup-view" class="space-y-4 py-1">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    
-                    <!-- Host Panel -->
-                    <div class="bg-gray-950/80 border border-emerald-500/30 rounded-xl p-4 flex flex-col justify-between hover:border-emerald-500/60 transition shadow-inner">
-                        <div>
-                            <div class="flex items-center space-x-2 mb-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
-                                <h4 class="text-sm font-bold text-emerald-200">DJ として部屋を作る</h4>
-                            </div>
-                            <p class="text-[11px] text-gray-400 leading-relaxed mb-3">
-                                あなたがホストとなり、再生中の楽曲や操作を参加者全員へリアルタイム配信します。
-                            </p>
-                            <div class="bg-gray-900 border border-gray-800 rounded-lg p-2.5 mb-3">
-                                <span class="text-[10px] text-gray-400 block mb-1">発行ルームコード (6桁)</span>
-                                <div class="flex items-center justify-between">
-                                    <span id="sync-generated-code" class="text-xl font-mono font-extrabold text-emerald-300 tracking-widest">------</span>
-                                    <button onclick="copyGeneratedCode()" class="text-[10px] px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">コピー</button>
-                                </div>
-                            </div>
-                        </div>
-                        <button id="sync-create-room-btn" onclick="startHostRoom()" class="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">
-                            DJ ルームを開設
-                        </button>
-                    </div>
-
-                    <!-- Listener Panel -->
-                    <div class="bg-gray-950/80 border border-cyan-500/30 rounded-xl p-4 flex flex-col justify-between hover:border-cyan-500/60 transition shadow-inner">
-                        <div>
-                            <div class="flex items-center space-x-2 mb-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
-                                <h4 class="text-sm font-bold text-cyan-200">リスナーとして参加</h4>
-                            </div>
-                            <p class="text-[11px] text-gray-400 leading-relaxed mb-3">
-                                DJ が発行した 6 桁のルームコードを入力して、完全同期リスニングに参加します。
-                            </p>
-                            <div class="bg-gray-900 border border-gray-800 rounded-lg p-2.5 mb-3">
-                                <span class="text-[10px] text-gray-400 block mb-1">ルームコードを入力</span>
-                                <input type="text" id="sync-join-code-input" maxlength="6" placeholder="例: 749215" class="w-full bg-black/60 border border-gray-700 rounded px-2.5 py-1 text-center font-mono font-bold text-base text-cyan-300 tracking-widest focus:outline-none focus:border-cyan-400">
-                            </div>
-                        </div>
-                        <button id="sync-join-room-btn" onclick="joinListenerRoom()" class="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(6,182,212,0.3)] active:scale-95">
-                            ルームに接続
-                        </button>
-                    </div>
-
-                </div>
-
-                <div id="sync-setup-status" class="text-center text-xs text-gray-400 py-1 hidden font-mono">
-                    接続ステータス: 待機中
-                </div>
-            </div>
-
-            <!-- View 2: 接続中 (Active Session View) -->
-            <div id="sync-active-view" class="space-y-3 hidden flex-1 min-h-0 flex flex-col">
-                
-                <!-- Session Header Info Banner -->
-                <div class="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-2.5 flex items-center justify-between text-xs shrink-0">
-                    <div class="flex items-center space-x-3">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                            <span class="text-gray-400 text-[10px]">ROOM:</span>
-                            <span id="sync-active-room-code" class="font-mono font-bold text-emerald-300 text-sm tracking-wider">------</span>
-                        </div>
-                        <span id="sync-active-role-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">[DJ Host]</span>
-                        <span id="sync-latency-badge" class="text-[10px] font-mono text-gray-400">Ping: -- ms</span>
-                    </div>
-                    <button onclick="leaveSyncSession()" class="px-2.5 py-1 rounded bg-red-950/80 hover:bg-red-800 text-red-200 border border-red-500/50 text-[10px] font-bold transition">
-                        切断
-                    </button>
-                </div>
-
-                <!-- Session Sub Tabs -->
-                <div class="flex border-b border-gray-800 text-xs shrink-0">
-                    <button id="sync-tab-radar-btn" onclick="switchSyncTab('radar')" class="px-3 py-1.5 border-b-2 border-emerald-400 text-emerald-300 font-bold transition">
-                        同期レーダー
-                    </button>
-                    <button id="sync-tab-queue-btn" onclick="switchSyncTab('queue')" class="px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-bold transition">
-                        リクエストキュー (<span id="sync-queue-count">0</span>)
-                    </button>
-                    <button id="sync-tab-chat-btn" onclick="switchSyncTab('chat')" class="px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-bold transition">
-                        DJ アナウンス & チャット
-                    </button>
-                </div>
-
-                <!-- Tab 1: Sync Health Radar & Members -->
-                <div id="sync-tab-radar" class="space-y-3 flex-1 overflow-y-auto pr-1">
-                    <div class="bg-gray-950/70 border border-gray-800 rounded-xl p-3 text-xs space-y-2">
-                        <div class="flex justify-between items-center text-[11px] text-gray-300 border-b border-gray-800 pb-1.5">
-                            <span class="font-bold text-emerald-300">同期ステータス & 接続メンバー</span>
-                            <span class="text-gray-400 text-[10px]">接続中: <span id="sync-members-count" class="font-bold text-white">1</span> 名</span>
-                        </div>
-                        
-                        <!-- File Transfer Progress Bar (If transferring) -->
-                        <div id="sync-file-progress-container" class="hidden bg-gray-900 border border-indigo-500/40 rounded-lg p-2 space-y-1">
-                            <div class="flex justify-between text-[10px] text-indigo-200">
-                                <span id="sync-file-progress-label">楽曲データ受信中...</span>
-                                <span id="sync-file-progress-pct" class="font-mono">0%</span>
-                            </div>
-                            <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                <div id="sync-file-progress-bar" class="h-full bg-indigo-500 transition-all duration-150" style="width: 0%;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Members List -->
-                        <div id="sync-members-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                            <!-- Populated dynamically -->
-                            <div class="flex items-center justify-between bg-gray-900/80 px-2.5 py-1.5 rounded-lg border border-gray-800 text-[11px]">
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                                    <span class="font-mono text-gray-200">あなた</span>
-                                </div>
-                                <span class="text-[9px] text-emerald-400 font-mono">Host</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 2: Track Request & Upvote Queue -->
-                <div id="sync-tab-queue" class="space-y-3 flex-1 overflow-y-auto pr-1 hidden">
-                    <!-- Request Form -->
-                    <div class="bg-gray-950/70 border border-gray-800 rounded-xl p-2.5 space-y-2 text-xs">
-                        <div class="flex space-x-2">
-                            <input type="text" id="sync-req-title-input" placeholder="曲名 (必須)" class="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
-                            <input type="text" id="sync-req-artist-input" placeholder="歌手/アーティスト (任意)" class="w-1/3 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
-                            <button onclick="submitTrackRequest()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition active:scale-95">
-                                リクエスト
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Queue List -->
-                    <div id="sync-queue-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs">
-                        <div class="text-center text-gray-500 py-6 text-xs">
-                            現在リクエストされている曲はありません
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 3: DJ Announce & In-Room Chat -->
-                <div id="sync-tab-chat" class="space-y-2 flex-1 overflow-hidden flex flex-col hidden">
-                    <!-- Chat Timeline -->
-                    <div id="sync-chat-timeline" class="flex-1 bg-gray-950/80 border border-gray-800 rounded-xl p-2.5 space-y-2 overflow-y-auto text-xs max-h-44">
-                        <div class="text-center text-gray-500 text-[10px] py-2">
-                            --- DJ Room チャットタイムライン ---
-                        </div>
-                    </div>
-
-                    <!-- Chat Input Form -->
-                    <div class="space-y-1.5 shrink-0">
-                        <div class="flex space-x-2">
-                            <input type="text" id="sync-chat-input" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter') sendSyncChat()" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
-                            <button onclick="sendSyncChat()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition active:scale-95">
-                                送信
-                            </button>
-                        </div>
-                        <div id="sync-host-announce-toggle" class="flex items-center space-x-1.5 text-[10px] text-emerald-300">
-                            <input type="checkbox" id="sync-is-announce-chk" class="rounded border-gray-700 text-emerald-600 focus:ring-0">
-                            <label for="sync-is-announce-chk" class="cursor-pointer">DJ アナウンスとして送信 (上部ティッカーに強調表示)</label>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-    </div>
 
     <script>
         // IndexedDB
@@ -2469,7 +2403,7 @@
         let spessaSynthInstance = null;
 
         // 状態管理
-        let currentMode = 'single'; // 'single', 'dual', 'multi', 'fx', 'visual', 'help'
+        let currentMode = 'single'; // 'single', 'dual', 'multi', 'fx', 'sync', 'help'
         let playlist = [];
         let visualType = 'spectrum'; // 'spectrum', 'wave', 'circle'
         
@@ -2595,7 +2529,7 @@
             dualView: document.getElementById('dual-view'),
             multiView: document.getElementById('multi-view'),
             fxView: document.getElementById('fx-view'),
-            visualView: document.getElementById('visual-view'),
+            syncView: document.getElementById('sync-view'),
             helpView: document.getElementById('help-view'),
             headerVisualizer: document.getElementById('header-visualizer-container'),
             decksContainer: document.getElementById('decks-container'),
@@ -8900,7 +8834,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.4.1';
+        const APP_VERSION = '3.5.1';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
@@ -9457,8 +9391,8 @@
             { id: 'theme_5',            category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>', name: 'No. 31', desc: '複数の異なるテーマを使った', hint: 'テーマを色々切り替えていると…' },
             { id: 'theme_clear',        category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3l1.88 5.77H20l-4.94 3.59 1.88 5.77L12 14.54l-4.94 3.59 1.88-5.77L4 8.77h6.12z"/></svg>', name: 'No. 32', desc: '透明感のあるテーマを適用した', hint: 'すっきりしたテーマを一度試してみよう' },
             { id: 'custom_bg',          category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>', name: 'No. 33', desc: 'カスタム背景画像を設定した', hint: '自分の画像を背景にできる機能がある' },
-            { id: 'visual_all',         category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 16.9l-6.18 3.12L7 13.14 2 8.27l6.91-1.01L12 2z"/></svg>', name: 'No. 34', desc: 'Visualモードで全ビジュアライザーを体験した', hint: 'Visualモードの切り替えを全部試した?' },
-            { id: 'quantum_orb_stage',  category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>', name: 'No. 35', desc: '3Dビジュアライザー「Quantum Orb」で異次元の光を体感した', hint: 'Visualモードの球体演出を起動してみよう' },
+            { id: 'sync_dj_room',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', name: 'No. 34', desc: 'P2P SyncでDJルームを開設、または参加した', hint: 'Syncモードで部屋を作るかコードで参加してみよう' },
+            { id: 'sync_dj_announce',   category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>', name: 'No. 35', desc: 'DJ Roomでリアルタイムチャットまたはアナウンスを送信した', hint: 'Syncモードのチャットでメッセージを届けてみよう' },
             { id: 'video_cinema',       category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>', name: 'No. 36', desc: '動画ファイルをインポートして再生した', hint: '音楽以外のファイルも読み込める' },
 
             // シークレット系 (secrets: No. 37 - No. 40)

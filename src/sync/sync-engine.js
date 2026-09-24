@@ -73,6 +73,13 @@
                     }
                     break;
 
+                case 'sync_client_ready':
+                    // Listener is fully ready: Host sends current playback state immediately
+                    if (this.session.role === 'host' && this.api && typeof this.api.resyncToNewClient === 'function') {
+                        this.api.resyncToNewClient(fromPeer || msg.peerId);
+                    }
+                    break;
+
                 case 'sync_remote_cmd':
                     // Host receives remote command from listener/phone
                     if (this.session.role === 'host' || this.isAuxGranted) {
@@ -93,8 +100,9 @@
             if (!buffer || !this.api) return;
             this.bufferReady = true;
 
-            const blob = new Blob([buffer], { type: metadata.mimeType || 'audio/mpeg' });
-            const file = new File([blob], metadata.name || 'P2P_Track', { type: metadata.mimeType || 'audio/mpeg' });
+            const mimeType = metadata.mimeType || (metadata.isMidi ? 'audio/midi' : 'audio/mpeg');
+            const blob = new Blob([buffer], { type: mimeType });
+            const file = new File([blob], metadata.name || 'P2P_Track', { type: mimeType });
 
             const trackObj = {
                 name: metadata.name || 'P2P Track',
@@ -103,7 +111,9 @@
                 tagTitle: metadata.tagTitle || metadata.name,
                 isMidi: !!metadata.isMidi,
                 file: file,
+                blob: blob,
                 blobUrl: URL.createObjectURL(blob),
+                arrayBuffer: buffer,
                 duration: metadata.duration || 0,
                 gameLoop: metadata.gameLoop || null
             };
@@ -114,7 +124,7 @@
             }
             this.isSyncingLocally = false;
 
-            // Notify host that listener is ready
+            // Notify host that listener has loaded file and is ready for playback
             this.session.broadcast({ type: 'sync_client_ready', peerId: this.session.myPeerId });
         }
 
