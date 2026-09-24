@@ -2653,18 +2653,6 @@
                 spd: document.getElementById('fx-spd'), spdVal: document.getElementById('spd-val')
             },
 
-            // Visual UI
-            visual: {
-                title: document.getElementById('visual-title'),
-                play: document.getElementById('visual-play'),
-                prev: document.getElementById('visual-prev'),
-                next: document.getElementById('visual-next'),
-                playIcon: document.getElementById('visual-play-icon'),
-                pauseIcon: document.getElementById('visual-pause-icon'),
-                canvas: document.getElementById('main-visualizer'),
-                typeBtns: document.querySelectorAll('.visual-type-btn')
-            },
-
             // Common
             playlist: document.getElementById('playlist'),
             trackCount: document.getElementById('track-count'),
@@ -2737,15 +2725,15 @@
             window.setPlayerMode = (mode) => {
                 if (currentMode === mode) return;
                 
-                const isSingleOrFxOrVisual = (m) => m === 'single' || m === 'fx' || m === 'visual';
-                const wasSingleOrFxOrVisual = isSingleOrFxOrVisual(currentMode);
-                const isNowSingleOrFxOrVisual = isSingleOrFxOrVisual(mode);
+                const isSingleOrFxOrSync = (m) => m === 'single' || m === 'fx' || m === 'sync';
+                const wasSingleOrFxOrSync = isSingleOrFxOrSync(currentMode);
+                const isNowSingleOrFxOrSync = isSingleOrFxOrSync(mode);
 
-                if (!wasSingleOrFxOrVisual || !isNowSingleOrFxOrVisual) {
+                if (!wasSingleOrFxOrSync || !isNowSingleOrFxOrSync) {
                     stopAllAudio();
                 }
                 
-                if (!wasSingleOrFxOrVisual && isNowSingleOrFxOrVisual) {
+                if (!wasSingleOrFxOrSync && isNowSingleOrFxOrSync) {
                     currentSinglePlayerIndex = 0;
                     if (players[0]) { players[0].pause(); players[0].src = ''; }
                     if (players[1]) { players[1].pause(); players[1].src = ''; }
@@ -3361,37 +3349,6 @@
                 studioVidBtn.addEventListener('click', toggleStudioVideoRecording);
             }
 
-            // Visual Events
-            ui.visual.play.addEventListener('click', toggleSinglePlay); 
-            ui.visual.prev.addEventListener('click', () => changeSingleTrack(-1));
-            ui.visual.next.addEventListener('click', () => changeSingleTrack(1));
-            let savedVisualType = localStorage.getItem('ost_visual_type') || 'spectrum';
-            if (savedVisualType === 'grid') savedVisualType = 'orb';
-            visualType = savedVisualType;
-
-            ui.visual.typeBtns.forEach(btn => {
-                if (btn.dataset.type === visualType) {
-                    btn.className = 'visual-type-btn bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200 shadow-sm';
-                } else {
-                    btn.className = 'visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200';
-                }
-                btn.addEventListener('click', (e) => {
-                    visualType = btn.dataset.type;
-                    localStorage.setItem('ost_visual_type', visualType);
-                    ui.visual.typeBtns.forEach(b => {
-                        b.className = 'visual-type-btn bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200';
-                    });
-                    btn.className = 'visual-type-btn bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full transition-all duration-200 shadow-sm';
-                    // visual_all achievement: track all 5 visualizer types viewed
-                    achievementsState.stats.visualizersViewed = achievementsState.stats.visualizersViewed || {};
-                    achievementsState.stats.visualizersViewed[visualType] = true;
-                    const viewedTypes = Object.keys(achievementsState.stats.visualizersViewed);
-                    if (viewedTypes.length >= 5) triggerAchievement('visual_all');
-                    if (visualType === 'orb' || visualType === 'quantum_orb') triggerAchievement('quantum_orb_stage');
-                    saveAchievements(false);
-                });
-            });
-
             // Common Events
             if (ui.addFilesBtn) ui.addFilesBtn.addEventListener('click', () => { if (ui.fileInput) ui.fileInput.click(); });
             if (ui.fileInput) {
@@ -3541,7 +3498,7 @@
                 // 1-6 keys for mode shifting
                 if (['1', '2', '3', '4', '5', '6'].includes(key)) {
                     e.preventDefault();
-                    const modes = ['single', 'dual', 'multi', 'fx', 'visual', 'help'];
+                    const modes = ['single', 'dual', 'multi', 'fx', 'sync', 'help'];
                     const mode = modes[parseInt(key) - 1];
                     setPlayerMode(mode);
                     showNotification(`モード: ${mode.toUpperCase()}`);
@@ -3558,7 +3515,7 @@
                         
                     case ' ':
                         e.preventDefault();
-                        if (currentMode === 'single' || currentMode === 'visual') {
+                        if (currentMode === 'single' || currentMode === 'sync') {
                             toggleSinglePlay();
                         } else if (currentMode === 'fx') {
                             toggleFxPlay();
