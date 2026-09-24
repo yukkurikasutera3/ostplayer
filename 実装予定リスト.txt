@@ -1,7 +1,7 @@
 ================================================================================
   OST Player - 実装実績 & 今後の大型実装予定リスト (Roadmap & Feature Planning)
-  Current Release: v3.4.0 "Studio & Pure OST" (2026年9月 リリース完了)
-  Target Release:  v4.0.0 "Harmonics / Sync Session" (2026年10月 予定)
+  Current Release: v3.5.0 "P2P Sync & DJ Room" (2026年9月 リリース完了)
+  Target Release:  v4.0.0 "Harmonics & Cross-Platform Remote" (2026年10月 予定)
 ================================================================================
 
 --------------------------------------------------------------------------------
