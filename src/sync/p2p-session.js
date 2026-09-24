@@ -206,13 +206,27 @@
                 return;
             }
 
-            // Party Reactions
-            if (data.type === 'reaction') {
-                this.emit('reaction', data);
-                // Host relays reaction to all listeners
+            // In-Room Chat & DJ Announcement
+            if (data.type === 'chat') {
+                this.emit('chat', data);
                 if (this.role === 'host') {
                     this.broadcast(data, conn.peer);
                 }
+                return;
+            }
+
+            // Track Request & Upvote Queue
+            if (data.type === 'request_queue' || data.type === 'track_request' || data.type === 'upvote_request') {
+                this.emit('request_queue', data, conn ? conn.peer : null);
+                if (this.role === 'host') {
+                    this.broadcast(data, conn.peer);
+                }
+                return;
+            }
+
+            // Sync Health Radar Stats
+            if (data.type === 'radar_stats') {
+                this.emit('radar_stats', data);
                 return;
             }
 
@@ -333,16 +347,63 @@
             }
         }
 
-        sendReaction(type, symbol, label) {
-            const reactionData = {
-                type: 'reaction',
-                symbol: symbol || '[!] ',
-                label: label || 'Reaction',
-                sender: this.myPeerId ? this.myPeerId.slice(-4) : 'User',
+        sendChatMessage(text, isAnnouncement = false) {
+            if (!text || !text.trim()) return;
+            const chatData = {
+                type: 'chat',
+                text: text.trim(),
+                isAnnouncement: !!isAnnouncement,
+                sender: this.myPeerId ? (this.role === 'host' ? '[DJ Host]' : 'User-' + this.myPeerId.slice(-4)) : 'User',
                 timestamp: Date.now()
             };
-            this.broadcast(reactionData);
-            this.emit('reaction', reactionData);
+            this.broadcast(chatData);
+            this.emit('chat', chatData);
+        }
+
+        sendTrackRequest(title, artist = '') {
+            if (!title || !title.trim()) return;
+            const reqData = {
+                type: 'track_request',
+                id: 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                title: title.trim(),
+                artist: artist.trim(),
+                upvotes: 1,
+                voters: [this.myPeerId || 'local'],
+                requester: this.myPeerId ? 'User-' + this.myPeerId.slice(-4) : 'User',
+                timestamp: Date.now()
+            };
+            if (this.role === 'host') {
+                this.emit('request_queue', reqData);
+                this.broadcast(reqData);
+            } else {
+                this.sendToHost(reqData);
+            }
+        }
+
+        sendUpvote(requestId) {
+            if (!requestId) return;
+            const upvoteData = {
+                type: 'upvote_request',
+                requestId,
+                voter: this.myPeerId || 'local',
+                timestamp: Date.now()
+            };
+            if (this.role === 'host') {
+                this.emit('request_queue', upvoteData);
+                this.broadcast(upvoteData);
+            } else {
+                this.sendToHost(upvoteData);
+            }
+        }
+
+        broadcastRadarStats(statsList) {
+            if (this.role !== 'host') return;
+            const radarData = {
+                type: 'radar_stats',
+                stats: statsList,
+                timestamp: Date.now()
+            };
+            this.broadcast(radarData);
         }
 
         startHeartbeat() {

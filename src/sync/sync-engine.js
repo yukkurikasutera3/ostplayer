@@ -26,9 +26,21 @@
                 this.handleIncomingFile(buffer, metadata);
             });
 
-            this.session.on('reaction', (reaction) => {
-                if (this.api && typeof this.api.triggerReactionEffect === 'function') {
-                    this.api.triggerReactionEffect(reaction);
+            this.session.on('chat', (chatData) => {
+                if (this.api && typeof this.api.handleIncomingChat === 'function') {
+                    this.api.handleIncomingChat(chatData);
+                }
+            });
+
+            this.session.on('request_queue', (queueData, fromPeer) => {
+                if (this.api && typeof this.api.handleIncomingRequestQueue === 'function') {
+                    this.api.handleIncomingRequestQueue(queueData, fromPeer);
+                }
+            });
+
+            this.session.on('radar_stats', (radarData) => {
+                if (this.api && typeof this.api.handleIncomingRadarStats === 'function') {
+                    this.api.handleIncomingRadarStats(radarData);
                 }
             });
         }

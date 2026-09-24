@@ -36,6 +36,12 @@
     <script src="src/platform/mobile-bridge.js"></script>
     <script src="src/ui/mobile-nav.js"></script>
 
+    <!-- P2P Sync & WebRTC Engine (Phase 2) -->
+    <script src="src/sync/peer.min.js"></script>
+    <script src="src/sync/p2p-session.js"></script>
+    <script src="src/sync/sync-engine.js"></script>
+    <script src="src/sync/sync-ui-controller.js"></script>
+
     <!-- Mobile Responsive Stylesheet -->
     <link rel="stylesheet" href="src/ui/responsive.css">
 
@@ -439,6 +445,12 @@
                     <!-- 実績＆トロフィールーム ボタン -->
                     <button id="trophy-modal-btn" onclick="openTrophyModal()" class="px-2 py-1 rounded-full border border-amber-500/50 text-[10px] font-bold text-amber-300 bg-gray-900/90 hover:text-white hover:bg-amber-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="実績＆トロフィールーム (全40種)">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg><span id="trophy-count-badge" class="text-[9px] text-amber-400">0/40</span>
+                    </button>
+
+                    <!-- P2P Sync Session / DJ Room ボタン -->
+                    <button id="sync-room-btn" onclick="openSyncModal()" class="px-2 py-1 rounded-full border border-emerald-500/60 text-[10px] font-bold text-emerald-300 bg-gray-900/90 hover:text-white hover:bg-emerald-900/60 transition-colors select-none focus:outline-none shrink-0 flex items-center space-x-1" title="P2P 同期リスニング & DJ Room (Phase 2)">
+                        <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                        <span id="sync-btn-label">Sync</span>
                     </button>
 
                     <!-- 独立したHelpボタン (デスクトップ専用、スマホは下部ナビに統合) -->
@@ -2240,6 +2252,207 @@
                     </button>
                 </div>
             </div>
+    </div>
+
+    <!-- DJ アナウンス・ティッカー (上部通知バナー) -->
+    <div id="dj-announcement-ticker" class="fixed top-3 left-1/2 -translate-x-1/2 z-[9990] hidden bg-gradient-to-r from-emerald-950/95 via-slate-900/95 to-emerald-950/95 border border-emerald-400/60 rounded-full px-5 py-2 text-xs text-emerald-200 shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center space-x-3 backdrop-blur-md transition-all duration-300 pointer-events-auto select-none">
+        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">DJ ANNOUNCE</span>
+        <span id="dj-ticker-text" class="font-medium text-white max-w-md truncate">--</span>
+        <button onclick="closeDjTicker()" class="text-gray-400 hover:text-white text-xs ml-2">✕</button>
+    </div>
+
+    <!-- P2P Sync Session / DJ Room モーダル (Phase 2) -->
+    <div id="sync-session-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
+        <div class="modal-content bg-gray-900 border border-emerald-500/50 rounded-2xl p-5 max-w-xl w-full mx-4 shadow-[0_0_50px_rgba(16,185,129,0.25)] flex flex-col space-y-3.5 text-gray-200 max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2.5 shrink-0">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)] shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 class="text-base font-bold text-emerald-300">P2P 同期リスニング & DJ Room</h3>
+                            <span class="text-[9px] bg-emerald-950/90 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">Phase 2</span>
+                        </div>
+                        <p class="text-[10px] text-gray-400">WebRTC 直接暗号化通信によるミリ秒再生同期 & DJ セッション</p>
+                    </div>
+                </div>
+                <button onclick="closeSyncModal()" class="text-gray-400 hover:text-white text-sm bg-gray-800 hover:bg-gray-700 w-7 h-7 rounded-full flex items-center justify-center transition">✕</button>
+            </div>
+
+            <!-- View 1: 接続前 (Idle / Setup View) -->
+            <div id="sync-setup-view" class="space-y-4 py-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    
+                    <!-- Host Panel -->
+                    <div class="bg-gray-950/80 border border-emerald-500/30 rounded-xl p-4 flex flex-col justify-between hover:border-emerald-500/60 transition shadow-inner">
+                        <div>
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                                <h4 class="text-sm font-bold text-emerald-200">DJ として部屋を作る</h4>
+                            </div>
+                            <p class="text-[11px] text-gray-400 leading-relaxed mb-3">
+                                あなたがホストとなり、再生中の楽曲や操作を参加者全員へリアルタイム配信します。
+                            </p>
+                            <div class="bg-gray-900 border border-gray-800 rounded-lg p-2.5 mb-3">
+                                <span class="text-[10px] text-gray-400 block mb-1">発行ルームコード (6桁)</span>
+                                <div class="flex items-center justify-between">
+                                    <span id="sync-generated-code" class="text-xl font-mono font-extrabold text-emerald-300 tracking-widest">------</span>
+                                    <button onclick="copyGeneratedCode()" class="text-[10px] px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">コピー</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="sync-create-room-btn" onclick="startHostRoom()" class="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">
+                            DJ ルームを開設
+                        </button>
+                    </div>
+
+                    <!-- Listener Panel -->
+                    <div class="bg-gray-950/80 border border-cyan-500/30 rounded-xl p-4 flex flex-col justify-between hover:border-cyan-500/60 transition shadow-inner">
+                        <div>
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                                <h4 class="text-sm font-bold text-cyan-200">リスナーとして参加</h4>
+                            </div>
+                            <p class="text-[11px] text-gray-400 leading-relaxed mb-3">
+                                DJ が発行した 6 桁のルームコードを入力して、完全同期リスニングに参加します。
+                            </p>
+                            <div class="bg-gray-900 border border-gray-800 rounded-lg p-2.5 mb-3">
+                                <span class="text-[10px] text-gray-400 block mb-1">ルームコードを入力</span>
+                                <input type="text" id="sync-join-code-input" maxlength="6" placeholder="例: 749215" class="w-full bg-black/60 border border-gray-700 rounded px-2.5 py-1 text-center font-mono font-bold text-base text-cyan-300 tracking-widest focus:outline-none focus:border-cyan-400">
+                            </div>
+                        </div>
+                        <button id="sync-join-room-btn" onclick="joinListenerRoom()" class="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-lg transition shadow-[0_0_15px_rgba(6,182,212,0.3)] active:scale-95">
+                            ルームに接続
+                        </button>
+                    </div>
+
+                </div>
+
+                <div id="sync-setup-status" class="text-center text-xs text-gray-400 py-1 hidden font-mono">
+                    接続ステータス: 待機中
+                </div>
+            </div>
+
+            <!-- View 2: 接続中 (Active Session View) -->
+            <div id="sync-active-view" class="space-y-3 hidden flex-1 min-h-0 flex flex-col">
+                
+                <!-- Session Header Info Banner -->
+                <div class="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-2.5 flex items-center justify-between text-xs shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span class="text-gray-400 text-[10px]">ROOM:</span>
+                            <span id="sync-active-room-code" class="font-mono font-bold text-emerald-300 text-sm tracking-wider">------</span>
+                        </div>
+                        <span id="sync-active-role-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">[DJ Host]</span>
+                        <span id="sync-latency-badge" class="text-[10px] font-mono text-gray-400">Ping: -- ms</span>
+                    </div>
+                    <button onclick="leaveSyncSession()" class="px-2.5 py-1 rounded bg-red-950/80 hover:bg-red-800 text-red-200 border border-red-500/50 text-[10px] font-bold transition">
+                        切断
+                    </button>
+                </div>
+
+                <!-- Session Sub Tabs -->
+                <div class="flex border-b border-gray-800 text-xs shrink-0">
+                    <button id="sync-tab-radar-btn" onclick="switchSyncTab('radar')" class="px-3 py-1.5 border-b-2 border-emerald-400 text-emerald-300 font-bold transition">
+                        同期レーダー
+                    </button>
+                    <button id="sync-tab-queue-btn" onclick="switchSyncTab('queue')" class="px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-bold transition">
+                        リクエストキュー (<span id="sync-queue-count">0</span>)
+                    </button>
+                    <button id="sync-tab-chat-btn" onclick="switchSyncTab('chat')" class="px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200 font-bold transition">
+                        DJ アナウンス & チャット
+                    </button>
+                </div>
+
+                <!-- Tab 1: Sync Health Radar & Members -->
+                <div id="sync-tab-radar" class="space-y-3 flex-1 overflow-y-auto pr-1">
+                    <div class="bg-gray-950/70 border border-gray-800 rounded-xl p-3 text-xs space-y-2">
+                        <div class="flex justify-between items-center text-[11px] text-gray-300 border-b border-gray-800 pb-1.5">
+                            <span class="font-bold text-emerald-300">同期ステータス & 接続メンバー</span>
+                            <span class="text-gray-400 text-[10px]">接続中: <span id="sync-members-count" class="font-bold text-white">1</span> 名</span>
+                        </div>
+                        
+                        <!-- File Transfer Progress Bar (If transferring) -->
+                        <div id="sync-file-progress-container" class="hidden bg-gray-900 border border-indigo-500/40 rounded-lg p-2 space-y-1">
+                            <div class="flex justify-between text-[10px] text-indigo-200">
+                                <span id="sync-file-progress-label">楽曲データ受信中...</span>
+                                <span id="sync-file-progress-pct" class="font-mono">0%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                <div id="sync-file-progress-bar" class="h-full bg-indigo-500 transition-all duration-150" style="width: 0%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Members List -->
+                        <div id="sync-members-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                            <!-- Populated dynamically -->
+                            <div class="flex items-center justify-between bg-gray-900/80 px-2.5 py-1.5 rounded-lg border border-gray-800 text-[11px]">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                    <span class="font-mono text-gray-200">あなた</span>
+                                </div>
+                                <span class="text-[9px] text-emerald-400 font-mono">Host</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Track Request & Upvote Queue -->
+                <div id="sync-tab-queue" class="space-y-3 flex-1 overflow-y-auto pr-1 hidden">
+                    <!-- Request Form -->
+                    <div class="bg-gray-950/70 border border-gray-800 rounded-xl p-2.5 space-y-2 text-xs">
+                        <div class="flex space-x-2">
+                            <input type="text" id="sync-req-title-input" placeholder="曲名 (必須)" class="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <input type="text" id="sync-req-artist-input" placeholder="歌手/アーティスト (任意)" class="w-1/3 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <button onclick="submitTrackRequest()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition active:scale-95">
+                                リクエスト
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Queue List -->
+                    <div id="sync-queue-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs">
+                        <div class="text-center text-gray-500 py-6 text-xs">
+                            現在リクエストされている曲はありません
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: DJ Announce & In-Room Chat -->
+                <div id="sync-tab-chat" class="space-y-2 flex-1 overflow-hidden flex flex-col hidden">
+                    <!-- Chat Timeline -->
+                    <div id="sync-chat-timeline" class="flex-1 bg-gray-950/80 border border-gray-800 rounded-xl p-2.5 space-y-2 overflow-y-auto text-xs max-h-44">
+                        <div class="text-center text-gray-500 text-[10px] py-2">
+                            --- DJ Room チャットタイムライン ---
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Form -->
+                    <div class="space-y-1.5 shrink-0">
+                        <div class="flex space-x-2">
+                            <input type="text" id="sync-chat-input" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter') sendSyncChat()" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-emerald-400">
+                            <button onclick="sendSyncChat()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition active:scale-95">
+                                送信
+                            </button>
+                        </div>
+                        <div id="sync-host-announce-toggle" class="flex items-center space-x-1.5 text-[10px] text-emerald-300">
+                            <input type="checkbox" id="sync-is-announce-chk" class="rounded border-gray-700 text-emerald-600 focus:ring-0">
+                            <label for="sync-is-announce-chk" class="cursor-pointer">DJ アナウンスとして送信 (上部ティッカーに強調表示)</label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
     </div>
 
@@ -6366,6 +6579,14 @@
                     updateVisualUIState(true);
                 }
 
+                // ⚡ P2P Sync Broadcast (Host)
+                if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                    window.syncEngine.broadcastTrack(track, arrayBuffer);
+                    if (autoPlay) {
+                        window.syncEngine.broadcastPlayback(true, 0);
+                    }
+                }
+
             } else {
                 updateVideoBackgroundState(track.isVideo);
                 document.getElementById('single-midi-mixer-btn').classList.add('hidden');
@@ -6405,6 +6626,16 @@
                     isSinglePlaying = false;
                     updateSingleUIState();
                     updateVisualUIState(false);
+                }
+
+                // ⚡ P2P Sync Broadcast (Host)
+                if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                    AudioCacheManager.getTrackBuffer(track).then(buf => {
+                        if (buf) window.syncEngine.broadcastTrack(track, buf);
+                    }).catch(() => {});
+                    if (autoPlay) {
+                        window.syncEngine.broadcastPlayback(true, 0);
+                    }
                 }
             }
         }
@@ -6521,6 +6752,11 @@
                 }
                 updateSingleUIState();
                 if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
+                if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                    const synth = getMidiSynth('main', false);
+                    const curTime = synth ? synth.getPlayStatus().currentTime : 0;
+                    window.syncEngine.broadcastPlayback(isSinglePlaying, curTime);
+                }
             } else {
                 let p = players[currentSinglePlayerIndex];
                 AudioCacheManager.getTrackUrl(track).then(trackUrl => {
@@ -6537,6 +6773,9 @@
                     }
                     updateSingleUIState();
                     if (typeof broadcastDiscordPresence === 'function') setTimeout(broadcastDiscordPresence, 60);
+                    if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                        window.syncEngine.broadcastPlayback(isSinglePlaying, p.currentTime || 0);
+                    }
                 });
             }
         }
@@ -6628,10 +6867,20 @@
             if (ui.mini && ui.mini.seek) ui.mini.seek.value = seekVal;
             const track = playlist[singleTrackIndex];
             if (track && track.isMidi) {
-                seekMidi(getMidiSynth('main'), seekVal);
+                const synth = getMidiSynth('main');
+                seekMidi(synth, seekVal);
+                if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                    const status = synth ? synth.getPlayStatus() : null;
+                    if (status) window.syncEngine.broadcastSeek(status.currentTime);
+                }
             } else {
                 let p = players[currentSinglePlayerIndex];
-                if(p.duration) p.currentTime = (seekVal / 100) * p.duration;
+                if(p.duration) {
+                    p.currentTime = (seekVal / 100) * p.duration;
+                    if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                        window.syncEngine.broadcastSeek(p.currentTime);
+                    }
+                }
             }
         }
         
@@ -11690,6 +11939,108 @@
                 }
             }
         }
+
+        // ==========================================
+        // P2P Sync & DJ Room Global Bridge Functions (Phase 2)
+        // ==========================================
+
+        // Listener 側: P2P から届いたトラック（ArrayBuffer / Blob）を読み込んで再生
+        window.loadP2PTrack = async function(trackObj) {
+            if (!trackObj) return;
+            initAudio();
+            if (audioContext.state === 'suspended') audioContext.resume();
+
+            let existingIdx = playlist.findIndex(t => t.name === trackObj.name && t.isMidi === trackObj.isMidi);
+            let track;
+            if (existingIdx !== -1) {
+                track = playlist[existingIdx];
+                track.blob = trackObj.blob;
+                track.arrayBuffer = trackObj.arrayBuffer;
+            } else {
+                track = {
+                    id: 'p2p_' + Date.now(),
+                    name: trackObj.name || 'P2P Track',
+                    artist: trackObj.artist || 'DJ Host',
+                    album: trackObj.album || 'Sync Session',
+                    file: trackObj.blob ? new File([trackObj.blob], trackObj.name, { type: trackObj.blob.type || 'audio/mpeg' }) : null,
+                    blob: trackObj.blob,
+                    arrayBuffer: trackObj.arrayBuffer,
+                    isMidi: !!trackObj.isMidi,
+                    isVideo: !!trackObj.isVideo,
+                    metadataLoaded: true,
+                    playlistName: activePlaylist
+                };
+                playlist.unshift(track);
+                existingIdx = 0;
+            }
+
+            updatePlaylistUI();
+            await loadSingleTrack(existingIdx, false);
+        };
+
+        // Listener 側: Host の再生/停止・再生位置をミリ秒同期
+        window.applySyncPlayPause = function(isPlaying, targetTime) {
+            const track = playlist[singleTrackIndex];
+            if (track && track.isMidi) {
+                const synth = getMidiSynth('main');
+                if (!synth) return;
+                if (targetTime !== undefined && !isNaN(targetTime)) {
+                    if (typeof synth.seekTo === 'function') synth.seekTo(targetTime);
+                }
+                if (isPlaying) {
+                    synth.playMIDI();
+                    isSinglePlaying = true;
+                } else {
+                    if (typeof synth.pauseMIDI === 'function') synth.pauseMIDI();
+                    else synth.stopMIDI();
+                    isSinglePlaying = false;
+                }
+                updateSingleUIState();
+            } else {
+                const p = players[currentSinglePlayerIndex];
+                if (targetTime !== undefined && !isNaN(targetTime) && p.duration) {
+                    p.currentTime = targetTime;
+                }
+                if (isPlaying) {
+                    p.play().catch(e => console.warn(e));
+                    isSinglePlaying = true;
+                } else {
+                    p.pause();
+                    isSinglePlaying = false;
+                }
+                updateSingleUIState();
+            }
+        };
+
+        // Listener 側: Host のシーク操作を反映
+        window.applySyncSeek = function(targetTime) {
+            const track = playlist[singleTrackIndex];
+            if (track && track.isMidi) {
+                const synth = getMidiSynth('main');
+                if (synth && typeof synth.seekTo === 'function') {
+                    synth.seekTo(targetTime);
+                }
+            } else {
+                const p = players[currentSinglePlayerIndex];
+                if (p) p.currentTime = targetTime;
+            }
+        };
+
+        // Listener 側: ループモード設定
+        window.setLoopModeDirect = function(mode) {
+            loopMode = mode;
+            updateLoopButtonUI();
+        };
+
+        // キューからの再生検索
+        window.searchAndPlayTrack = function(title) {
+            if (!title || !playlist.length) return;
+            const lower = title.toLowerCase();
+            const foundIdx = playlist.findIndex(t => t.name.toLowerCase().includes(lower));
+            if (foundIdx !== -1) {
+                loadSingleTrack(foundIdx, true);
+            }
+        };
     </script>
 
     <!-- === Circle of Fifths Chord Wheel - Floating Overlay Panel === -->
