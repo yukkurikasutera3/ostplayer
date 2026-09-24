@@ -12,7 +12,7 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-body {
+body:not(.desktop-app):not(.mini-mode) {
     padding-top: max(0.5rem, var(--sat));
     padding-bottom: max(0.5rem, var(--sab));
     padding-left: max(0.5rem, var(--sal));
@@ -30,16 +30,16 @@ input[type="range"]::-webkit-slider-thumb {
     touch-action: none;
 }
 
-/* Mobile Layout (< 768px) */
+/* Mobile Layout (< 768px) - Only active for web/mobile browsers and non-desktop environments */
 @media (max-width: 768px) {
-    body {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) {
         padding: 0 !important;
         height: 100vh !important;
         height: 100dvh !important;
         overflow: hidden !important;
     }
 
-    #main-app-container {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #main-app-container {
         border-radius: 0 !important;
         border: none !important;
         width: 100vw !important;
@@ -54,7 +54,7 @@ input[type="range"]::-webkit-slider-thumb {
     }
 
     /* Left Panel & Playlist Panel stacking on mobile */
-    #player-left-panel {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel {
         width: 100% !important;
         height: 100% !important;
         max-height: 100% !important;
@@ -67,8 +67,8 @@ input[type="range"]::-webkit-slider-thumb {
     }
 
     /* Right Panel (Playlist) hidden by default on mobile */
-    #player-right-panel,
-    #playlist-right-panel {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-right-panel,
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #playlist-right-panel {
         display: none !important;
         width: 100% !important;
         height: 100% !important;
@@ -76,18 +76,18 @@ input[type="range"]::-webkit-slider-thumb {
     }
 
     /* Body tab classes for instant pure-CSS switching */
-    body.tab-playlist #player-left-panel {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app).tab-playlist #player-left-panel {
         display: none !important;
     }
 
-    body.tab-playlist #player-right-panel,
-    body.tab-playlist #playlist-right-panel {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app).tab-playlist #player-right-panel,
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app).tab-playlist #playlist-right-panel {
         display: flex !important;
         flex-direction: column !important;
     }
 
     /* Mode & Header Bar horizontal scroll on mobile */
-    #player-left-panel > div:first-child {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel > div:first-child {
         overflow-x: auto !important;
         scrollbar-width: none !important;
         -ms-overflow-style: none !important;
@@ -96,58 +96,58 @@ input[type="range"]::-webkit-slider-thumb {
         flex-wrap: nowrap !important;
     }
 
-    #player-left-panel > div:first-child::-webkit-scrollbar {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel > div:first-child::-webkit-scrollbar {
         display: none !important;
     }
 
     /* Turntable scaling for compact mobile screens */
-    #single-artwork {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #single-artwork {
         width: 8rem !important;
         height: 8rem !important;
         margin-bottom: 0.75rem !important;
     }
 
-    #single-artwork svg {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #single-artwork svg {
         width: 3.5rem !important;
         height: 3.5rem !important;
     }
 
     /* 21:9 & Ultra-tall screen optimization (min-aspect-ratio: 18/9) */
     @media (min-aspect-ratio: 18/9) {
-        #single-artwork {
+        html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #single-artwork {
             width: 9.5rem !important;
             height: 9.5rem !important;
             margin-bottom: 1rem !important;
         }
 
-        #single-artwork svg {
+        html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #single-artwork svg {
             width: 4rem !important;
             height: 4rem !important;
         }
 
-        #single-title {
+        html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #single-title {
             font-size: 1.35rem !important;
             margin-bottom: 0.35rem !important;
         }
     }
 
     /* Hide desktop-only elements (Discord, SSTP, Mini Player, etc.) on mobile */
-    .desktop-only {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) .desktop-only {
         display: none !important;
     }
 
     /* Hide desktop-only drag & drop text on mobile */
-    #player-left-panel .mt-2\.5.pt-2 span:first-child {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel .mt-2\.5.pt-2 span:first-child {
         display: none !important;
     }
 
     /* Hide redundant Changelog button on left panel (accessible via bottom nav) */
-    #player-left-panel .mt-2\.5.pt-2 button[onclick*="setPlayerMode('help')"] {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel .mt-2\.5.pt-2 button[onclick*="setPlayerMode('help')"] {
         display: none !important;
     }
 
     /* Bottom auxiliary bar neat styling on mobile */
-    #player-left-panel .mt-2\.5.pt-2 {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #player-left-panel .mt-2\.5.pt-2 {
         border-top: 1px solid rgba(55, 65, 81, 0.4) !important;
         margin-top: 0.25rem !important;
         padding-top: 0.25rem !important;
@@ -155,7 +155,7 @@ input[type="range"]::-webkit-slider-thumb {
     }
 
     /* Mobile Bottom Navigation Bar */
-    #mobile-bottom-nav {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #mobile-bottom-nav {
         display: flex !important;
         position: fixed !important;
         bottom: 0 !important;
@@ -199,7 +199,7 @@ input[type="range"]::-webkit-slider-thumb {
     }
 
     /* Modals fit neatly on mobile */
-    .modal-content {
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) .modal-content {
         max-width: 94vw !important;
         max-height: 88vh !important;
         max-height: 88dvh !important;
@@ -207,9 +207,18 @@ input[type="range"]::-webkit-slider-thumb {
     }
 }
 
-/* Hide mobile bottom nav on desktop screens */
+/* Hide mobile bottom nav on desktop screens, desktop-app, and mini-mode */
 @media (min-width: 769px) {
     #mobile-bottom-nav {
         display: none !important;
     }
+}
+
+body.mini-mode #mobile-bottom-nav,
+body.desktop-app #mobile-bottom-nav,
+html.desktop-app #mobile-bottom-nav,
+.mini-mode #mobile-bottom-nav {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }

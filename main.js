@@ -553,7 +553,7 @@ function downloadFileWithRedirects(url, destPath, progressCb, maxRedirects = 10)
         const client = url.startsWith('https') ? https : http;
         const options = {
             headers: {
-                'User-Agent': 'OST-Player-AutoUpdater/3.4.0'
+                'User-Agent': 'OST-Player-AutoUpdater/3.4.1'
             }
         };
 

@@ -1,6 +1,6 @@
 {
   "name": "ost-player",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "description": "High-performance multi-mode audio player with 3D spatial sound and SoundFont synthesis",
   "main": "main.js",
   "scripts": {

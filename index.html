@@ -14,6 +14,12 @@
         try {
             const _savedTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
             document.documentElement.classList.add('theme-' + _savedTheme);
+            if (window.electronAPI || (window.process && window.process.type)) {
+                document.documentElement.classList.add('desktop-app');
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (document.body) document.body.classList.add('desktop-app');
+                });
+            }
         } catch(e) {}
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1102,7 +1108,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.4.0</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.4.1</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1186,9 +1192,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.4.0 Clean Architecture</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.4.1 Precision & Polish</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.4.1 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.4.1] 五度圏コード認識精度向上 & プレイリスト管理モーダル化 & UI最適化</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-24</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>五度圏コードホイールの精度改善:</strong> General MIDI Ch 10 (ドラム/パーカッション) を和音判定から完全除外し、トライアド・セブンス・aug・susの認識精度を向上。</li>
+                                <li><strong>プレイリスト入力モーダル新設:</strong> window.prompt への依存を廃止し、新規作成・名称変更・複製・移動時の新規作成用モーダルを新設。</li>
+                                <li><strong>ミニモード・デスクトップレイアウト分離:</strong> ミニモード時およびデスクトップ環境でのレイアウト干渉を完全解消。</li>
+                            </ul>
+                        </div>
                         <!-- v3.4.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -1775,10 +1793,10 @@
                     + 作成
                 </button>
                 <button id="rename-playlist-btn" onclick="renameCurrentPlaylist()" class="text-[10px] text-amber-400 hover:text-amber-300 border border-amber-400/30 px-1.5 py-1 rounded bg-amber-400/5 hover:bg-amber-400/10 transition shrink-0 hidden" title="現在のプレイリスト名を変更">
-                    ✏️ リネーム
+                    リネーム
                 </button>
                 <button id="duplicate-playlist-btn" onclick="duplicateCurrentPlaylist()" class="text-[10px] text-purple-400 hover:text-purple-300 border border-purple-400/30 px-1.5 py-1 rounded bg-purple-400/5 hover:bg-purple-400/10 transition shrink-0" title="現在のプレイリストを複製">
-                    📋 複製
+                    複製
                 </button>
                 <button id="delete-playlist-btn" class="text-[10px] text-red-400 hover:text-red-300 border border-red-400/30 px-1.5 py-1 rounded bg-red-400/5 hover:bg-red-400/10 transition shrink-0 hidden" title="現在のプレイリストを削除">
                     削除
@@ -2029,6 +2047,19 @@
         </div>
     </div>
     
+    <!-- プレイリスト入力モーダル (新規作成・リネーム・複製) -->
+    <div id="playlist-input-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
+        <div class="modal-content bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl transition-transform duration-200">
+            <h3 id="playlist-input-modal-title" class="text-base font-bold text-gray-100 mb-1.5">新しいプレイリスト</h3>
+            <p id="playlist-input-modal-desc" class="text-xs text-gray-400 mb-4">プレイリスト名を入力してください:</p>
+            <input type="text" id="playlist-input-field" class="w-full bg-gray-950 text-sm text-gray-200 border border-gray-700 rounded-lg px-3 py-2.5 mb-4 focus:outline-none focus:border-blue-500 transition-colors" placeholder="プレイリスト名">
+            <div class="flex justify-end space-x-2.5">
+                <button id="playlist-input-cancel-btn" onclick="closePlaylistInputModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition">キャンセル</button>
+                <button id="playlist-input-confirm-btn" onclick="confirmPlaylistInputModal()" class="px-5 py-2 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition shadow-lg shadow-blue-500/20">確定</button>
+            </div>
+        </div>
+    </div>
+
     <!-- プレイリスト移動モーダル -->
     <div id="move-playlist-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] hidden transition-opacity duration-200">
         <div class="modal-content bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl transition-transform duration-200">
@@ -2150,7 +2181,7 @@
             <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-cyan-950/60 p-3 rounded-xl border border-cyan-500/40 shrink-0 flex items-center justify-between text-xs">
                 <div>
                     <span class="text-gray-400 text-[10px] block">現在のバージョン</span>
-                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.4.0</span>
+                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.4.1</span>
                 </div>
                 <div class="text-cyan-400 font-bold text-sm">→</div>
                 <div>
@@ -3832,8 +3863,8 @@
                         return;
                     }
                     triggerMidiChannelLed(ch);
-                    if (typeof triggerChordWheelNoteOn === 'function') {
-                        triggerChordWheelNoteOn(msg[1], msg[2]);
+                    if (ch !== 9 && typeof triggerChordWheelNoteOn === 'function') {
+                        triggerChordWheelNoteOn(msg[1], msg[2], ch);
                     }
                     originalSend(msg, time);
                 } else if (cmd === 0xc0) {
@@ -6718,8 +6749,9 @@
 
         const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-        function triggerChordWheelNoteOn(note, vel = 100) {
+        function triggerChordWheelNoteOn(note, vel = 100, channel = null) {
             if (note === undefined || note === null) return;
+            if (channel === 9) return; // General MIDI Ch 10 (0-indexed 9) is dedicated drum channel: exclude from chord detection
             const pitch = note % 12;
             const intensity = Math.min(1.0, Math.max(0.3, vel / 127));
             chordPitchIntensities[pitch] = Math.max(chordPitchIntensities[pitch], intensity);
@@ -8619,7 +8651,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.4.0';
+        const APP_VERSION = '3.4.1';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
@@ -10350,67 +10382,139 @@
             }
         }
 
-        // --- 3. Playlist Rename & Duplicate ---
+        // --- 3. Playlist Modal & Operations ---
+        let playlistInputCallback = null;
+
+        function showPlaylistInputModal({ title, description, defaultValue = '', placeholder = 'プレイリスト名', onConfirm }) {
+            const modal = document.getElementById('playlist-input-modal');
+            const titleEl = document.getElementById('playlist-input-modal-title');
+            const descEl = document.getElementById('playlist-input-modal-desc');
+            const inputEl = document.getElementById('playlist-input-field');
+            if (!modal || !inputEl) {
+                const res = prompt(`${title || 'プレイリスト'}\n${description || ''}`, defaultValue);
+                if (res !== null && onConfirm) onConfirm(res);
+                return;
+            }
+            if (titleEl) titleEl.textContent = title || 'プレイリスト';
+            if (descEl) descEl.textContent = description || 'プレイリスト名を入力してください:';
+            inputEl.value = defaultValue;
+            inputEl.placeholder = placeholder;
+            playlistInputCallback = onConfirm;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                inputEl.focus();
+                inputEl.select();
+            }, 50);
+
+            inputEl.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmPlaylistInputModal();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closePlaylistInputModal();
+                }
+            };
+        }
+        window.showPlaylistInputModal = showPlaylistInputModal;
+
+        function closePlaylistInputModal() {
+            const modal = document.getElementById('playlist-input-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            playlistInputCallback = null;
+        }
+        window.closePlaylistInputModal = closePlaylistInputModal;
+
+        function confirmPlaylistInputModal() {
+            const inputEl = document.getElementById('playlist-input-field');
+            const val = inputEl ? inputEl.value : '';
+            const cb = playlistInputCallback;
+            closePlaylistInputModal();
+            if (cb && typeof cb === 'function') {
+                cb(val);
+            }
+        }
+        window.confirmPlaylistInputModal = confirmPlaylistInputModal;
+
         function renameCurrentPlaylist() {
             if (activePlaylist === 'All Tracks') {
                 showNotification("All Tracks プレイリストは変更できません");
                 return;
             }
-            const newName = prompt("新しいプレイリスト名を入力してください:", activePlaylist);
-            if (!newName || !newName.trim() || newName.trim() === activePlaylist) return;
-            const trimmed = newName.trim();
-            if (customPlaylists.includes(trimmed)) {
-                showNotification("同名のプレイリストが既に存在します");
-                return;
-            }
-            
-            const idx = customPlaylists.indexOf(activePlaylist);
-            if (idx !== -1) customPlaylists[idx] = trimmed;
-            localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
-            
-            playlist.forEach(track => {
-                if (track.playlistName === activePlaylist) {
-                    track.playlistName = trimmed;
-                    if (track.id !== undefined) updateTrackPlaylistInDB(track.id, trimmed);
+            showPlaylistInputModal({
+                title: "プレイリスト名変更",
+                description: "新しいプレイリスト名を入力してください:",
+                defaultValue: activePlaylist,
+                placeholder: "新しいプレイリスト名",
+                onConfirm: (newName) => {
+                    if (!newName || !newName.trim() || newName.trim() === activePlaylist) return;
+                    const trimmed = newName.trim();
+                    if (customPlaylists.includes(trimmed)) {
+                        showNotification("同名のプレイリストが既に存在します");
+                        return;
+                    }
+                    
+                    const idx = customPlaylists.indexOf(activePlaylist);
+                    if (idx !== -1) customPlaylists[idx] = trimmed;
+                    localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                    
+                    playlist.forEach(track => {
+                        if (track.playlistName === activePlaylist) {
+                            track.playlistName = trimmed;
+                            if (track.id !== undefined) updateTrackPlaylistInDB(track.id, trimmed);
+                        }
+                    });
+                    
+                    activePlaylist = trimmed;
+                    updatePlaylistDropdown();
+                    updatePlaylistUI();
+                    showNotification(`プレイリスト名を「${trimmed}」に変更しました`);
                 }
             });
-            
-            activePlaylist = trimmed;
-            updatePlaylistDropdown();
-            updatePlaylistUI();
-            showNotification(`プレイリスト名を「${trimmed}」に変更しました`);
         }
         window.renameCurrentPlaylist = renameCurrentPlaylist;
 
         function duplicateCurrentPlaylist() {
-            const dupName = prompt("複製後のプレイリスト名を入力してください:", activePlaylist + " (Copy)");
-            if (!dupName || !dupName.trim()) return;
-            const trimmed = dupName.trim();
-            if (!customPlaylists.includes(trimmed) && trimmed !== 'All Tracks') {
-                customPlaylists.push(trimmed);
-                localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
-            }
-            
-            const sourceTracks = playlist.filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
-            sourceTracks.forEach(async (t) => {
-                let newId = Date.now() + Math.floor(Math.random() * 100000);
-                if (db && t.file) {
-                    try {
-                        newId = await saveTrackToDB(t.file, trimmed);
-                    } catch(e){}
+            showPlaylistInputModal({
+                title: "プレイリストの複製",
+                description: "複製後のプレイリスト名を入力してください:",
+                defaultValue: activePlaylist + " (Copy)",
+                placeholder: "複製プレイリスト名",
+                onConfirm: (dupName) => {
+                    if (!dupName || !dupName.trim()) return;
+                    const trimmed = dupName.trim();
+                    if (!customPlaylists.includes(trimmed) && trimmed !== 'All Tracks') {
+                        customPlaylists.push(trimmed);
+                        localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                    }
+                    
+                    const sourceTracks = playlist.filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+                    sourceTracks.forEach(async (t) => {
+                        let newId = Date.now() + Math.floor(Math.random() * 100000);
+                        if (db && t.file) {
+                            try {
+                                newId = await saveTrackToDB(t.file, trimmed);
+                            } catch(e){}
+                        }
+                        playlist.push({
+                            ...t,
+                            id: newId,
+                            playlistName: trimmed
+                        });
+                        updatePlaylistUI();
+                    });
+                    
+                    activePlaylist = trimmed;
+                    updatePlaylistDropdown();
+                    updatePlaylistUI();
+                    showNotification(`「${trimmed}」に複製しました (${sourceTracks.length} 曲)`);
                 }
-                playlist.push({
-                    ...t,
-                    id: newId,
-                    playlistName: trimmed
-                });
-                updatePlaylistUI();
             });
-            
-            activePlaylist = trimmed;
-            updatePlaylistDropdown();
-            updatePlaylistUI();
-            showNotification(`「${trimmed}」に複製しました (${sourceTracks.length} 曲)`);
         }
         window.duplicateCurrentPlaylist = duplicateCurrentPlaylist;
 
@@ -10836,8 +10940,8 @@
                         if (e && e.channel !== undefined && typeof triggerMidiChannelLed === 'function') {
                             triggerMidiChannelLed(e.channel);
                         }
-                        if (e && (e.midiNote !== undefined || e.note !== undefined) && typeof triggerChordWheelNoteOn === 'function') {
-                            triggerChordWheelNoteOn(e.midiNote !== undefined ? e.midiNote : e.note, e.velocity || 100);
+                        if (e && (e.midiNote !== undefined || e.note !== undefined) && e.channel !== 9 && typeof triggerChordWheelNoteOn === 'function') {
+                            triggerChordWheelNoteOn(e.midiNote !== undefined ? e.midiNote : e.note, e.velocity || 100, e.channel);
                         }
                     });
                 }
@@ -11088,20 +11192,27 @@
         }
 
         function createNewPlaylist() {
-            const name = prompt("新しいプレイリスト名を入力してください:");
-            if (!name) return;
-            const trimmed = name.trim();
-            if (!trimmed) return;
-            if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
-                showNotification("同名のプレイリストが既に存在します");
-                return;
-            }
-            customPlaylists.push(trimmed);
-            localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
-            activePlaylist = trimmed;
-            updatePlaylistDropdown();
-            updatePlaylistUI();
-            showNotification(`✨ プレイリスト「${trimmed}」を作成しました`);
+            showPlaylistInputModal({
+                title: "新しいプレイリスト",
+                description: "新しいプレイリスト名を入力してください:",
+                defaultValue: "",
+                placeholder: "プレイリスト名",
+                onConfirm: (name) => {
+                    if (!name) return;
+                    const trimmed = name.trim();
+                    if (!trimmed) return;
+                    if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
+                        showNotification("同名のプレイリストが既に存在します");
+                        return;
+                    }
+                    customPlaylists.push(trimmed);
+                    localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                    activePlaylist = trimmed;
+                    updatePlaylistDropdown();
+                    updatePlaylistUI();
+                    showNotification(`プレイリスト「${trimmed}」を作成しました`);
+                }
+            });
         }
         window.createNewPlaylist = createNewPlaylist;
 
@@ -11149,7 +11260,7 @@
                 const isCur = (track.playlistName === name);
                 const btn = document.createElement('button');
                 btn.className = `w-full text-left px-3 py-2 rounded text-xs transition mt-1.5 flex justify-between items-center ${isCur ? 'bg-blue-950 border border-blue-500/50 text-blue-300 font-bold' : 'bg-gray-900 hover:bg-gray-700 text-gray-300 hover:text-white'}`;
-                btn.innerHTML = `<span>📂 ${name}</span>${isCur ? '<span class="text-[10px] bg-blue-500/20 px-1.5 py-0.5 rounded">現在</span>' : ''}`;
+                btn.innerHTML = `<span>${name}</span>${isCur ? '<span class="text-[10px] bg-blue-500/20 px-1.5 py-0.5 rounded">現在</span>' : ''}`;
                 btn.onclick = () => executeMove(name);
                 container.appendChild(btn);
             });
@@ -11159,18 +11270,27 @@
             createBtn.className = 'w-full text-left px-3 py-2 rounded text-xs transition mt-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 font-bold flex items-center space-x-1';
             createBtn.innerHTML = '<span>+ 新しいプレイリストを作成して移動...</span>';
             createBtn.onclick = () => {
-                const newName = prompt("移動先の新しいプレイリスト名を入力してください:");
-                if (!newName) return;
-                const trimmed = newName.trim();
-                if (!trimmed) return;
-                if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
-                    executeMove(trimmed);
-                    return;
-                }
-                customPlaylists.push(trimmed);
-                localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
-                updatePlaylistDropdown();
-                executeMove(trimmed);
+                const moveModal = document.getElementById('move-playlist-modal');
+                if (moveModal) moveModal.classList.add('hidden');
+                showPlaylistInputModal({
+                    title: "新しいプレイリストを作成して移動",
+                    description: "移動先の新しいプレイリスト名を入力してください:",
+                    defaultValue: "",
+                    placeholder: "プレイリスト名",
+                    onConfirm: (newName) => {
+                        if (!newName) return;
+                        const trimmed = newName.trim();
+                        if (!trimmed) return;
+                        if (trimmed === 'All Tracks' || customPlaylists.includes(trimmed)) {
+                            executeMove(trimmed);
+                            return;
+                        }
+                        customPlaylists.push(trimmed);
+                        localStorage.setItem('customPlaylists', JSON.stringify(customPlaylists));
+                        updatePlaylistDropdown();
+                        executeMove(trimmed);
+                    }
+                });
             };
             container.appendChild(createBtn);
 

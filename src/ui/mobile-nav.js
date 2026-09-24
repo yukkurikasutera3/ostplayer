@@ -15,6 +15,12 @@
         return document.getElementById('player-left-panel');
     }
 
+    function isDesktopOrMini() {
+        const isElectron = !!(window.electronAPI || (window.process && window.process.type) || document.documentElement.classList.contains('desktop-app'));
+        const isMini = document.body && document.body.classList.contains('mini-mode');
+        return isElectron || isMini;
+    }
+
     function setMobileTab(tab) {
         currentMobileTab = tab;
 
@@ -29,6 +35,20 @@
                 btn.classList.remove('active');
             }
         });
+
+        // In desktop/electron or mini-mode, do not alter panel layout
+        if (isDesktopOrMini()) {
+            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
+            if (leftPanel) {
+                leftPanel.classList.remove('hidden');
+                leftPanel.style.display = '';
+            }
+            if (rightPanel) {
+                rightPanel.classList.remove('hidden');
+                rightPanel.style.display = '';
+            }
+            return;
+        }
 
         // Update body class for pure CSS styling
         document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
@@ -74,7 +94,7 @@
     window.addEventListener('resize', () => {
         const leftPanel = getLeftPanel();
         const rightPanel = getRightPanel();
-        if (window.innerWidth > 768) {
+        if (isDesktopOrMini() || window.innerWidth > 768) {
             document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
             if (leftPanel) {
                 leftPanel.classList.remove('hidden');
@@ -156,7 +176,7 @@
 
     // Auto-initialize mobile tab on startup immediately
     function autoInitMobile() {
-        if (window.innerWidth <= 768) {
+        if (!isDesktopOrMini() && window.innerWidth <= 768) {
             setMobileTab('player');
         }
         initTouchGestures();
