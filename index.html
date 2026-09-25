@@ -1223,7 +1223,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.5.1</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.5.2</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1307,9 +1307,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.5.1 Achievements Fix & Polish</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.5.2 Bugfix & Stability Update</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.5.2 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.5.2] 各種不具合修正 & MediaSession/OSメディアキー安定化 & ドキュメント更新</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-09-26</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>MediaSession / OSメディアキー修正 (Issue #6):</strong> キーボードメディアキーやBluetooth機器、OS通知領域からの操作時に未定義変数・関数参照によるReferenceErrorが発生していた不具合を解消。現在の再生モードに応じた安全な再生・停止・曲送りハンドラを実装。</li>
+                                <li><strong>P2P Sync (DJ Room) 接続安定化:</strong> ホスト・ゲスト間の初期化同期およびクリーンアップ処理を最適化。</li>
+                                <li><strong>ドキュメント全面更新:</strong> 多言語版ドキュメントを含め、Syncモード、ミニプレイヤー、MediaSession仕様を最新化。</li>
+                            </ul>
+                        </div>
                         <!-- v3.5.1 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -8817,7 +8829,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.5.1';
+        const APP_VERSION = '3.5.2';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
