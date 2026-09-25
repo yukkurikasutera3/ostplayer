@@ -3530,7 +3530,7 @@
                         
                     case 'ArrowLeft':
                         e.preventDefault();
-                        if (currentMode === 'single' || currentMode === 'visual') {
+                        if (currentMode === 'single' || currentMode === 'sync') {
                             changeSingleTrack(-1);
                         } else if (currentMode === 'fx') {
                             if (playlist.length > 0) {
@@ -3543,7 +3543,7 @@
                         
                     case 'ArrowRight':
                         e.preventDefault();
-                        if (currentMode === 'single' || currentMode === 'visual') {
+                        if (currentMode === 'single' || currentMode === 'sync') {
                             changeSingleTrack(1);
                         } else if (currentMode === 'fx') {
                             if (playlist.length > 0) {
@@ -3558,7 +3558,7 @@
                     case 'ArrowDown':
                         e.preventDefault();
                         const diff = key === 'ArrowUp' ? 0.05 : -0.05;
-                        if (currentMode === 'single' || currentMode === 'visual') {
+                        if (currentMode === 'single' || currentMode === 'sync') {
                             let vol = parseFloat(ui.single.vol.value);
                             vol = Math.max(0, Math.min(1, vol + diff));
                             ui.single.vol.value = vol;
@@ -5182,7 +5182,7 @@
                 if (typeof synth.seekTo === 'function') {
                     try { synth.seekTo(0); } catch(e){}
                 }
-                if (currentMode === 'single' || currentMode === 'visual') {
+                if (currentMode === 'single' || currentMode === 'sync') {
                     if (ui.single && ui.single.seek) ui.single.seek.value = 0;
                     if (ui.single && ui.single.time) ui.single.time.textContent = "0:00";
                     if (ui.mini && ui.mini.seek) ui.mini.seek.value = 0;
@@ -5204,7 +5204,7 @@
                 }
                 
                 // 音量初期設定 (スライダー値と同期)
-                if (currentMode === 'single' || currentMode === 'visual') {
+                if (currentMode === 'single' || currentMode === 'sync') {
                     synth.setMasterVol(parseFloat(ui.single.vol.value));
                 } else if (currentMode === 'fx') {
                     synth.setMasterVol(parseFloat(ui.fx.vol.value));
@@ -5242,7 +5242,6 @@
                     const synth = getMidiSynth('main', false);
                     if (synth) synth.stopMIDI();
                     updateSingleUIState();
-                    updateVisualUIState(false);
                 }
             }
         }
@@ -5250,8 +5249,8 @@
         // Global MIDI Loop (updates all active UI smoothly)
         function startMidiGlobalLoop() {
             const update = () => {
-                // Single/Visual UI Update
-                if (currentMode === 'single' || currentMode === 'visual') {
+                // Single/Sync UI Update
+                if (currentMode === 'single' || currentMode === 'sync') {
                     const synth = getMidiSynth('main', false);
                     if (synth) {
                         const status = synth.getPlayStatus();
@@ -5486,36 +5485,34 @@
                 singleGainNodes[i] = gain;
 
                 p.addEventListener('timeupdate', () => {
-                    if (currentMode === 'single' || currentMode === 'visual') handleSingleTimeUpdate(i);
+                    if (currentMode === 'single' || currentMode === 'sync') handleSingleTimeUpdate(i);
                     else if (currentMode === 'dual') handleDualTimeUpdate(i);
                     else if (currentMode === 'fx') handleFxTimeUpdate(i);
                 });
                 p.addEventListener('ended', () => {
-                    if (currentMode === 'single' || currentMode === 'visual') handleSingleEnded(i);
+                    if (currentMode === 'single' || currentMode === 'sync') handleSingleEnded(i);
                     else if (currentMode === 'fx') {
                         if(isFxLoop) { p.currentTime=0; p.play(); }
                         else { isFxPlaying=false; updateFxUIState(false); }
                     }
                 });
                 p.addEventListener('play', () => { 
-                    if(currentMode==='single' || currentMode==='visual') {
+                    if(currentMode==='single' || currentMode==='sync') {
                         if (i === currentSinglePlayerIndex) {
                             isSinglePlaying = true;
                             updateSingleUIState();
-                            updateVisualUIState(true);
                         }
                     }
                     else if(currentMode==='dual') updateDualUIState(i);
                     else if(currentMode==='fx') updateFxUIState(true);
                 });
                 p.addEventListener('pause', () => { 
-                    if(currentMode==='single' || currentMode==='visual') {
+                    if(currentMode==='single' || currentMode==='sync') {
                         const currentTrack = playlist[singleTrackIndex];
                         if (currentTrack && currentTrack.isMidi) return;
                         if (i === currentSinglePlayerIndex) {
                             isSinglePlaying = false;
                             updateSingleUIState();
-                            updateVisualUIState(false);
                         }
                     }
                     else if(currentMode==='dual') {
@@ -5696,7 +5693,7 @@
             }
             
             // 音量を即座に同期して初期爆音を回避
-            if (currentMode === 'single' || currentMode === 'visual') {
+            if (currentMode === 'single' || currentMode === 'sync') {
                 updateSingleVolume();
             } else if (currentMode === 'fx') {
                 updateFxVolume();
@@ -5747,10 +5744,12 @@
             updateVideoBackgroundState(false);
             isSinglePlaying = false; isAutoCrossfading = false; currentSinglePlayerIndex = 0; 
             updateSingleUIState(); updateDualUIState(0); updateDualUIState(1); updateFxUIState(false);
-            updateVisualUIState(false);
             decks.forEach(d => { d.player.pause(); d.player.currentTime = 0; updateDeckUI(d); });
             if (typeof broadcastDiscordPresence === 'function') {
                 broadcastDiscordPresence();
+            }
+            if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                window.syncEngine.broadcastPlayback(false, 0);
             }
         }
 
@@ -6467,7 +6466,6 @@
                     isSinglePlaying = true;
                     synth.playMIDI();
                     updateSingleUIState();
-                    updateVisualUIState(true);
                 }
 
                 // ⚡ P2P Sync Broadcast (Host)
@@ -6509,14 +6507,12 @@
                 if(autoPlay) {
                     isSinglePlaying = true;
                     updateSingleUIState();
-                    updateVisualUIState(true);
                     p.play().catch(e => {
                         console.warn("p.play error:", e);
                     });
                 } else {
                     isSinglePlaying = false;
                     updateSingleUIState();
-                    updateVisualUIState(false);
                 }
 
                 // ⚡ P2P Sync Broadcast (Host)
@@ -6578,7 +6574,6 @@
                 updateSingleUIInfo();
                 updateSingleUIState();
                 updatePlaylistUI();
-                updateVisualUIState(true);
                 notifySstpTrackPlay(nextTrack);
                 if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 
@@ -6747,7 +6742,6 @@
                 else { 
                     isSinglePlaying = false; 
                     updateSingleUIState(); 
-                    updateVisualUIState(false);
                 }
             }
         }
@@ -7393,17 +7387,6 @@
             ctx.restore();
         }
 
-        function updateVisualUIState(isPlaying) {
-            ui.visual.title.textContent = playlist[singleTrackIndex] ? playlist[singleTrackIndex].name : "No Track";
-            if(isPlaying) {
-                ui.visual.playIcon.classList.add('hidden');
-                ui.visual.pauseIcon.classList.remove('hidden');
-            } else {
-                ui.visual.playIcon.classList.remove('hidden');
-                ui.visual.pauseIcon.classList.add('hidden');
-            }
-        }
-
         // --- Dual Mode Logic ---
         function selectDualDeck(i) {
             activeDualDeckIndex = i;
@@ -7823,7 +7806,7 @@
                 dual: document.getElementById('btn-mode-dual'),
                 multi: document.getElementById('btn-mode-multi'),
                 fx: document.getElementById('btn-mode-fx'),
-                visual: document.getElementById('btn-mode-visual')
+                sync: document.getElementById('btn-mode-sync')
             };
 
             Object.keys(modeMap).forEach(m => {
@@ -7841,7 +7824,7 @@
             ui.helpBtn.classList.add('bg-gray-900', 'text-gray-300', 'border-gray-600');
             
             // Hide all views first
-            [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.visualView, ui.helpView].forEach(v => {
+            [ui.singleView, ui.dualView, ui.multiView, ui.fxView, ui.syncView, ui.helpView].forEach(v => {
                 if (v) v.classList.add('hidden-mode');
             });
             ui.headerVisualizer.classList.remove('hidden-mode');
@@ -7855,9 +7838,8 @@
                 ui.multiView.classList.remove('hidden-mode');
             } else if(currentMode === 'fx') {
                 ui.fxView.classList.remove('hidden-mode');
-            } else if(currentMode === 'visual') {
-                ui.visualView.classList.remove('hidden-mode');
-                ui.headerVisualizer.classList.add('hidden-mode');
+            } else if(currentMode === 'sync') {
+                if (ui.syncView) ui.syncView.classList.remove('hidden-mode');
             } else { // help
                 ui.helpBtn.classList.remove('bg-gray-900', 'text-gray-300', 'border-gray-600');
                 ui.helpBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
@@ -7930,8 +7912,8 @@
             }
         }
 
-        function toggleLoop() {
-            loopMode = (loopMode + 1) % 4; // 0: Off, 1: All, 2: 1, 3: Game Loop
+        function updateLoopButtonUI() {
+            if (!ui.single.loopBtn) return;
             ui.single.loopBtn.classList.remove('text-gray-500', 'text-blue-400', 'text-emerald-400');
             ui.single.loopIconAll.classList.add('hidden');
             ui.single.loopIconOne.classList.add('hidden');
@@ -7953,7 +7935,18 @@
                 ui.single.loopBtn.classList.add('text-emerald-400');
                 ui.single.loopIconAll.classList.remove('hidden');
                 ui.single.loopText.textContent = "Game";
+            }
+        }
+        window.updateLoopButtonUI = updateLoopButtonUI;
+
+        function toggleLoop() {
+            loopMode = (loopMode + 1) % 4; // 0: Off, 1: All, 2: 1, 3: Game Loop
+            updateLoopButtonUI();
+            if (loopMode === 3) {
                 showNotification("🎮 ゲームサントラ・シームレス無限ループ (ON)");
+            }
+            if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                window.syncEngine.broadcastLoopMode(loopMode);
             }
         }
 
@@ -8600,41 +8593,74 @@
                 window.MobileBridge.releaseWakeLock();
             }
         }
-        window.broadcastMediaSession = broadcastMediaSession;
+        function seekTo(seekSeconds) {
+            const track = playlist[singleTrackIndex];
+            if (track && track.isMidi) {
+                const synth = getMidiSynth('main');
+                if (synth && typeof synth.locateMIDI === 'function') {
+                    synth.locateMIDI(seekSeconds);
+                }
+            } else {
+                const p = players[currentSinglePlayerIndex];
+                if (p && !isNaN(p.duration) && p.duration > 0) {
+                    p.currentTime = Math.max(0, Math.min(seekSeconds, p.duration));
+                }
+            }
+        }
+        window.seekTo = seekTo;
+
+        function seekFxTo(seekSeconds) {
+            if (fxAudio && !isNaN(fxAudio.duration) && fxAudio.duration > 0) {
+                fxAudio.currentTime = Math.max(0, Math.min(seekSeconds, fxAudio.duration));
+            }
+        }
+        window.seekFxTo = seekFxTo;
+
+        window.togglePlay = function() {
+            if (currentMode === 'single') toggleSinglePlay();
+            else if (currentMode === 'fx') toggleFxPlay();
+            else if (currentMode === 'dual') toggleDualPlay(activeDualDeckIndex || 0);
+        };
+        window.playNextTrack = function() {
+            if (currentMode === 'single') changeSingleTrack(1);
+        };
+        window.playPreviousTrack = function() {
+            if (currentMode === 'single') changeSingleTrack(-1);
+        };
 
         function initMobileMediaSessionControls() {
             if (!window.MobileBridge || !window.MobileBridge.isAvailable) return;
             window.MobileBridge.initMediaActionHandlers({
                 onPlay: () => {
                     if (currentMode === 'single') {
-                        if (singlePlayer && singlePlayer.paused) togglePlay();
+                        if (!isSinglePlaying) toggleSinglePlay();
                     } else if (currentMode === 'fx') {
                         if (fxAudio && fxAudio.paused) toggleFxPlay();
                     } else if (currentMode === 'dual') {
-                        toggleDualPlay();
-                    } else if (currentMode === 'multi') {
-                        toggleMultiPlay();
+                        toggleDualPlay(activeDualDeckIndex || 0);
                     }
                 },
                 onPause: () => {
                     if (currentMode === 'single') {
-                        if (singlePlayer && !singlePlayer.paused) togglePlay();
+                        if (isSinglePlaying) toggleSinglePlay();
                     } else if (currentMode === 'fx') {
                         if (fxAudio && !fxAudio.paused) toggleFxPlay();
                     } else if (currentMode === 'dual') {
-                        toggleDualPlay();
-                    } else if (currentMode === 'multi') {
-                        toggleMultiPlay();
+                        toggleDualPlay(activeDualDeckIndex || 0);
                     }
                 },
                 onPrev: () => {
-                    playPreviousTrack();
+                    if (currentMode === 'single') {
+                        changeSingleTrack(-1);
+                    }
                 },
                 onNext: () => {
-                    playNextTrack();
+                    if (currentMode === 'single') {
+                        changeSingleTrack(1);
+                    }
                 },
                 onSeek: (details) => {
-                    if (details.seekTime !== undefined) {
+                    if (details && details.seekTime !== undefined) {
                         if (currentMode === 'single') {
                             seekTo(details.seekTime);
                         } else if (currentMode === 'fx') {
@@ -8873,10 +8899,12 @@
                 const parts = repo.split('/');
                 const owner = encodeURIComponent(parts[0] || '');
                 const repoName = encodeURIComponent(parts[1] || '');
-                const url = `https://api.github.com/repos/${owner}/${repoName}/releases/latest`;
+                const url = `https://api.github.com/repos/${owner}/${repoName}/releases/latest?_ts=${Date.now()}`;
                 const res = await fetch(url, {
                     headers: {
-                        'Accept': 'application/vnd.github.v3+json'
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
                     }
                 });
 
@@ -11921,6 +11949,45 @@
         window.setLoopModeDirect = function(mode) {
             loopMode = mode;
             updateLoopButtonUI();
+        };
+
+        // Host 側: 現在再生中のトラック＆再生状態を新規リスナー（または全員）へ再送
+        window.resyncCurrentTrackToPeer = async function(targetPeerId) {
+            if (!window.syncEngine || !window.p2pSession || window.p2pSession.role !== 'host') return;
+            if (singleTrackIndex < 0 || singleTrackIndex >= playlist.length) return;
+            const currentTrack = playlist[singleTrackIndex];
+            if (!currentTrack) return;
+
+            try {
+                let buf = currentTrack.arrayBuffer;
+                if (!buf) {
+                    buf = await AudioCacheManager.getTrackBuffer(currentTrack);
+                }
+                if (buf) {
+                    window.syncEngine.broadcastTrack(currentTrack, buf);
+                }
+
+                let curTime = 0;
+                if (currentTrack.isMidi) {
+                    const synth = getMidiSynth('main', false);
+                    curTime = synth ? synth.getPlayStatus().currentTime : 0;
+                } else {
+                    const p = players[currentSinglePlayerIndex];
+                    curTime = p ? (p.currentTime || 0) : 0;
+                }
+                window.syncEngine.broadcastPlayback(isSinglePlaying, curTime);
+                window.syncEngine.broadcastLoopMode(loopMode);
+            } catch (err) {
+                console.warn('[SyncHost] resyncCurrentTrackToPeer error:', err);
+            }
+        };
+
+        // Listener 側: MIDI ミキサーパラメータ反映
+        window.applyMidiParamsDirect = function(params) {
+            const synth = getMidiSynth('main', false);
+            if (synth && params && typeof synth.applyChannelParams === 'function') {
+                synth.applyChannelParams(params);
+            }
         };
 
         // キューからの再生検索

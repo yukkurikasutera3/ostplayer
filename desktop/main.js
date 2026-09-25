@@ -650,16 +650,65 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
 
         event.sender.send('update-progress', { stage: 'applying', percent: 100, text: '更新を適用してアプリを再起動します...' });
 
+        // Smart scan extracted directory to determine package type & source path
+        function findUpdatePayload(rootDir) {
+            let fullBundleDir = null;
+            let appSourceDir = null;
+
+            function scan(dir, depth = 0) {
+                if (depth > 4) return;
+                try {
+                    const entries = fs.readdirSync(dir);
+                    const hasResources = entries.includes('resources');
+                    const hasExe = entries.some(e => e.toLowerCase().endsWith('.exe'));
+                    const hasIndexHtml = entries.includes('index.html');
+                    const hasPackageJson = entries.includes('package.json');
+
+                    if ((hasResources || hasExe) && !fullBundleDir) {
+                        fullBundleDir = dir;
+                    }
+                    if ((hasIndexHtml || hasPackageJson) && !appSourceDir && !hasResources) {
+                        appSourceDir = dir;
+                    }
+
+                    for (const entry of entries) {
+                        const fullPath = path.join(dir, entry);
+                        if (fs.statSync(fullPath).isDirectory() && entry !== 'node_modules' && entry !== '.git') {
+                            scan(fullPath, depth + 1);
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            scan(rootDir, 0);
+
+            if (fullBundleDir) return { type: 'full_bundle', path: fullBundleDir };
+            if (appSourceDir) return { type: 'app_source', path: appSourceDir };
+            return { type: 'unknown', path: rootDir };
+        }
+
         const isPackaged = app.isPackaged;
         const appDir = isPackaged ? path.dirname(process.execPath) : app.getAppPath();
         const execPath = process.execPath;
         const currentPid = process.pid;
 
-        // Check if extracted folder has a root wrapper directory
-        let sourceDir = extractDir;
-        const items = fs.readdirSync(extractDir);
-        if (items.length === 1 && fs.statSync(path.join(extractDir, items[0])).isDirectory()) {
-            sourceDir = path.join(extractDir, items[0]);
+        const payload = findUpdatePayload(extractDir);
+        let sourceDir = payload.path;
+        let targetDir = appDir;
+
+        if (isPackaged) {
+            if (payload.type === 'app_source') {
+                const packagedAppDir = path.join(appDir, 'resources', 'app');
+                if (fs.existsSync(packagedAppDir)) {
+                    targetDir = packagedAppDir;
+                } else {
+                    targetDir = appDir;
+                }
+            } else {
+                targetDir = appDir;
+            }
+        } else {
+            targetDir = appDir;
         }
 
         const batPath = path.join(tempDir, 'apply_update.bat');
@@ -670,9 +719,11 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
 chcp 65001 > NUL
 timeout /t 1 /nobreak > NUL
 taskkill /PID ${currentPid} /F > NUL 2>&1
-timeout /t 1 /nobreak > NUL
+taskkill /IM "OST Player.exe" /F > NUL 2>&1
+taskkill /IM "electron.exe" /F > NUL 2>&1
+timeout /t 2 /nobreak > NUL
 
-robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /R:3 /W:1 > NUL
+robocopy "${sourceDir}" "${targetDir}" /E /IS /IT /NP /R:5 /W:1 > NUL
 
 start "" "${execPath}"
 timeout /t 3 /nobreak > NUL
@@ -684,11 +735,13 @@ exit
 chcp 65001 > NUL
 timeout /t 1 /nobreak > NUL
 taskkill /PID ${currentPid} /F > NUL 2>&1
-timeout /t 1 /nobreak > NUL
+taskkill /IM "OST Player.exe" /F > NUL 2>&1
+taskkill /IM "electron.exe" /F > NUL 2>&1
+timeout /t 2 /nobreak > NUL
 
-robocopy "${sourceDir}" "${appDir}" /E /IS /IT /NP /R:3 /W:1 /XD dist .git node_modules > NUL
+robocopy "${sourceDir}" "${targetDir}" /E /IS /IT /NP /R:5 /W:1 /XD dist .git node_modules > NUL
 
-start "" "${execPath}" "${appDir}"
+start "" "${execPath}" "${targetDir}"
 timeout /t 3 /nobreak > NUL
 rmdir /S /Q "${tempDir}" > NUL 2>&1
 exit

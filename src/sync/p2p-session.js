@@ -256,7 +256,8 @@
             for (let i = 0; i < totalChunks; i++) {
                 const start = i * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, totalBytes);
-                const chunkData = Array.from(uint8.subarray(start, end));
+                // Send raw slice / TypedArray directly
+                const chunkSlice = uint8.slice(start, end);
 
                 const chunkPacket = {
                     type: 'file_chunk',
@@ -264,13 +265,13 @@
                     stage: 'chunk',
                     chunkIndex: i,
                     totalChunks,
-                    data: chunkData
+                    data: chunkSlice
                 };
 
                 this.broadcast(chunkPacket);
                 this.emit('send_progress', { pct: Math.round(((i + 1) / totalChunks) * 100), transferId });
                 // Slight tick yielding to prevent data channel choking
-                if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
+                if (i % 16 === 0) await new Promise(r => setTimeout(r, 0));
             }
 
             const endPacket = {
@@ -300,7 +301,17 @@
             if (!transfer) return;
 
             if (stage === 'chunk') {
-                transfer.chunks[chunkIndex] = new Uint8Array(data);
+                if (data instanceof Uint8Array) {
+                    transfer.chunks[chunkIndex] = data;
+                } else if (data instanceof ArrayBuffer) {
+                    transfer.chunks[chunkIndex] = new Uint8Array(data);
+                } else if (data && data.buffer instanceof ArrayBuffer) {
+                    transfer.chunks[chunkIndex] = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+                } else if (Array.isArray(data)) {
+                    transfer.chunks[chunkIndex] = new Uint8Array(data);
+                } else {
+                    transfer.chunks[chunkIndex] = new Uint8Array(data);
+                }
                 transfer.receivedCount++;
                 const pct = Math.round((transfer.receivedCount / transfer.totalChunks) * 100);
                 this.emit('file_progress', { pct, transferId, metadata: transfer.metadata });

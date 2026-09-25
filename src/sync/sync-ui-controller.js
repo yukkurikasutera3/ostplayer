@@ -61,7 +61,34 @@
                 }
             },
             handleIncomingRadarStats: (radarData) => {
-                updateRadarUI(radarData.stats);
+                if (typeof updateRadarUI === 'function') {
+                    updateRadarUI(radarData.stats);
+                }
+            },
+            togglePlay: () => {
+                if (typeof global.toggleSinglePlay === 'function') global.toggleSinglePlay();
+            },
+            nextTrack: () => {
+                if (typeof global.changeSingleTrack === 'function') global.changeSingleTrack(1);
+            },
+            prevTrack: () => {
+                if (typeof global.changeSingleTrack === 'function') global.changeSingleTrack(-1);
+            },
+            seekToPercent: (pct) => {
+                if (typeof global.seekSingle === 'function') global.seekSingle(pct);
+            },
+            setVolume: (vol) => {
+                if (typeof global.updateSingleVolume === 'function') global.updateSingleVolume(vol);
+            },
+            notifyAuxStatus: (isGranted) => {
+                if (isGranted) {
+                    appendSystemChat('Host から DJ AUX (操作権限) が付与されました！');
+                    if (typeof global.showNotification === 'function') {
+                        global.showNotification('DJ AUX 権限が付与されました');
+                    }
+                } else {
+                    appendSystemChat('DJ AUX 権限が解除されました');
+                }
             }
         };
 
@@ -386,6 +413,16 @@
         }[m]));
     }
 
+    function toggleAuxPass(peerId) {
+        if (!p2pSession || p2pSession.role !== 'host') return;
+        p2pSession.broadcast({
+            type: 'sync_aux_pass',
+            targetPeerId: peerId
+        });
+        appendSystemChat(`リスナー (ID: ...${peerId.slice(-4)}) に AUX (操作権限) を譲渡しました`);
+        showDjTicker(`DJ AUX: Listener (${peerId.slice(-4)})`);
+    }
+
     // Export API to global window
     global.initSyncController = initSyncController;
     global.copyGeneratedCode = copyGeneratedCode;
@@ -393,6 +430,7 @@
     global.joinListenerRoom = joinListenerRoom;
     global.leaveSyncSession = leaveSyncSession;
     global.sendSyncChat = sendSyncChat;
+    global.toggleAuxPass = toggleAuxPass;
 
     // Auto initialize on load
     if (typeof window !== 'undefined') {
