@@ -15,13 +15,14 @@ It integrates local audio and video playback, high-fidelity SoundFont (.sf2 / .s
 
 ## Key Features
 
-### 1. 5+1 Playback & DJ Modes
+### 1. Playback & DJ Modes
 - **Single Mode**: Standard player featuring turntable artwork animation, auto crossfade, video background synchronization, 0ms game loop, and Circle of Fifths chord wheel display.
 - **Dual Mode**: Dual independent decks (Deck A / Deck B) for real-time DJ mixing, crossfader, and simultaneous playback (Play Both).
 - **Multi Mode**: Add unlimited decks for layered playback and individual volume controls.
 - **Studio FX Mode**: 10-band studio EQ (5/10 band toggle), center channel vocal remover (karaoke), stereo pan (L/R balance), Swap L/R, Mono Mix, Bitcrusher, tape delay, ambient sound effects (rain/vinyl noise), pitch-locked tempo adjustments (0.5x–2.0x), and WAV export.
-- **Visual Mode**: Fullscreen dynamic audio visualizers reactive to spectrum and beat (Quantum Orb, Neon Spectrum, Laser Wave, Radial Vortex, Starfield 3D Galaxy).
+- **Sync Mode (P2P Synchronized Listening & DJ Room)**: Connect serverlessly via 6-digit room codes over WebRTC, featuring millisecond-level playback sync, real-time request queue & upvoting, DJ announcement banners, and live chat.
 - **Help View**: Integrated control center for external services (Discord RPC, SSP SSTP, Software Updates), update log, and keyboard shortcuts.
+- **Visual Mode (Omitted in Current Version / Planned for Future Renewal)**: Fullscreen dynamic audio visualizers reactive to spectrum and beat (Quantum Orb, Neon Spectrum, Laser Wave, Radial Vortex, Starfield 3D Galaxy). Note: Temporarily removed in the current version for performance optimization and architecture overhaul; scheduled to return in a future major update.
 
 ### 2. Studio Sound & Center Channel Vocal Remover
 - **10-Band Graphic Equalizer**: 31Hz to 16kHz independent frequency sliders with 5-Band / 10-Band switchable modes.
@@ -64,7 +65,24 @@ It integrates local audio and video playback, high-fidelity SoundFont (.sf2 / .s
 - 40 hidden achievements spanning playback, MIDI, audio FX, DJing, visualizer stages, and easter eggs.
 - Achievement unlock toast notifications and a 6-tier player title progression system.
 
-### 10. One-Click In-App Auto Updater
+### 10. P2P Synchronized Listening & DJ Room (Sync Mode)
+A fully serverless real-time co-listening environment powered by WebRTC (PeerJS).
+- **6-Digit Room Codes**: Establish encrypted, NAT-traversed P2P sessions simply by entering or sharing a 6-character room code. No port forwarding or dedicated relay server needed.
+- **Millisecond Playback Sync**: Automatically measures and compensates for network round-trip time (RTT) to align play, pause, and seek actions across all participants.
+- **Live Request Queue & Upvoting**: Participants can request songs from their library; the queue is dynamically sorted by community upvotes.
+- **DJ Announcement Banners & Live Chat**: DJ overlay banners for track introductions and an in-room real-time text chat stream.
+- **Permission Modes**: Host-controlled playback lock or community free-play modes.
+
+### 11. Mini Player Mode
+- **Compact Always-on-Top Window**: Compact footprint ideal for placing at the edge of your screen while gaming or working.
+- **Streamlined Control Deck**: Packed with play/pause, track skip, seek bar, volume control, and track information.
+
+### 12. MediaSession & OS Media Controls
+- **Standard OS Media Key Support**: Full control via keyboard play/pause, next track, and previous track hardware keys.
+- **Bluetooth Device Integration**: Receive play/skip commands from wireless headsets, earbuds, and external speakers.
+- **System Notification & Flyout Integration**: Displays song titles, artists, and media controls in Windows volume flyouts and lock screens.
+
+### 13. One-Click In-App Auto Updater
 - Connects to GitHub Releases API to detect updates automatically.
 - One-click in-place automatic downloading, unzipping, file replacement, and restart directly within the app.
 
@@ -119,11 +137,12 @@ Binaries will be output to `dist/OST Player-win32-x64/`.
 | :--- | :--- |
 | `Space` | Play / Pause |
 | `F11` | Toggle Fullscreen |
-| `1` – `6` | Mode Switching (1: Single, 2: Dual, 3: Multi, 4: FX, 5: Visual, 6: Help) |
-| `←` / `→` | Previous / Next Track |
+| `1` – `6` | Mode Switching (1: Single, 2: Dual, 3: Multi, 4: FX, 5: Sync, 6: Help) *Visual Mode omitted in current version* |
+| `←` / `→` | Previous / Next Track (Single / FX / Sync) |
 | `↑` / `↓` | Adjust Master Volume |
 | `[` / `]` | Move Crossfader (Dual Mode) |
 | `M` | Master Mute Toggle |
+| Media Keys | Play / Pause, Previous Track, Next Track (MediaSession Integration) |
 
 ---
 
