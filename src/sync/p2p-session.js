@@ -235,7 +235,7 @@
         }
 
         // --- Large File & MIDI ArrayBuffer Chunking ---
-        async sendFile(arrayBuffer, metadata = {}) {
+        async sendFile(arrayBuffer, metadata = {}, targetPeerId = null) {
             if (!arrayBuffer) return;
             const transferId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             const totalBytes = arrayBuffer.byteLength;
@@ -250,7 +250,15 @@
                 metadata
             };
 
-            this.broadcast(metaPacket);
+            const sendPacket = (pkt) => {
+                if (targetPeerId) {
+                    this.sendToPeer(targetPeerId, pkt);
+                } else {
+                    this.broadcast(pkt);
+                }
+            };
+
+            sendPacket(metaPacket);
 
             const uint8 = new Uint8Array(arrayBuffer);
             for (let i = 0; i < totalChunks; i++) {
@@ -268,7 +276,7 @@
                     data: chunkSlice
                 };
 
-                this.broadcast(chunkPacket);
+                sendPacket(chunkPacket);
                 this.emit('send_progress', { pct: Math.round(((i + 1) / totalChunks) * 100), transferId });
                 // Slight tick yielding to prevent data channel choking
                 if (i % 16 === 0) await new Promise(r => setTimeout(r, 0));
@@ -280,7 +288,7 @@
                 stage: 'end',
                 metadata
             };
-            this.broadcast(endPacket);
+            sendPacket(endPacket);
         }
 
         handleFileChunk(packet) {
@@ -291,7 +299,8 @@
                     chunks: new Array(totalChunks),
                     receivedCount: 0,
                     totalChunks,
-                    metadata: metadata || {}
+                    metadata: metadata || {},
+                    endReceived: false
                 });
                 this.emit('file_progress', { pct: 0, transferId, metadata });
                 return;
@@ -309,15 +318,22 @@
                     transfer.chunks[chunkIndex] = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
                 } else if (Array.isArray(data)) {
                     transfer.chunks[chunkIndex] = new Uint8Array(data);
+                } else if (data && typeof data === 'object') {
+                    const vals = Object.values(data);
+                    transfer.chunks[chunkIndex] = new Uint8Array(vals);
                 } else {
-                    transfer.chunks[chunkIndex] = new Uint8Array(data);
+                    transfer.chunks[chunkIndex] = new Uint8Array(0);
                 }
                 transfer.receivedCount++;
                 const pct = Math.round((transfer.receivedCount / transfer.totalChunks) * 100);
                 this.emit('file_progress', { pct, transferId, metadata: transfer.metadata });
             }
 
-            if (stage === 'end' || transfer.receivedCount >= transfer.totalChunks) {
+            if (stage === 'end') {
+                transfer.endReceived = true;
+            }
+
+            if ((transfer.endReceived || transfer.receivedCount >= transfer.totalChunks) && transfer.receivedCount >= transfer.totalChunks) {
                 // Reassemble array buffer
                 let totalLen = 0;
                 for (let c of transfer.chunks) {
@@ -340,6 +356,17 @@
         }
 
         // --- Broadcast & Direct Sending ---
+        sendToPeer(peerId, data) {
+            if (this.role === 'host') {
+                const conn = this.connections.get(peerId);
+                if (conn && conn.open) {
+                    try { conn.send(data); } catch(e) { console.warn('[P2P] sendToPeer error:', e); }
+                }
+            } else if (this.role === 'listener' && this.hostConn && this.hostConn.open) {
+                this.hostConn.send(data);
+            }
+        }
+
         broadcast(data, excludePeerId = null) {
             if (this.role === 'host') {
                 for (let [peerId, conn] of this.connections.entries()) {

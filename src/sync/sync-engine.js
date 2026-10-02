@@ -13,6 +13,7 @@
             this.lastSyncTimestamp = 0;
             this.isSyncingLocally = false;
             this.bufferReady = false;
+            this.pendingPlaybackState = null;
 
             this.setupSessionListeners();
         }
@@ -74,9 +75,14 @@
                     break;
 
                 case 'sync_client_ready':
-                    // Listener is fully ready: Host sends current playback state immediately
-                    if (this.session.role === 'host' && this.api && typeof this.api.resyncToNewClient === 'function') {
-                        this.api.resyncToNewClient(fromPeer || msg.peerId);
+                    // Listener is fully ready: Host sends current playback state immediately (without re-sending whole file)
+                    if (this.session.role === 'host') {
+                        const targetId = fromPeer || msg.peerId;
+                        if (this.api && typeof this.api.resyncPlaybackStateOnly === 'function') {
+                            this.api.resyncPlaybackStateOnly(targetId);
+                        } else if (this.api && typeof this.api.resyncToNewClient === 'function') {
+                            this.api.resyncToNewClient(targetId);
+                        }
                     }
                     break;
 
@@ -124,6 +130,11 @@
             }
             this.isSyncingLocally = false;
 
+            // If a playback state arrived while downloading, apply it immediately
+            if (this.pendingPlaybackState) {
+                this.handlePlaybackState(this.pendingPlaybackState);
+            }
+
             // Notify host that listener has loaded file and is ready for playback
             this.session.broadcast({ type: 'sync_client_ready', peerId: this.session.myPeerId });
         }
@@ -137,10 +148,11 @@
 
         handlePlaybackState(msg) {
             if (this.session.role === 'host') return;
+            this.pendingPlaybackState = msg;
             if (!this.api) return;
 
             const { isPlaying, currentTime, timestamp, playbackRate } = msg;
-            const nowHostTime = Date.now() + this.session.clockOffset;
+            const nowHostTime = Date.now() + (this.session.clockOffset || 0);
             const timeElapsedSec = Math.max(0, (nowHostTime - timestamp) / 1000) * (playbackRate || 1.0);
             const targetTime = currentTime + (isPlaying ? timeElapsedSec : 0);
 
@@ -185,7 +197,7 @@
         }
 
         // --- Host Outgoing Broadcast Methods ---
-        broadcastTrack(track, arrayBuffer) {
+        broadcastTrack(track, arrayBuffer, targetPeerId = null) {
             if (!this.session || this.session.role !== 'host') return;
             if (!track) return;
 
@@ -200,30 +212,42 @@
                 mimeType: track.file ? track.file.type : 'audio/mpeg'
             };
 
-            // 1. Send track metadata packet
-            this.session.broadcast({
+            const trackPacket = {
                 type: 'sync_track',
                 ...meta,
                 timestamp: Date.now()
-            });
+            };
 
-            // 2. Stream arrayBuffer to connected listeners
+            // 1. Send track metadata packet
+            if (targetPeerId) {
+                this.session.sendToPeer(targetPeerId, trackPacket);
+            } else {
+                this.session.broadcast(trackPacket);
+            }
+
+            // 2. Stream arrayBuffer to listener(s)
             if (arrayBuffer) {
-                this.session.sendFile(arrayBuffer, meta);
+                this.session.sendFile(arrayBuffer, meta, targetPeerId);
             }
         }
 
-        broadcastPlayback(isPlaying, currentTime, playbackRate = 1.0) {
+        broadcastPlayback(isPlaying, currentTime, playbackRate = 1.0, targetPeerId = null) {
             if (!this.session || (this.session.role !== 'host' && !this.isAuxGranted)) return;
             if (this.isSyncingLocally) return;
 
-            this.session.broadcast({
+            const packet = {
                 type: 'sync_playback',
                 isPlaying,
                 currentTime,
                 playbackRate,
                 timestamp: Date.now()
-            });
+            };
+
+            if (targetPeerId) {
+                this.session.sendToPeer(targetPeerId, packet);
+            } else {
+                this.session.broadcast(packet);
+            }
         }
 
         broadcastSeek(targetTime) {

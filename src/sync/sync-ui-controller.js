@@ -51,7 +51,20 @@
             resyncToNewClient: (clientPeerId) => {
                 // Host auto-syncs currently playing track to the newly joined peer
                 if (typeof global.resyncCurrentTrackToPeer === 'function') {
-                    global.resyncCurrentTrackToPeer(clientPeerId);
+                    global.resyncCurrentTrackToPeer(clientPeerId, false);
+                }
+            },
+            resyncPlaybackStateOnly: (clientPeerId) => {
+                // Host syncs current playback state only (client already has file)
+                if (typeof global.resyncCurrentTrackToPeer === 'function') {
+                    global.resyncCurrentTrackToPeer(clientPeerId, true);
+                }
+            },
+            displayIncomingTrackInfo: (trackMeta) => {
+                if (!trackMeta) return;
+                console.log('[SyncUI] Incoming track:', trackMeta.name);
+                if (typeof global.showNotification === 'function') {
+                    global.showNotification(`受信中: ${trackMeta.name}${trackMeta.isMidi ? ' (MIDI)' : ''}`);
                 }
             },
             handleIncomingChat: (chatData) => {
