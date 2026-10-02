@@ -12,8 +12,12 @@
         };
         // 起動時のテーマ即時適用（リロード時のチラつき・未反映を完全防止）
         try {
-            const _savedTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
+            let _savedTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
+            // 削除したテーマ(midnight / deepsea)は cyberpunk に読み替える(保存値も更新)
+            if (_savedTheme === 'midnight' || _savedTheme === 'deepsea') { _savedTheme = 'cyberpunk'; localStorage.setItem('ost_theme', _savedTheme); }
             document.documentElement.classList.add('theme-' + _savedTheme);
+            const _savedLayout = localStorage.getItem('ost_layout');
+            document.documentElement.dataset.layout = ['library', 'cover', 'album', 'shelf', 'now', 'stage', 'term', 'lcd'].includes(_savedLayout) ? _savedLayout : 'split';
             if (window.electronAPI || (window.process && window.process.type)) {
                 document.documentElement.classList.add('desktop-app');
                 document.addEventListener('DOMContentLoaded', () => {
@@ -101,16 +105,6 @@
             --theme-accent-hover: #f43f5e;
             --theme-glow: rgba(251, 113, 133, 0.5);
         }
-        body.theme-midnight, html.theme-midnight, .theme-midnight {
-            --theme-bg-main: #030406;
-            --theme-bg-card: rgba(10, 11, 15, 0.95);
-            --theme-border: #27272a;
-            --theme-text-primary: #f4f4f5;
-            --theme-text-secondary: #a1a1aa;
-            --theme-accent: #38bdf8;
-            --theme-accent-hover: #0ea5e9;
-            --theme-glow: rgba(56, 189, 248, 0.4);
-        }
         body.theme-sunset, html.theme-sunset, .theme-sunset {
             --theme-bg-main: #1c0b05;
             --theme-bg-card: rgba(43, 18, 9, 0.92);
@@ -120,16 +114,6 @@
             --theme-accent: #f97316;
             --theme-accent-hover: #fb923c;
             --theme-glow: rgba(249, 115, 22, 0.5);
-        }
-        body.theme-deepsea, html.theme-deepsea, .theme-deepsea {
-            --theme-bg-main: #020f1f;
-            --theme-bg-card: rgba(5, 25, 50, 0.92);
-            --theme-border: #0369a1;
-            --theme-text-primary: #f0f9ff;
-            --theme-text-secondary: #7dd3fc;
-            --theme-accent: #0284c7;
-            --theme-accent-hover: #38bdf8;
-            --theme-glow: rgba(2, 132, 199, 0.55);
         }
         body.theme-light, html.theme-light, .theme-light {
             --theme-bg-main: #e2e8f0;
@@ -315,6 +299,155 @@
             background-color: rgba(31, 41, 55, 0.8) !important;
         }
         .hidden-mode { display: none !important; }
+
+        /* テーマ画面: 縦に伸びても閉じる操作が画面外に出ないようにする */
+        #theme-modal .modal-content { max-height: 90vh; overflow-y: auto; }
+        #theme-modal .modal-content > div:first-child { position: sticky; top: 0; z-index: 5; margin: -1.5rem -1.5rem 0; padding: 1.5rem 1.5rem .75rem; background: #111827; border-radius: .75rem .75rem 0 0; }
+        /* ===== Layout: Library (md以上 / Single時のみ。data-layout は applyLayout() が制御) ===== */
+        #lib-sidebar { display: none; }
+        .lib-side-title { font-size: .7rem; opacity: .7; font-weight: 700; }
+        #lib-side-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+        .lib-side-item { text-align: left; padding: .4rem .6rem; border-radius: .4rem; font-size: .8rem; color: inherit; background: transparent; border: 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lib-side-item:hover { background: rgba(127,127,127,.18); }
+        .lib-side-item.active { background: rgba(59,130,246,.28); font-weight: 600; }
+        .lib-side-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+        .lib-side-actions button { font-size: .7rem; padding: .2rem .5rem; border: 1px solid var(--theme-border, rgba(75,85,99,.8)); border-radius: .4rem; color: inherit; background: transparent; cursor: pointer; }
+        @media (min-width: 768px) {
+            html[data-layout="library"] #main-app-container { display: grid; grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas: "top top" "side tool" "side list" "side foot" "bar bar" "lfoot lfoot"; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) .mini-mode #main-app-container { display: flex !important; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-left-panel, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-right-panel { display: contents; }
+            html[data-layout="library"] #lib-sidebar { grid-area: side; display: flex; flex-direction: column; min-height: 0; padding: .75rem; gap: .5rem; background: var(--theme-bg-card, rgba(3,7,18,.5)); border-right: 1px solid var(--theme-border, rgba(75,85,99,.5)); }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-left-panel > div:first-child { grid-area: top; padding: 1rem 1.25rem 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-left-panel > div:last-child { grid-area: lfoot; margin: 0; padding: 0 1.25rem .5rem; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-right-panel > div:first-child { grid-area: tool; }
+            html[data-layout="library"] #player-right-panel > div:has(#playlist-select) { display: none; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-right-panel > #playlist { grid-area: list; min-height: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #player-right-panel > div:last-child { grid-area: foot; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-view { grid-area: bar; position: relative; overflow: visible; display: grid; grid-template-columns: minmax(0, 280px) auto minmax(0, 1fr); align-items: center; column-gap: 1rem; padding: .5rem 1.25rem; background: var(--theme-bg-card, rgba(17,24,39,.85)); border-top: 1px solid var(--theme-border, rgba(75,85,99,.6)); }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-artwork-area { display: grid; grid-column: 1; grid-row: 1; grid-template-columns: 44px minmax(0, 1fr); align-items: center; column-gap: .75rem; text-align: left; padding: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-artwork-area > div:first-child { grid-row: 1 / span 3; width: 44px; height: 44px; margin: 0; border-width: 2px; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-artwork-area > div:first-child svg { width: 20px; height: 20px; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-title { grid-column: 2; font-size: .95rem; margin: 0; padding: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-status, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-game-loop-badge { grid-column: 2; font-size: .7rem; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-view > div:has(#single-prev) { grid-column: 2; grid-row: 1; margin: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-play { padding: .5rem; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-play svg, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-prev svg, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-next svg { width: 20px; height: 20px; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-view > div:has(#single-seek) { grid-column: 3; grid-row: 1; margin: 0; padding: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-view > div:last-child { grid-column: 1 / -1; grid-row: 2; margin: 0; padding: .35rem .75rem; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1rem; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #single-view > div:last-child > div { margin: 0; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #midi-mixer-panel, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]) #piano-roll-panel { position: absolute; max-height: none; overflow: auto; z-index: 30; margin: 0; box-sizing: border-box; }
+            html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #lib-sidebar, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #single-view, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #album-sidebar { background-color: transparent; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        }
+        html[data-midi-open="1"]:is([data-layout="library"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="lcd"]) #playlist, html[data-midi-open="1"][data-layout="cover"] #cover-wall { visibility: hidden; }
+
+        /* ===== Layout: Album browser / Shelf / Now playing ===== */
+        #album-sidebar, #shelf-strip { display: none; }
+        .alb-item { display: flex; align-items: center; gap: .5rem; text-align: left; padding: .35rem .5rem; border-radius: .4rem; font-size: .8rem; color: inherit; background: transparent; border: 0; cursor: pointer; min-width: 0; }
+        .alb-item:hover { background: rgba(127,127,127,.18); }
+        .alb-item.active { background: rgba(59,130,246,.28); font-weight: 600; }
+        .alb-cover { width: 28px; height: 28px; border-radius: .3rem; flex: none; overflow: hidden; background: rgba(127,127,127,.2); display: flex; align-items: center; justify-content: center; font-size: .7rem; }
+        .alb-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .alb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .alb-count { opacity: .6; font-size: .7rem; }
+        .spine { flex: none; writing-mode: vertical-rl; height: 100px; max-height: 120px; padding: .5rem .3rem; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: inherit; cursor: pointer; border: 1px solid var(--theme-border, rgba(75,85,99,.6)); border-bottom: 0; border-radius: .3rem .3rem 0 0; transition: transform .15s; }
+        .spine:hover { transform: translateY(-4px); }
+        .spine.active { height: 112px; transform: translateY(-10px); border: 1.5px solid #3b82f6; border-bottom: 0; font-weight: 700; }
+        @media (min-width: 768px) {
+            html[data-layout="album"] #main-app-container { display: grid; grid-template-columns: 230px minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas: "top top" "side tool" "side tool2" "side list" "side foot" "bar bar" "lfoot lfoot"; }
+            html[data-layout="album"] #album-sidebar { grid-area: side; display: flex; flex-direction: column; min-height: 0; padding: .75rem; gap: .5rem; background: var(--theme-bg-card, rgba(3,7,18,.5)); border-right: 1px solid var(--theme-border, rgba(75,85,99,.5)); }
+            html[data-layout="album"] #album-sidebar .alb-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+            html[data-layout="shelf"] #main-app-container { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas: "top" "shelf" "tool" "tool2" "list" "foot" "bar" "lfoot"; }
+            html[data-layout="shelf"] #shelf-strip { grid-area: shelf; display: flex; align-items: flex-end; gap: 4px; padding: .9rem 1.25rem 0; overflow-x: auto; overflow-y: hidden; min-height: 130px; border-bottom: 5px solid var(--theme-border, rgba(75,85,99,.6)); }
+            html[data-layout="album"] #player-right-panel > div:has(#playlist-select), html[data-layout="shelf"] #player-right-panel > div:has(#playlist-select) { grid-area: tool2; }
+            html[data-skin="now"] #player-left-panel { width: 72%; }
+            html[data-skin="now"] #player-right-panel { width: 28%; }
+        }
+
+        /* ===== Layout: Visualizer stage (既存の背景ビジュアライザーを主役に) / Terminal (文字主体) ===== */
+        #stage-overlay { display: none; }
+        #stage-title { font-size: clamp(1.8rem, 4vw, 3.2rem); font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; text-shadow: 0 2px 14px rgba(0,0,0,.55); }
+        #stage-sub { font-size: 1rem; opacity: .85; text-shadow: 0 1px 8px rgba(0,0,0,.55); }
+        #stage-overlay .stage-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .75rem; }
+        #stage-overlay button { pointer-events: auto; font-size: .75rem; padding: .3rem .8rem; border-radius: 9999px; border: 1px solid var(--theme-border, rgba(75,85,99,.8)); color: inherit; background: color-mix(in srgb, var(--theme-bg-card, #0f172a) 60%, transparent); cursor: pointer; }
+        #stage-note { display: none; align-items: center; gap: .5rem; font-size: .75rem; opacity: .9; pointer-events: auto; }
+        @media (min-width: 768px) {
+            html[data-layout="stage"] { --stage-drawer: 0px; }
+            html[data-layout="stage"][data-stage-list="1"] { --stage-drawer: 380px; }
+            html[data-layout="stage"] #main-app-container { display: grid; grid-template-columns: minmax(0, 1fr) var(--stage-drawer); grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas: "top top" "stage tool" "stage list" "stage foot" "bar bar" "lfoot lfoot"; }
+            html[data-skin="stage"] #main-app-container { background-color: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border-color: transparent !important; }
+            html[data-skin="stage"] #player-left-panel, html[data-skin="stage"] #player-right-panel { background-color: color-mix(in srgb, var(--theme-bg-card, #0f172a) 40%, transparent) !important; }
+            html[data-layout="stage"] #stage-overlay { grid-area: stage; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: .4rem; padding: 0 2.5rem; min-height: 0; min-width: 0; pointer-events: none; }
+            html[data-layout="stage"] #single-view { background: color-mix(in srgb, var(--theme-bg-card, rgba(17,24,39,.85)) 55%, transparent); }
+            html[data-layout="stage"] #player-right-panel > div:has(#playlist-select) { display: none; }
+            html[data-layout="stage"]:not([data-stage-list="1"]) #player-right-panel > div:first-child,
+            html[data-layout="stage"]:not([data-stage-list="1"]) #player-right-panel > #playlist,
+            html[data-layout="stage"]:not([data-stage-list="1"]) #player-right-panel > div:last-child { display: none; }
+            html[data-layout="stage"][data-stage-list="1"] #player-right-panel > div:first-child,
+            html[data-layout="stage"][data-stage-list="1"] #player-right-panel > #playlist,
+            html[data-layout="stage"][data-stage-list="1"] #player-right-panel > div:last-child { background-color: color-mix(in srgb, var(--theme-bg-card, #0f172a) 70%, transparent); }
+            html[data-skin="term"] #playlist, html[data-skin="term"] #playlist > div { font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; }
+            html[data-skin="term"] #playlist > div { padding-top: .1rem; padding-bottom: .1rem; border-radius: 0; }
+            html[data-skin="term"] #playlist img, html[data-skin="term"] #playlist .cursor-grab { display: none; }
+            html[data-skin="term"] #playlist > div:has(.animate-pulse) { box-shadow: inset 3px 0 0 #3b82f6; }
+            html[data-skin="term"] #playlist > div.term-cursor { outline: 1px solid #3b82f6; outline-offset: -1px; background-color: rgba(59,130,246,.15); }
+        }
+
+        /* ===== Layout: Retro LCD (左に液晶表示+操作、右に曲一覧。液晶部の配色は意図的に固定) ===== */
+        #lcd-panel { display: none; }
+        .lcd-screen { background: #b7c98a; color: #2b3a12; border-radius: .5rem; padding: .6rem .75rem; font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; box-shadow: inset 0 0 0 2px rgba(0,0,0,.25), inset 0 2px 8px rgba(0,0,0,.25); }
+        .lcd-line1 { display: flex; justify-content: space-between; gap: .5rem; font-size: .75rem; }
+        .lcd-title { font-size: 1.05rem; font-weight: 700; text-transform: uppercase; margin: .35rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.4em; }
+        .lcd-spectrum { width: 100%; height: 48px; display: block; }
+        @media (min-width: 768px) {
+            html[data-layout="lcd"] #main-app-container { display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+                grid-template-areas: "top top" "lcd tool" "bar list" "bar foot" "lfoot lfoot"; }
+            html[data-layout="lcd"] #lcd-panel { grid-area: lcd; display: block; padding: .75rem .75rem 0; }
+            html[data-layout="lcd"] #single-view { grid-template-columns: minmax(0, 1fr); row-gap: .6rem; padding: .5rem .75rem; border-top: 0; border-right: 1px solid var(--theme-border, rgba(75,85,99,.5)); align-content: start; align-items: center; }
+            html[data-layout="lcd"] #single-artwork-area { display: none; }
+            html[data-layout="lcd"] #single-view > div:has(#single-prev) { grid-column: 1; grid-row: 1; justify-self: center; }
+            html[data-layout="lcd"] #single-view > div:has(#single-seek) { grid-column: 1; grid-row: 2; }
+            html[data-layout="lcd"] #single-view > div:last-child { grid-column: 1; grid-row: 3; }
+            html[data-layout="lcd"] #single-play, html[data-layout="lcd"] #single-prev, html[data-layout="lcd"] #single-next { border-radius: .4rem; }
+        }
+        /* ===== Layout: Cover wall (Libraryの枠組みを共有。サイドバー無し・曲一覧をジャケットのタイルに置換) ===== */
+        #cover-wall { display: none; }
+        #cover-wall .cw-head { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; padding: .4rem 1rem 0; font-size: .7rem; opacity: .8; }
+        #cover-wall .cw-head input { width: 90px; }
+        #cover-wall .cw-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cw-size, 132px), 1fr)); gap: .9rem; align-content: start; padding: .5rem 1rem 1rem; }
+        .cw-tile { position: relative; cursor: pointer; min-width: 0; outline: none; content-visibility: auto; contain-intrinsic-size: auto 170px; }
+        .cw-art { position: relative; aspect-ratio: 1; border-radius: .5rem; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: rgba(127,127,127,.18); border: 1px solid var(--theme-border, rgba(75,85,99,.5)); }
+        .cw-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .cw-tile:hover .cw-art, .cw-tile:focus-visible .cw-art { filter: brightness(1.12); }
+        .cw-tile.active .cw-art { border: 2px solid #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.35); }
+        .cw-title { margin-top: .3rem; font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-tile.active .cw-title { color: #60a5fa; font-weight: 700; }
+        .cw-sub { font-size: .68rem; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-tag { position: absolute; left: .3rem; bottom: .3rem; font-size: .6rem; font-weight: 700; padding: 0 .3rem; border-radius: .25rem; background: rgba(0,0,0,.65); color: #fde68a; }
+        .cw-actions { position: absolute; top: .3rem; right: .3rem; display: none; gap: .25rem; }
+        .cw-tile:hover .cw-actions, .cw-tile:focus-within .cw-actions { display: flex; }
+        @media (hover: none) { .cw-actions { display: flex; } }
+        .cw-deck { position: absolute; left: .3rem; top: .3rem; font-size: .6rem; font-weight: 700; padding: 0 .3rem; border-radius: .25rem; background: rgba(59,130,246,.85); color: #fff; }
+        #album-chips { display: none; }
+        html[data-chips="1"] body:not(.mini-mode) #album-chips { display: flex; flex-wrap: wrap; gap: .35rem; padding: .5rem .75rem; max-height: 5.5rem; overflow-y: auto; border-bottom: 1px solid var(--theme-border, rgba(75,85,99,.5)); }
+        .alb-chip { font-size: .7rem; padding: .15rem .6rem; border-radius: 9999px; border: 1px solid var(--theme-border, rgba(75,85,99,.8)); color: inherit; background: transparent; cursor: pointer; white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+        .alb-chip.active { background: rgba(59,130,246,.35); border-color: #3b82f6; font-weight: 600; }
+        html[data-tiles="1"] body:not(.mini-mode) #cover-wall { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+        html[data-tiles="1"] body:not(.mini-mode) #playlist { display: none; }
+        html[data-tiles="1"] body:not(.mini-mode) #cover-wall .cw-grid { grid-template-columns: repeat(auto-fill, minmax(min(var(--cw-size, 132px), 45%), 1fr)); gap: .6rem; padding: .5rem .75rem 1rem; }
+        .cw-actions button { width: 1.5rem; height: 1.5rem; border-radius: .35rem; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: .75rem; cursor: pointer; }
+        .cw-empty { grid-column: 1 / -1; text-align: center; padding: 2rem; opacity: .7; font-size: .85rem; }
+        @media (min-width: 768px) {
+            html:is([data-layout="cover"], [data-layout="term"]) #main-app-container { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
+                grid-template-areas: "top" "tool" "tool2" "list" "foot" "bar" "lfoot"; }
+            html[data-layout="cover"] #lib-sidebar { display: none; }
+            html:is([data-layout="cover"], [data-layout="term"]) #player-right-panel > div:has(#playlist-select) { grid-area: tool2; }
+            html[data-layout="cover"] #playlist { display: none; }
+            html[data-layout="cover"] #cover-wall { grid-area: list; display: flex; flex-direction: column; min-height: 0; }
+        }
         
         .decks-grid {
             display: grid;
@@ -1223,7 +1356,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.5.2</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.6.0</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1307,9 +1440,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.5.2 Bugfix & Stability Update</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.6.0 Multi-Layout System & UI Refresh</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.6.0 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.6.0] 全9種類のマルチUIレイアウトシステム & 新世代UIリフレッシュ</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-03</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>全9種類のマルチUIレイアウト新設:</strong> Split (従来分割)、Library (本格3ペインライブラリ)、Cover wall (アルバムアートタイルグリッド)、Album (アルバムブラウザ)、Shelf (CD/レコード棚ストリップ)、Now playing (大型フォーカスビュー)、Stage (ビジュアライザーステージ)、Terminal (Vim風キーバインドCLI)、Retro LCD (液晶スペクトラムディスプレイ) の全9スタイルを自由に切り替え可能。</li>
+                                <li><strong>シームレスなモード連動 & フォールバック:</strong> Single / Dual / Multi / FX / Sync モードに応じて最適なUI構造を自動維持。</li>
+                                <li><strong>MIDI パネル自動追従 & 設定永続化:</strong> ミキサーやピアノロール展開時も曲一覧領域に自動追従。選択したレイアウトは IndexedDB / localStorage に自動保存。</li>
+                            </ul>
+                        </div>
                         <!-- v3.5.2 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -1997,14 +2142,31 @@
             <div class="flex justify-between items-center border-b border-gray-800 pb-3">
                 <h3 class="text-lg font-bold text-white flex items-center space-x-2">
                     <span>🎨</span>
-                    <span>テーマ & 背景カスタマイズ</span>
+                    <span>テーマ・レイアウト & 背景</span>
                 </h3>
                 <button onclick="closeThemeModal()" class="text-gray-400 hover:text-white text-sm">✕ 閉じる</button>
             </div>
 
+            <!-- レイアウト選択 -->
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">レイアウト (UI)</label>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <button data-layout-btn="split" onclick="setLayout('split')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Split</button>
+                    <button data-layout-btn="library" onclick="setLayout('library')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Library</button>
+                    <button data-layout-btn="cover" onclick="setLayout('cover')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Cover wall</button>
+                    <button data-layout-btn="album" onclick="setLayout('album')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Album</button>
+                    <button data-layout-btn="shelf" onclick="setLayout('shelf')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Shelf</button>
+                    <button data-layout-btn="now" onclick="setLayout('now')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Now playing</button>
+                    <button data-layout-btn="stage" onclick="setLayout('stage')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Stage</button>
+                    <button data-layout-btn="term" onclick="setLayout('term')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Terminal</button>
+                    <button data-layout-btn="lcd" onclick="setLayout('lcd')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Retro LCD</button>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-2">Terminal / Stage / Now playing は全モードで有効です。Cover wall と Album / Shelf は、Dual / Multi / FX では右の曲一覧がタイル / アルバムチップになります。Library / Retro LCD は Single モードのときだけ適用され、他のモードでは Split になります。Stage は背景ビジュアライザーを使い、Terminal は j/k 移動・Enter 再生・/ 検索です。</p>
+            </div>
+
             <!-- プリセットテーマ選択 -->
             <div>
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">プリセットテーマ (12種類)</label>
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">プリセットテーマ (10種類)</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <button data-theme-btn="cyberpunk" onclick="setTheme('cyberpunk')" class="p-2.5 rounded-lg border border-blue-500/50 bg-slate-900 text-blue-300 font-bold hover:bg-slate-800 transition flex items-center justify-center space-x-1.5 shadow-sm">
                         <span>🌌</span><span>Cyberpunk</span>
@@ -2018,14 +2180,8 @@
                     <button data-theme-btn="sakura" onclick="setTheme('sakura')" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950/80 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
                         <span>🌸</span><span>Sakura Bloom</span>
                     </button>
-                    <button data-theme-btn="midnight" onclick="setTheme('midnight')" class="p-2.5 rounded-lg border border-zinc-700 bg-zinc-950 text-zinc-300 font-bold hover:bg-zinc-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>🌑</span><span>Midnight</span>
-                    </button>
                     <button data-theme-btn="sunset" onclick="setTheme('sunset')" class="p-2.5 rounded-lg border border-orange-600/50 bg-orange-950/80 text-orange-300 font-bold hover:bg-orange-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
                         <span>🌅</span><span>Sunset Amber</span>
-                    </button>
-                    <button data-theme-btn="deepsea" onclick="setTheme('deepsea')" class="p-2.5 rounded-lg border border-sky-600/50 bg-sky-950/80 text-sky-300 font-bold hover:bg-sky-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>🌊</span><span>Deep Sea</span>
                     </button>
                     <button data-theme-btn="light" onclick="setTheme('light')" class="p-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-900 font-bold hover:bg-slate-200 transition flex items-center justify-center space-x-1.5 shadow-sm">
                         <span>☀️</span><span>Studio Light</span>
@@ -7859,6 +8015,7 @@
                 initSstpUI();
                 initUpdateCheckerUI();
             }
+            applyLayout();
         }
 
         function updateSingleUIInfo() {
@@ -7979,11 +8136,19 @@
                         || (playlistFilterType === 'midi' && item.isMidi) 
                         || (playlistFilterType === 'video' && item.isVideo) 
                         || (playlistFilterType === 'audio' && !item.isMidi && !item.isVideo);
-                    return matchPlaylist && matchQuery && matchType;
+                    const matchAlbum = !isAlbumLayoutActive() || selectedAlbum === null || ((item.album || '').trim() === selectedAlbum);
+                    return matchPlaylist && matchQuery && matchType && matchAlbum;
                 });
                 
             if (ui.trackCount) {
                 ui.trackCount.textContent = `(${filteredTracks.length})`;
+            }
+
+            if (isAlbumLayoutActive()) renderAlbumNav();
+
+            if (shouldUseCoverWall()) {
+                renderCoverWall(filteredTracks);
+                return;
             }
             
             if(filteredTracks.length === 0) {
@@ -8130,7 +8295,12 @@
         }
 
         // --- Theme & Custom Background Management ---
-        let currentTheme = localStorage.getItem('ost_theme') || 'cyberpunk';
+        // 見た目が近いため削除したテーマ → 読み替え先
+        const REMOVED_THEMES = { midnight: 'cyberpunk', deepsea: 'cyberpunk' };
+        let currentTheme = (() => { const v = localStorage.getItem('ost_theme') || 'cyberpunk'; return REMOVED_THEMES[v] || v; })();
+        // レイアウト設定: 'split'(現行) / 'library' / 'cover'。保存値は不正なら split に倒す
+        const LAYOUTS = ['split', 'library', 'cover', 'album', 'shelf', 'now', 'stage', 'term', 'lcd'];
+        let currentLayout = (() => { try { const v = localStorage.getItem('ost_layout'); return LAYOUTS.includes(v) ? v : 'split'; } catch (e) { return 'split'; } })();
         let customBgData = null;
 
         function initThemeFromSettings() {
@@ -8202,7 +8372,7 @@
         }
 
         function setTheme(themeName) {
-            currentTheme = themeName || 'cyberpunk';
+            currentTheme = REMOVED_THEMES[themeName] || themeName || 'cyberpunk';
             try { localStorage.setItem('ost_theme', currentTheme); } catch(e){}
             if (db) {
                 try {
@@ -8264,6 +8434,7 @@
                 modal.classList.remove('hidden'); 
                 modal.classList.add('flex'); 
                 setTheme(currentTheme);
+                applyLayout();
             }
         }
         window.openThemeModal = openThemeModal;
@@ -8273,6 +8444,551 @@
             if(modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
         }
         window.closeThemeModal = closeThemeModal;
+        // 外側クリック / Esc でも閉じられるようにする(画面が縦に伸びても戻れなくならないように)
+        document.addEventListener('click', (e) => { const m = document.getElementById('theme-modal'); if (m && e.target === m) closeThemeModal(); });
+        document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; const m = document.getElementById('theme-modal'); if (m && !m.classList.contains('hidden')) closeThemeModal(); });
+
+        // ===== レイアウト切替 =====
+        // Single 以外のモード(Dual/Multi/FX/Sync/Help)は広い左パネルが必要なので、常に split で表示する
+        function applyLayout() {
+            const wide = window.matchMedia('(min-width: 768px)').matches;
+            const effective = (currentMode === 'single' && wide) ? currentLayout : 'split';
+            const prev = document.documentElement.dataset.layout;
+            document.documentElement.dataset.layout = effective;
+            document.documentElement.dataset.skin = currentLayout;
+            if (effective === 'library') initLibrarySidebar();
+            if (effective === 'cover') initCoverWall();
+            if (effective === 'stage') { initStage(); try { updateStageNotice(); } catch (e) {} }
+            if (currentLayout === 'term') { initTerminal(); applyTermCursor(); }
+            if (effective === 'lcd') { initLcd(); startLcdLoop(); }
+            document.querySelectorAll('[data-layout-btn]').forEach(btn => {
+                const on = btn.dataset.layoutBtn === currentLayout;
+                btn.classList.toggle('ring-2', on);
+                btn.classList.toggle('ring-white', on);
+            });
+            try { layoutMidiPanels(); } catch (e) {}
+            // Cover wall との出入りでは、曲一覧の描画先が変わるので作り直す
+            const root = document.documentElement;
+            root.dataset.chips = chipsActive() ? '1' : '0';
+            root.dataset.tiles = (shouldUseCoverWall() && effective !== 'cover') ? '1' : '0';
+            // 曲一覧の描画方式(タイル / アルバム絞り込み / 通常)が変わったときだけ作り直す
+            const sig = shouldUseCoverWall() ? 'tiles' : (isAlbumLayoutActive() ? 'album' : 'list');
+            if (lastListSig !== null && sig !== lastListSig) {
+                try { updatePlaylistUI(); } catch (e) {}
+            }
+            lastListSig = sig;
+        }
+
+        function setLayout(name) {
+            currentLayout = LAYOUTS.includes(name) ? name : 'split';
+            try { localStorage.setItem('ost_layout', currentLayout); } catch (e) {}
+            if (db) {
+                try {
+                    const tx = db.transaction(['settings'], 'readwrite');
+                    tx.objectStore('settings').put({ id: 'layout', data: currentLayout });
+                } catch (e) {}
+            }
+            applyLayout();
+        }
+        window.setLayout = setLayout;
+        try { window.matchMedia('(min-width: 768px)').addEventListener('change', applyLayout); } catch (e) {}
+        // Mini モードの出入り(body の class 変化)でも、曲一覧の描画方式を見直す
+        try { if (document.body) new MutationObserver(() => applyLayout()).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) {}
+
+        // Library 用サイドバー: プレイリスト一覧。データは #playlist-select をミラーし、操作は既存の select / ボタンに委譲する
+        function initLibrarySidebar() {
+            if (document.getElementById('lib-sidebar')) return;
+            const host = document.getElementById('main-app-container');
+            const sel = document.getElementById('playlist-select');
+            if (!host || !sel) return;
+            const side = document.createElement('aside');
+            side.id = 'lib-sidebar';
+            const title = document.createElement('div');
+            title.className = 'lib-side-title';
+            title.textContent = 'プレイリスト';
+            const list = document.createElement('div');
+            list.id = 'lib-side-list';
+            const actions = document.createElement('div');
+            actions.className = 'lib-side-actions';
+            [['＋ 作成', 'add-playlist-btn'], ['名前変更', 'rename-playlist-btn'], ['複製', 'duplicate-playlist-btn'], ['削除', 'delete-playlist-btn']].forEach(([label, id]) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = label;
+                b.addEventListener('click', () => { const t = document.getElementById(id); if (t) t.click(); });
+                actions.appendChild(b);
+            });
+            side.append(title, list, actions);
+            host.appendChild(side);
+            const render = () => {
+                list.textContent = '';
+                Array.from(sel.options).forEach(opt => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'lib-side-item' + (opt.value === sel.value ? ' active' : '');
+                    b.textContent = opt.textContent;
+                    b.addEventListener('click', () => {
+                        sel.value = opt.value;
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    list.appendChild(b);
+                });
+            };
+            render();
+            new MutationObserver(render).observe(sel, { childList: true, subtree: true, characterData: true });
+            sel.addEventListener('change', render);
+        }
+
+        // 実際に表示するレイアウト: Single かつ md 以上のときだけ選択値、それ以外は split
+        function effectiveLayout() {
+            return (currentMode === 'single' && window.matchMedia('(min-width: 768px)').matches) ? currentLayout : 'split';
+        }
+
+        // ===== Album browser / Shelf: track.album でグループ化し、曲一覧を絞り込む(文字列はすべて textContent) =====
+        let lastListSig = null; // 曲一覧の描画方式(tiles/album/list)。変わったときだけ作り直す
+        let selectedAlbum = null; // null=すべて / ''=アルバム情報なし / それ以外=アルバム名
+        function isAlbumLayoutActive() { const l = effectiveLayout(); return l === 'album' || l === 'shelf' || chipsActive(); }
+        function albumHue(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360; return h; }
+
+        function collectAlbums() {
+            const map = new Map();
+            let total = 0;
+            playlist.forEach(t => {
+                if (!(activePlaylist === 'All Tracks' || t.playlistName === activePlaylist)) return;
+                total++;
+                const key = (t.album || '').trim();
+                let a = map.get(key);
+                if (!a) { a = { key, count: 0, coverUrl: null }; map.set(key, a); }
+                a.count++;
+                if (!a.coverUrl && t.coverUrl) a.coverUrl = t.coverUrl;
+            });
+            if (selectedAlbum !== null && !map.has(selectedAlbum)) selectedAlbum = null;
+            const list = Array.from(map.values()).sort((x, y) => (x.key === '' ? 1 : 0) - (y.key === '' ? 1 : 0));
+            return { total, list };
+        }
+
+        function initAlbumNav() {
+            const host = document.getElementById('main-app-container');
+            if (!host) return;
+            if (!document.getElementById('album-sidebar')) {
+                const side = document.createElement('aside');
+                side.id = 'album-sidebar';
+                const title = document.createElement('div');
+                title.className = 'lib-side-title';
+                title.textContent = 'アルバム';
+                const list = document.createElement('div');
+                list.className = 'alb-list';
+                side.append(title, list);
+                host.appendChild(side);
+            }
+            if (!document.getElementById('shelf-strip')) {
+                const strip = document.createElement('div');
+                strip.id = 'shelf-strip';
+                host.appendChild(strip);
+            }
+            if (!document.getElementById('album-chips')) {
+                const chips = document.createElement('div');
+                chips.id = 'album-chips';
+                const rp = document.getElementById('player-right-panel');
+                const pl = document.getElementById('playlist');
+                if (rp && pl) rp.insertBefore(chips, pl); else host.appendChild(chips);
+            }
+        }
+
+        function selectAlbum(key) { selectedAlbum = key; updatePlaylistUI(); }
+
+        function renderAlbumNav() {
+            initAlbumNav();
+            const { total, list } = collectAlbums();
+            const side = document.querySelector('#album-sidebar .alb-list');
+            const strip = document.getElementById('shelf-strip');
+            if (side) side.textContent = '';
+            if (strip) strip.textContent = '';
+            const chipBox = document.getElementById('album-chips');
+            if (chipBox) chipBox.textContent = '';
+            const entries = [{ key: null, count: total, coverUrl: null, label: 'すべて' }]
+                .concat(list.map(a => ({ key: a.key, count: a.count, coverUrl: a.coverUrl, label: a.key || 'アルバム情報なし' })));
+            entries.forEach(a => {
+                const on = a.key === selectedAlbum;
+                if (side) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'alb-item' + (on ? ' active' : '');
+                    const cv = document.createElement('div');
+                    cv.className = 'alb-cover';
+                    if (a.coverUrl) { const img = document.createElement('img'); img.src = a.coverUrl; img.alt = ''; cv.appendChild(img); }
+                    else cv.textContent = '\u266A';
+                    const nm = document.createElement('span');
+                    nm.className = 'alb-name';
+                    nm.textContent = a.label;
+                    const ct = document.createElement('span');
+                    ct.className = 'alb-count';
+                    ct.textContent = String(a.count);
+                    b.append(cv, nm, ct);
+                    b.addEventListener('click', () => selectAlbum(a.key));
+                    side.appendChild(b);
+                }
+                if (chipBox) {
+                    const ch = document.createElement('button');
+                    ch.type = 'button';
+                    ch.className = 'alb-chip' + (on ? ' active' : '');
+                    ch.textContent = a.label + ' ' + a.count;
+                    ch.title = a.label;
+                    ch.addEventListener('click', () => selectAlbum(a.key));
+                    chipBox.appendChild(ch);
+                }
+                if (strip) {
+                    const sp = document.createElement('button');
+                    sp.type = 'button';
+                    sp.className = 'spine' + (on ? ' active' : '');
+                    sp.textContent = a.label;
+                    sp.title = a.label + ' (' + a.count + ')';
+                    sp.style.background = 'hsla(' + albumHue(a.label) + ',30%,50%,.25)';
+                    sp.addEventListener('click', () => selectAlbum(a.key));
+                    strip.appendChild(sp);
+                }
+            });
+        }
+
+        // ===== Visualizer stage: 既存の背景ビジュアライザー(#bg-visualizer-canvas)を主役にする。曲名は #single-title / #single-status を写す =====
+        function initStage() {
+            if (document.getElementById('stage-overlay')) return;
+            const host = document.getElementById('main-app-container');
+            if (!host) return;
+            const ov = document.createElement('div');
+            ov.id = 'stage-overlay';
+            const title = document.createElement('div');
+            title.id = 'stage-title';
+            const sub = document.createElement('div');
+            sub.id = 'stage-sub';
+            const actions = document.createElement('div');
+            actions.className = 'stage-actions';
+            const listBtn = document.createElement('button');
+            listBtn.type = 'button';
+            listBtn.textContent = '曲一覧';
+            listBtn.addEventListener('click', toggleStageList);
+            const note = document.createElement('div');
+            note.id = 'stage-note';
+            const noteText = document.createElement('span');
+            noteText.textContent = '背景ビジュアライザーが OFF です';
+            const noteBtn = document.createElement('button');
+            noteBtn.type = 'button';
+            noteBtn.textContent = 'ON にする';
+            noteBtn.addEventListener('click', () => {
+                const t = document.getElementById('bg-vis-toggle');
+                if (t) { t.checked = true; t.dispatchEvent(new Event('change')); }
+            });
+            note.append(noteText, noteBtn);
+            actions.append(listBtn, note);
+            ov.append(title, sub, actions);
+            host.appendChild(ov);
+            const srcTitle = document.getElementById('single-title');
+            const srcSub = document.getElementById('single-status');
+            const sync = () => {
+                title.textContent = srcTitle ? srcTitle.textContent : '';
+                sub.textContent = srcSub ? srcSub.textContent : '';
+            };
+            [srcTitle, srcSub].forEach(el => { if (el) new MutationObserver(sync).observe(el, { childList: true, characterData: true, subtree: true }); });
+            sync();
+            const vt = document.getElementById('bg-vis-toggle');
+            if (vt) vt.addEventListener('change', updateStageNotice);
+        }
+        function toggleStageList() {
+            const root = document.documentElement;
+            root.dataset.stageList = (root.dataset.stageList === '1') ? '0' : '1';
+        }
+        function updateStageNotice() {
+            const n = document.getElementById('stage-note');
+            if (n) n.style.display = isBgVisualizerEnabled ? 'none' : 'flex';
+        }
+
+        // ===== Terminal: 行は既存DOMをCSSで文字化。j/k/g/G で選択位置、Enter で再生、/ で検索 =====
+        let termCursor = 0;
+        // Terminal は見た目とキー操作だけなので、Single 以外のモード(help を除く)でも有効
+        function termActive() { return currentLayout === 'term' && currentMode !== 'help'; }
+        function termRows() { return Array.from(document.querySelectorAll('#playlist > div')); }
+        function applyTermCursor() {
+            const on = termActive();
+            const rows = termRows();
+            rows.forEach((r, i) => r.classList.toggle('term-cursor', on && i === termCursor));
+            if (on && rows[termCursor]) rows[termCursor].scrollIntoView({ block: 'nearest' });
+        }
+        function initTerminal() {
+            if (window.__termInit) return;
+            window.__termInit = true;
+            const pl = document.getElementById('playlist');
+            if (pl) {
+                new MutationObserver(() => {
+                    if (!termActive()) return;
+                    const n = termRows().length;
+                    if (termCursor >= n) termCursor = Math.max(0, n - 1);
+                    applyTermCursor();
+                }).observe(pl, { childList: true });
+            }
+            window.addEventListener('keydown', (e) => {
+                if (!termActive() || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+                const tg = e.target && e.target.tagName;
+                if (tg === 'INPUT' || tg === 'SELECT' || tg === 'TEXTAREA' || tg === 'BUTTON') return;
+                if (document.querySelector('div[id$="modal"]:not(.hidden)')) return;
+                const rows = termRows();
+                if (e.key === 'j') termCursor = Math.min(rows.length - 1, termCursor + 1);
+                else if (e.key === 'k') termCursor = Math.max(0, termCursor - 1);
+                else if (e.key === 'g') termCursor = 0;
+                else if (e.key === 'G') termCursor = Math.max(0, rows.length - 1);
+                else if (e.key === 'Enter') { if (rows[termCursor]) rows[termCursor].click(); }
+                else if (e.key === '/') { const q = document.getElementById('playlist-search-input'); if (q) q.focus(); }
+                else return;
+                e.preventDefault();
+                applyTermCursor();
+            });
+        }
+
+        // ===== Retro LCD: 曲名・時刻・再生状態は既存の要素を写し、スペクトラムは analyser を読む(描画ループは lcd のときだけ) =====
+        let lcdRaf = 0;
+        let lcdBuf = null;
+        function initLcd() {
+            if (document.getElementById('lcd-panel')) return;
+            const host = document.getElementById('main-app-container');
+            if (!host) return;
+            const panel = document.createElement('div');
+            panel.id = 'lcd-panel';
+            const screen = document.createElement('div');
+            screen.className = 'lcd-screen';
+            const line1 = document.createElement('div');
+            line1.className = 'lcd-line1';
+            const trk = document.createElement('span');
+            const st = document.createElement('span');
+            const tm = document.createElement('span');
+            line1.append(trk, st, tm);
+            const ttl = document.createElement('div');
+            ttl.className = 'lcd-title';
+            const cv = document.createElement('canvas');
+            cv.className = 'lcd-spectrum';
+            cv.width = 320;
+            cv.height = 48;
+            screen.append(line1, ttl, cv);
+            panel.appendChild(screen);
+            host.appendChild(panel);
+            const g = (id) => document.getElementById(id);
+            const sync = () => {
+                const total = playlist.length;
+                const idx = (typeof singleTrackIndex === 'number' && singleTrackIndex >= 0) ? singleTrackIndex + 1 : 0;
+                trk.textContent = 'TRK ' + String(idx).padStart(2, '0') + '/' + String(total).padStart(2, '0');
+                const pauseIcon = g('single-pause-icon');
+                const playing = !!pauseIcon && !pauseIcon.classList.contains('hidden');
+                st.textContent = playing ? 'PLAY' : (idx ? 'PAUSE' : 'STOP');
+                tm.textContent = (g('single-current') ? g('single-current').textContent : '0:00') + '/' + (g('single-duration') ? g('single-duration').textContent : '0:00');
+                ttl.textContent = g('single-title') ? g('single-title').textContent : '';
+            };
+            ['single-title', 'single-current', 'single-duration'].forEach(id => {
+                const el = g(id);
+                if (el) new MutationObserver(sync).observe(el, { childList: true, characterData: true, subtree: true });
+            });
+            const pi = g('single-pause-icon');
+            if (pi) new MutationObserver(sync).observe(pi, { attributes: true, attributeFilter: ['class'] });
+            sync();
+        }
+        function lcdDraw() {
+            lcdRaf = 0;
+            if (effectiveLayout() !== 'lcd') return;
+            const cv = document.querySelector('#lcd-panel .lcd-spectrum');
+            if (cv) {
+                const ctx = cv.getContext('2d');
+                const w = cv.width, h = cv.height;
+                ctx.clearRect(0, 0, w, h);
+                let data = null;
+                try {
+                    if (typeof analyser !== 'undefined' && analyser) {
+                        if (!lcdBuf || lcdBuf.length !== analyser.frequencyBinCount) lcdBuf = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteFrequencyData(lcdBuf);
+                        data = lcdBuf;
+                    }
+                } catch (e) { data = null; }
+                const bars = 20, gap = 3, bw = (w - gap * (bars - 1)) / bars;
+                ctx.fillStyle = '#2b3a12';
+                for (let i = 0; i < bars; i++) {
+                    const v = data ? data[Math.floor(i * (data.length * 0.6) / bars)] / 255 : 0;
+                    const bh = Math.max(2, Math.round(v * h));
+                    ctx.fillRect(i * (bw + gap), h - bh, bw, bh);
+                }
+            }
+            lcdRaf = requestAnimationFrame(lcdDraw);
+        }
+        function startLcdLoop() { if (!lcdRaf) lcdRaf = requestAnimationFrame(lcdDraw); }
+
+        // ===== MIDI パネル(ミキサー/ピアノロール/コードホイール)の配置 =====
+        // Library / Cover wall では、曲一覧の領域をそのままパネルに置き換えて表示する(一覧は visibility:hidden で隠す)。
+        function layoutMidiPanels() {
+            const root = document.documentElement;
+            const lay = root.dataset.layout;
+            const sv = document.getElementById('single-view');
+            const panels = ['midi-mixer-panel', 'piano-roll-panel'].map(id => document.getElementById(id)).filter(Boolean);
+            const wheel = document.getElementById('chord-wheel-panel');
+            if (!window.__midiPanelObs) {
+                window.__midiPanelObs = new MutationObserver(() => layoutMidiPanels());
+                panels.concat(wheel ? [wheel] : []).forEach(el => window.__midiPanelObs.observe(el, { attributes: true, attributeFilter: ['class'] }));
+                window.addEventListener('resize', () => layoutMidiPanels());
+            }
+            const clear = (el) => { el.style.top = ''; el.style.left = ''; el.style.width = ''; el.style.height = ''; };
+            if (!sv || !['library', 'cover', 'album', 'shelf', 'term', 'stage', 'lcd'].includes(lay)) {
+                delete root.dataset.midiOpen;
+                panels.forEach(clear);
+                if (wheel) { wheel.style.left = ''; wheel.style.bottom = ''; }
+                return;
+            }
+            const target = document.getElementById(lay === 'cover' ? 'cover-wall' : (lay === 'stage' ? 'stage-overlay' : 'playlist'));
+            if (!target) return;
+            const open = panels.filter(el => !el.classList.contains('hidden'));
+            root.dataset.midiOpen = open.length ? '1' : '0';
+            const r = target.getBoundingClientRect(), sb = sv.getBoundingClientRect();
+            const each = open.length ? r.height / open.length : 0;
+            panels.forEach(el => {
+                const i = open.indexOf(el);
+                if (i < 0) { clear(el); return; }
+                el.style.left = (r.left - sb.left - sv.clientLeft) + 'px';
+                el.style.top = (r.top - sb.top - sv.clientTop + each * i) + 'px';
+                el.style.width = r.width + 'px';
+                el.style.height = each + 'px';
+            });
+            if (wheel) {
+                if (wheel.classList.contains('hidden')) { wheel.style.left = ''; wheel.style.bottom = ''; }
+                else { wheel.style.left = Math.round(r.left + 16) + 'px'; wheel.style.bottom = Math.round(window.innerHeight - sb.top + 12) + 'px'; }
+            }
+        }
+
+        // ===== Cover wall: 曲をジャケットのタイルで表示（Single時のみ）。文字列はすべて textContent / DOM API で設定 =====
+        // 曲一覧の「右パネル版」(タイル/アルバムチップ)を出せる状況: md以上・Mini以外・Single/Dual/Multi/FX のとき
+        function listModeOk() {
+            return ['single', 'dual', 'multi', 'fx'].includes(currentMode) && window.matchMedia('(min-width: 768px)').matches && !document.body.classList.contains('mini-mode');
+        }
+        function shouldUseCoverWall() { return currentLayout === 'cover' && listModeOk(); }
+        // Single 以外で Album / Shelf を選んでいるとき、右パネルの上にアルバムのチップを出す
+        function chipsActive() { return (currentLayout === 'album' || currentLayout === 'shelf') && listModeOk() && currentMode !== 'single'; }
+        // 曲一覧の行と同じ「再生中」判定(Single/FX/Dual/Multi)。badge はデッキ表示用
+        function cwActive(track, idx) {
+            const same = (t) => t && (t === track || (t.id !== undefined && t.id === track.id));
+            if (currentMode === 'fx') return { active: idx === fxTrackIndex, badge: idx === fxTrackIndex ? 'FX' : '' };
+            if (currentMode === 'dual') {
+                const b = [same(dualTracks[0]) ? 'A' : '', same(dualTracks[1]) ? 'B' : ''].filter(Boolean).join('+');
+                return { active: !!b, badge: b };
+            }
+            if (currentMode === 'multi') {
+                const nums = decks.map((d, i) => (d.track && same(d.track)) ? 'D' + (i + 1) : '').filter(Boolean);
+                return { active: nums.length > 0, badge: nums.join('+') };
+            }
+            return { active: idx === singleTrackIndex, badge: '' };
+        }
+        // 行クリックと同じモード別の振り分け
+        function playTrackFromWall(idx, track) {
+            if (currentMode === 'single' || currentMode === 'visual') loadSingleTrack(idx);
+            else if (currentMode === 'dual') loadDualTrack(idx);
+            else if (currentMode === 'multi') loadToMultiDeck(track);
+            else loadFxTrack(idx);
+        }
+        const CW_PX = { 1: 104, 2: 132, 3: 176 };
+        let cwSize = (() => { try { const v = parseInt(localStorage.getItem('ost_cw_size'), 10); return CW_PX[v] ? v : 2; } catch (e) { return 2; } })();
+
+        function initCoverWall() {
+            let wall = document.getElementById('cover-wall');
+            if (wall) return wall;
+            const host = document.getElementById('main-app-container');
+            if (!host) return null;
+            wall = document.createElement('div');
+            wall.id = 'cover-wall';
+            const head = document.createElement('div');
+            head.className = 'cw-head';
+            const label = document.createElement('span');
+            label.textContent = 'サイズ';
+            const range = document.createElement('input');
+            range.type = 'range'; range.min = '1'; range.max = '3'; range.step = '1'; range.value = String(cwSize);
+            range.setAttribute('aria-label', 'タイルサイズ');
+            const grid = document.createElement('div');
+            grid.className = 'cw-grid';
+            const applySize = () => grid.style.setProperty('--cw-size', CW_PX[cwSize] + 'px');
+            range.addEventListener('input', () => {
+                cwSize = parseInt(range.value, 10) || 2;
+                try { localStorage.setItem('ost_cw_size', String(cwSize)); } catch (e) {}
+                applySize();
+            });
+            applySize();
+            head.append(label, range);
+            wall.append(head, grid);
+            const rp = document.getElementById('player-right-panel');
+            const pl = document.getElementById('playlist');
+            if (rp && pl) rp.insertBefore(wall, pl); else host.appendChild(wall);
+            return wall;
+        }
+
+        function renderCoverWall(items) {
+            const wall = initCoverWall();
+            if (!wall) return;
+            const grid = wall.querySelector('.cw-grid');
+            grid.textContent = '';
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'cw-empty';
+                empty.textContent = '曲がありません（検索・フィルター条件、またはファイルの追加を確認してください）';
+                grid.appendChild(empty);
+                return;
+            }
+            const frag = document.createDocumentFragment();
+            items.forEach(item => {
+                const idx = item.originalIndex;
+                const track = playlist[idx];
+                if (!track) return;
+                const title = (track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name;
+                const tile = document.createElement('div');
+                const st = cwActive(track, idx);
+                tile.className = 'cw-tile' + (st.active ? ' active' : '');
+                tile.tabIndex = 0;
+                tile.setAttribute('role', 'button');
+                tile.setAttribute('aria-label', title);
+                tile.title = track.name;
+                const art = document.createElement('div');
+                art.className = 'cw-art';
+                if (track.coverUrl) {
+                    const img = document.createElement('img');
+                    img.src = track.coverUrl; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+                    art.appendChild(img);
+                } else {
+                    art.textContent = '\u266A';
+                }
+                if (track.isMidi || track.isVideo) {
+                    const tag = document.createElement('span');
+                    tag.className = 'cw-tag';
+                    tag.textContent = track.isMidi ? 'MIDI' : 'VIDEO';
+                    art.appendChild(tag);
+                }
+                if (st.badge) {
+                    const db = document.createElement('span');
+                    db.className = 'cw-deck';
+                    db.textContent = st.badge;
+                    art.appendChild(db);
+                }
+                const actions = document.createElement('div');
+                actions.className = 'cw-actions';
+                [['\u21C4', 'プレイリスト間移動', () => openMoveModal(idx)], ['\u2715', 'この曲を削除', () => confirmDelete(idx)]].forEach(([icon, tip, fn]) => {
+                    const b = document.createElement('button');
+                    b.type = 'button'; b.textContent = icon; b.title = tip; b.setAttribute('aria-label', tip);
+                    b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); fn(); });
+                    actions.appendChild(b);
+                });
+                art.appendChild(actions);
+                const t = document.createElement('div');
+                t.className = 'cw-title';
+                t.textContent = title;
+                const sub = document.createElement('div');
+                sub.className = 'cw-sub';
+                sub.textContent = track.artist || '';
+                tile.append(art, t, sub);
+                tile.addEventListener('click', () => playTrackFromWall(idx, track));
+                tile.addEventListener('keydown', (e) => {
+                    if (e.target !== tile) return;
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrackFromWall(idx, track); }
+                });
+                frag.appendChild(tile);
+            });
+            grid.appendChild(frag);
+        }
 
         // 👻 SSP (伺か) SSTP Manager
         let isSstpEnabled = localStorage.getItem('ost_sstp_enabled') !== '0'; // Default ON
@@ -8829,7 +9545,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.5.2';
+        const APP_VERSION = '3.6.0';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
@@ -9257,6 +9973,14 @@
                     const tx = db.transaction(['settings'], 'readonly');
                     const reqTheme = tx.objectStore('settings').get('theme');
                     const reqBg = tx.objectStore('settings').get('custom-bg');
+                    const reqLayout = tx.objectStore('settings').get('layout');
+                    reqLayout.onsuccess = (e) => {
+                        const res = e.target.result;
+                        if (res && LAYOUTS.includes(res.data) && !localStorage.getItem('ost_layout')) {
+                            currentLayout = res.data;
+                            try { localStorage.setItem('ost_layout', currentLayout); } catch (err) {}
+                        }
+                    };
                     
                     reqTheme.onsuccess = (e) => {
                         const res = e.target.result;
@@ -9279,6 +10003,7 @@
 
                     tx.oncomplete = () => {
                         setTheme(currentTheme);
+                        applyLayout();
                         updateCustomBgStyles();
                         resolve();
                     };
