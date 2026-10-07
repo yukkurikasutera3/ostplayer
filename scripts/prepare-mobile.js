@@ -1,6 +1,6 @@
 /**
  * Mobile Web Asset Bundler for Capacitor / Android
- * Copies frontend assets (index.html, src/, spessasynth_*.js, assets) to www/
+ * Copies frontend assets (index.html, src/, spessasynth_*.js, libraries) to www/
  */
 const fs = require('fs');
 const path = require('path');
@@ -38,11 +38,14 @@ console.log('[Mobile Pack] Preparing mobile assets for Android build...');
 
 // Copy root frontend files
 copyFile('index.html');
+copyFile('webaudio-tinysynth.js');
+copyFile('jsmediatags.min.js');
+copyFile('peer.min.js');
 copyFile('spessasynth_core.js');
 copyFile('spessasynth_lib.js');
 copyFile('spessasynth_processor.js');
 
-// Copy src directory
+// Copy src directory (includes platform/, sync/, ui/)
 copyDir('src');
 
 console.log('[Mobile Pack] Successfully generated www/ directory for Android / Capacitor.');

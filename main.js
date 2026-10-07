@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -6,7 +6,7 @@ const https = require('https');
 const crypto = require('crypto');
 const net = require('net');
 const os = require('os');
-const { spawn, exec } = require('child_process');
+const { spawn, execFile } = require('child_process');
 
 let mainWindow;
 
@@ -35,6 +35,7 @@ class DiscordRPC {
         this.currentActivity = null;
         this.enabled = false;
         this.reconnectTimer = null;
+        this.rxBuffer = Buffer.alloc(0);
     }
 
     setClientId(newId) {
@@ -57,13 +58,16 @@ class DiscordRPC {
             : path.join(process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || process.env.TMP || '/tmp', `discord-ipc-${pipeIndex}`);
 
         return new Promise((resolve) => {
-            const socket = net.connect(pipePath, () => {
-                resolve({ socket, pipePath });
-            });
-            socket.on('error', () => {
+            // 接続に失敗したときだけ次のパイプを試す。接続成功後はこのリスナーを外す(後のエラーで別のパイプへ接続してソケットが漏れるのを防ぐ)
+            const onError = () => {
                 socket.destroy();
                 this.findPipe(pipeIndex + 1).then(resolve);
+            };
+            const socket = net.connect(pipePath, () => {
+                socket.removeListener('error', onError);
+                resolve({ socket, pipePath });
             });
+            socket.once('error', onError);
         });
     }
 
@@ -99,11 +103,24 @@ class DiscordRPC {
     }
 
     handleData(chunk) {
+        // IPC のフレーム(8バイトのヘッダ + JSON)は、1回の受信で完結するとは限らない。溜めてから1フレームずつ切り出す
+        this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
+        while (this.rxBuffer.length >= 8) {
+            const len = this.rxBuffer.readInt32LE(4);
+            if (len < 0 || len > 1024 * 1024) {
+                this.rxBuffer = Buffer.alloc(0);
+                this.handleDisconnect();
+                return;
+            }
+            if (this.rxBuffer.length < 8 + len) break;
+            const dataStr = this.rxBuffer.toString('utf8', 8, 8 + len);
+            this.rxBuffer = this.rxBuffer.subarray(8 + len);
+            this.handleMessage(dataStr);
+        }
+    }
+
+    handleMessage(dataStr) {
         try {
-            if (chunk.length < 8) return;
-            const op = chunk.readInt32LE(0);
-            const len = chunk.readInt32LE(4);
-            const dataStr = chunk.toString('utf8', 8, 8 + len);
             const json = JSON.parse(dataStr);
 
             if (json.evt === 'READY' && json.data) {
@@ -124,6 +141,7 @@ class DiscordRPC {
     }
 
     handleDisconnect() {
+        this.rxBuffer = Buffer.alloc(0);
         this.connected = false;
         this.user = null;
         if (this.client) {
@@ -250,27 +268,40 @@ const discordRpc = new DiscordRPC();
 discordRpc.startAutoReconnect();
 
 // --- SSP (伺か) SSTP Sender ---
+// SSTP のヘッダ値: 改行や NUL を含めない(ヘッダ注入の防止)・長さを制限する
+function sstpHeaderValue(v, max = 500) {
+    return String(v == null ? '' : v).replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, max);
+}
+
+// SakuraScript に埋め込む値: \ と % をエスケープし、値の中のタグが実行されないようにする
+function sakuraEscape(v) {
+    return sstpHeaderValue(v, 300).replace(/\\/g, '\\\\').replace(/%/g, '\\%');
+}
+
 function sendSstpMessage(options) {
     if (!options) return;
-    const port = parseInt(options.port) || 9801;
+    const portNum = parseInt(options.port, 10);
+    const port = (portNum >= 1024 && portNum <= 65535) ? portNum : 9801;
     const host = '127.0.0.1';
     const client = new net.Socket();
     client.setTimeout(1200);
 
-    const title = options.title || 'Unknown Track';
-    const artist = (options.artist && options.artist.trim()) ? options.artist.trim() : '';
-    const album = (options.album && options.album.trim()) ? options.album.trim() : '';
-    const fileName = (options.fileName && options.fileName.trim()) ? options.fileName.trim() : title;
-    
-    let script = options.script || `\\0\\s[0]『{title}』({artist})を再生中だよ！\\e`;
-    
+    const title = sstpHeaderValue(options.title) || 'Unknown Track';
+    const artist = sstpHeaderValue(options.artist);
+    const album = sstpHeaderValue(options.album);
+    const fileName = sstpHeaderValue(options.fileName) || title;
+
+    // スクリプトの雛形は利用者が設定したもの(バックスラッシュはそのまま)。差し込む曲情報は sakuraEscape を通す。
+    // 置換は関数で行う(文字列だと曲名の $& や $$ が展開されてしまう)
+    let script = sstpHeaderValue(options.script, 2000) || `\\0\\s[0]『{title}』({artist})を再生中だよ！\\e`;
+
     if (!artist) {
         script = script.replace(/\(\{artist\}\)/g, '')
                        .replace(/（\{artist\}）/g, '')
                        .replace(/ - \{artist\}/g, '')
                        .replace(/\{artist\}/g, '');
     } else {
-        script = script.replace(/\{artist\}/g, artist);
+        script = script.replace(/\{artist\}/g, () => sakuraEscape(artist));
     }
 
     if (!album) {
@@ -279,11 +310,11 @@ function sendSstpMessage(options) {
                        .replace(/ - \{album\}/g, '')
                        .replace(/\{album\}/g, '');
     } else {
-        script = script.replace(/\{album\}/g, album);
+        script = script.replace(/\{album\}/g, () => sakuraEscape(album));
     }
 
-    script = script.replace(/\{filename\}/gi, fileName);
-    script = script.replace(/\{title\}/gi, title);
+    script = script.replace(/\{filename\}/gi, () => sakuraEscape(fileName));
+    script = script.replace(/\{title\}/gi, () => sakuraEscape(title));
 
     const sstpPacket = [
         'NOTIFY SSTP/1.1',
@@ -351,8 +382,23 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true,
+            // 注意: webSecurity を true にすると、file:// 上で行う fetch('./spessasynth_processor.js')(SoundFont 合成の読み込み)が動かなくなる。
+            // 独自プロトコルへ移行する場合は、保存元(オリジン)が変わって IndexedDB のライブラリが見えなくなるため、移行処理が必要。
             webSecurity: false,
             allowRunningInsecureContent: true
+        }
+    });
+
+    // 新しいウィンドウは開かない。http(s) のリンクだけ既定のブラウザで開く
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+        return { action: 'deny' };
+    });
+    // このウィンドウは index.html 以外へ遷移させない
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        if (url !== mainWindow.webContents.getURL()) {
+            event.preventDefault();
+            if (/^https?:\/\//i.test(url)) shell.openExternal(url);
         }
     });
 
@@ -512,32 +558,32 @@ ipcMain.on('open-external', (event, url) => {
 });
 
 // IPC Handler to Read Local Files for Playlist JSON Import
+// 読み込めるのは音声・動画・MIDI・SoundFont の拡張子だけ(renderer が乗っ取られても、鍵や設定ファイルなどを読めないようにする)
+const READABLE_EXTS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.opus', '.wma', '.aiff', '.weba', '.mid', '.midi',
+    '.mp4', '.webm', '.mov', '.mkv', '.m4v', '.avi', '.ts', '.ogv', '.sf2', '.sf3']);
+const READABLE_MAX_BYTES = 1.5 * 1024 * 1024 * 1024;
+const READABLE_MIME = {
+    '.mp3': 'audio/mp3', '.wav': 'audio/wav', '.flac': 'audio/flac', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/mp4',
+    '.mid': 'audio/midi', '.midi': 'audio/midi', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime', '.mkv': 'video/x-matroska'
+};
+
 ipcMain.handle('read-local-file', async (event, filePath) => {
     try {
-        if (!filePath || typeof filePath !== 'string' || !fs.existsSync(filePath)) return null;
-        const stat = fs.statSync(filePath);
-        if (!stat.isFile()) return null;
-        const buffer = fs.readFileSync(filePath);
-        const fileName = path.basename(filePath);
+        if (!filePath || typeof filePath !== 'string' || filePath.length >= 1024 || filePath.includes('\0')) return null;
         const ext = path.extname(filePath).toLowerCase();
-        let mime = 'application/octet-stream';
-        if (ext === '.mp3') mime = 'audio/mp3';
-        else if (ext === '.wav') mime = 'audio/wav';
-        else if (ext === '.flac') mime = 'audio/flac';
-        else if (ext === '.ogg') mime = 'audio/ogg';
-        else if (ext === '.m4a' || ext === '.aac') mime = 'audio/mp4';
-        else if (ext === '.mid' || ext === '.midi') mime = 'audio/midi';
-        else if (ext === '.mp4') mime = 'video/mp4';
-        else if (ext === '.webm') mime = 'video/webm';
-        else if (ext === '.mov') mime = 'video/quicktime';
-        else if (ext === '.mkv') mime = 'video/x-matroska';
-        else if (ext === '.sf2' || ext === '.sf3') mime = 'application/octet-stream';
+        if (!READABLE_EXTS.has(ext)) {
+            console.warn('read-local-file: 許可されていない拡張子のため拒否しました:', ext);
+            return null;
+        }
+        const stat = await fs.promises.stat(filePath);
+        if (!stat.isFile() || stat.size > READABLE_MAX_BYTES) return null;
+        const buffer = await fs.promises.readFile(filePath);
         return {
-            name: fileName,
+            name: path.basename(filePath),
             path: filePath,
             data: buffer,
             size: stat.size,
-            mime: mime
+            mime: READABLE_MIME[ext] || 'application/octet-stream'
         };
     } catch (e) {
         console.error('Error reading local file:', e);
@@ -546,83 +592,272 @@ ipcMain.handle('read-local-file', async (event, filePath) => {
 });
 
 // --- One-Click In-App Auto Updater IPC Handler ---
-function downloadFileWithRedirects(url, destPath, progressCb, maxRedirects = 10) {
+// ===== 自動更新(安全対策つき) =====
+// ・更新元(リポジトリ)はこの main プロセスで決める。renderer から渡された URL は使わない
+// ・https のみ / ホストは許可リスト / リダイレクト先も許可リスト内だけ / サイズ上限あり
+// ・GitHub API が返す sha256 と照合し、一致しなければ中止
+// ・展開前に zip の中身(.. や絶対パス)を確認 / 適用に失敗したらバックアップから復元
+const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
+const UPDATE_ALLOWED_HOSTS = new Set([
+    'api.github.com', 'github.com', 'codeload.github.com',
+    'objects.githubusercontent.com', 'release-assets.githubusercontent.com', 'github-releases.githubusercontent.com'
+]);
+const UPDATE_MAX_BYTES = 1.5 * 1024 * 1024 * 1024;
+const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+const TAG_RE = /^[A-Za-z0-9._-]{1,64}$/;
+let updateInProgress = false;
+
+function isAllowedUpdateUrl(u) {
+    try {
+        const x = new URL(u);
+        return x.protocol === 'https:' && UPDATE_ALLOWED_HOSTS.has(x.hostname) && !x.username && !x.password;
+    } catch (e) {
+        return false;
+    }
+}
+
+// 標準の更新元。環境変数 OST_UPDATE_REPO か、userData の update-repo.txt で上書きできる(renderer からは変更できない)
+function getTrustedUpdateRepo() {
+    const env = process.env.OST_UPDATE_REPO;
+    if (env && REPO_RE.test(env.trim())) return env.trim();
+    try {
+        const f = path.join(app.getPath('userData'), 'update-repo.txt');
+        if (fs.existsSync(f)) {
+            const v = fs.readFileSync(f, 'utf8').trim();
+            if (REPO_RE.test(v)) return v;
+        }
+    } catch (e) {}
+    return DEFAULT_UPDATE_REPO;
+}
+
+function httpsGetJson(url, redirects = 3) {
+    return new Promise((resolve, reject) => {
+        if (!isAllowedUpdateUrl(url)) return reject(new Error('許可されていない更新元です'));
+        const req = https.get(url, { headers: { 'User-Agent': 'OST-Player-AutoUpdater', 'Accept': 'application/vnd.github+json' } }, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                res.resume();
+                if (redirects <= 0) return reject(new Error('リダイレクト回数が上限を超えました'));
+                let next;
+                try { next = new URL(res.headers.location, url).href; } catch (e) { return reject(e); }
+                return httpsGetJson(next, redirects - 1).then(resolve, reject);
+            }
+            if (res.statusCode !== 200) {
+                res.resume();
+                return reject(new Error('更新情報の取得に失敗しました: HTTP ' + res.statusCode));
+            }
+            let size = 0;
+            const chunks = [];
+            res.on('data', (c) => {
+                size += c.length;
+                if (size > 5 * 1024 * 1024) { req.destroy(new Error('更新情報が大きすぎます')); return; }
+                chunks.push(c);
+            });
+            res.on('end', () => {
+                try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch (e) { reject(e); }
+            });
+            res.on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(20000, () => req.destroy(new Error('更新情報の取得がタイムアウトしました')));
+    });
+}
+
+// 戻り値: { path, sha256, bytes }
+function downloadFileWithRedirects(url, destPath, progressCb, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
         if (maxRedirects <= 0) return reject(new Error('リダイレクト回数が上限を超えました'));
+        if (!isAllowedUpdateUrl(url)) return reject(new Error('許可されていないダウンロード先です'));
 
-        const client = url.startsWith('https') ? https : http;
-        const options = {
-            headers: {
-                'User-Agent': 'OST-Player-AutoUpdater/3.4.1'
-            }
-        };
-
-        const req = client.get(url, options, (res) => {
+        const req = https.get(url, { headers: { 'User-Agent': 'OST-Player-AutoUpdater' } }, (res) => {
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                let redirectUrl = res.headers.location;
-                if (!redirectUrl.startsWith('http')) {
-                    const parsedUrl = new URL(url);
-                    redirectUrl = new URL(redirectUrl, parsedUrl.origin).href;
-                }
-                return downloadFileWithRedirects(redirectUrl, destPath, progressCb, maxRedirects - 1)
-                    .then(resolve)
-                    .catch(reject);
+                res.resume();
+                let next;
+                try { next = new URL(res.headers.location, url).href; } catch (e) { return reject(e); }
+                return downloadFileWithRedirects(next, destPath, progressCb, maxRedirects - 1).then(resolve, reject);
             }
-
             if (res.statusCode !== 200) {
+                res.resume();
                 return reject(new Error(`ダウンロード失敗: HTTP ${res.statusCode}`));
             }
 
             const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+            if (totalBytes > UPDATE_MAX_BYTES) {
+                res.resume();
+                return reject(new Error('ファイルが大きすぎます'));
+            }
             let receivedBytes = 0;
+            const hash = crypto.createHash('sha256');
             const fileStream = fs.createWriteStream(destPath);
+            let failed = false;
+            const fail = (err) => {
+                if (failed) return;
+                failed = true;
+                try { res.destroy(); } catch (e) {}
+                fileStream.destroy();
+                fs.unlink(destPath, () => {});
+                reject(err);
+            };
 
             res.on('data', (chunk) => {
                 receivedBytes += chunk.length;
-                if (typeof progressCb === 'function') {
-                    progressCb(receivedBytes, totalBytes);
-                }
+                if (receivedBytes > UPDATE_MAX_BYTES) return fail(new Error('ファイルが大きすぎます'));
+                hash.update(chunk);
+                if (typeof progressCb === 'function') progressCb(receivedBytes, totalBytes);
             });
-
+            res.on('error', fail);
+            res.on('aborted', () => fail(new Error('ダウンロードが中断されました')));
             res.pipe(fileStream);
 
             fileStream.on('finish', () => {
-                fileStream.close(() => resolve(destPath));
+                if (failed) return;
+                if (totalBytes > 0 && receivedBytes !== totalBytes) return fail(new Error('ダウンロードが途中で終了しました'));
+                fileStream.close(() => resolve({ path: destPath, sha256: hash.digest('hex'), bytes: receivedBytes }));
             });
-
-            fileStream.on('error', (err) => {
-                fs.unlink(destPath, () => {});
-                reject(err);
-            });
+            fileStream.on('error', fail);
         });
 
         req.on('error', (err) => {
             fs.unlink(destPath, () => {});
             reject(err);
         });
-
         req.setTimeout(120000, () => {
             req.destroy(new Error('ダウンロードがタイムアウトしました (120秒)'));
         });
     });
 }
 
-ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
+// リリースから、展開できる .zip のアセットを選ぶ(.exe 等は対象外。名前に win を含むものを優先)
+function pickUpdateAsset(release) {
+    const assets = Array.isArray(release && release.assets) ? release.assets : [];
+    const zips = assets.filter(a => a && typeof a.name === 'string' && /\.zip$/i.test(a.name) && typeof a.browser_download_url === 'string');
+    return zips.find(a => /win/i.test(a.name)) || zips[0] || null;
+}
+
+// GitHub API の digest ("sha256:<64桁>") を取り出す。形式が違えば null
+function parseDigest(d) {
+    const m = /^sha256:([0-9a-f]{64})$/i.exec(typeof d === 'string' ? d : '');
+    return m ? m[1].toLowerCase() : null;
+}
+
+// zip の中身のパスが安全か(.. を含む / 絶対パス / ドライブ指定 を拒否)
+function validateZipEntryNames(names) {
+    for (const n of names) {
+        if (typeof n !== 'string' || n.includes('\0')) return false;
+        if (/(^|[\\/])\.\.([\\/]|$)/.test(n) || /^[\\/]/.test(n) || /^[A-Za-z]:/.test(n)) return false;
+    }
+    return true;
+}
+
+// .bat に埋め込むパス: 引用符・改行・NUL は拒否し、% は %% にする
+function batPathArg(p) {
+    if (typeof p !== 'string' || /["\r\n\0]/.test(p)) throw new Error('パスに使用できない文字が含まれています');
+    return p.replace(/%/g, '%%');
+}
+
+// 更新を適用する .bat を作る。現在のプロセス(PID)の終了だけを待ち、他の Electron アプリは終了させない。
+// robocopy が失敗(終了コード 8 以上)したら、バックアップがあれば復元してから起動する
+function buildUpdateBatch({ pid, source, target, backup, execPath, startArgs, tempDir, excludeDirs }) {
+    if (!Number.isInteger(pid) || pid <= 0) throw new Error('PID が不正です');
+    const q = batPathArg;
+    const xd = (excludeDirs && excludeDirs.length) ? ' /XD ' + excludeDirs.join(' ') : '';
+    const lines = [
+        '@echo off',
+        'chcp 65001 > NUL',
+        'setlocal',
+        'set /a TRIES=0',
+        ':waitloop',
+        `tasklist /FI "PID eq ${pid}" 2>NUL | find "${pid}" > NUL`,
+        'if errorlevel 1 goto apply',
+        'set /a TRIES+=1',
+        'if %TRIES% GEQ 30 goto force',
+        'timeout /t 1 /nobreak > NUL',
+        'goto waitloop',
+        ':force',
+        `taskkill /PID ${pid} /F > NUL 2>&1`,
+        'timeout /t 2 /nobreak > NUL',
+        ':apply'
+    ];
+    if (backup) lines.push(`robocopy "${q(target)}" "${q(backup)}" /E /NP /R:1 /W:1 /XD dist .git node_modules > NUL`);
+    lines.push(`robocopy "${q(source)}" "${q(target)}" /E /IS /IT /NP /R:5 /W:1${xd} > NUL`);
+    lines.push('if errorlevel 8 goto rollback', 'goto launch', ':rollback');
+    if (backup) lines.push(`robocopy "${q(backup)}" "${q(target)}" /E /IS /IT /NP /R:5 /W:1 > NUL`);
+    lines.push(':launch', `start "" "${q(execPath)}"${startArgs ? ' "' + q(startArgs) + '"' : ''}`, 'timeout /t 3 /nobreak > NUL', `rmdir /S /Q "${q(tempDir)}" > NUL 2>&1`, 'exit', '');
+    return lines.join('\r\n');
+}
+
+function runPowerShell(command, env) {
+    return new Promise((resolve, reject) => {
+        execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', command], {
+            env: Object.assign({}, process.env, env),
+            windowsHide: true,
+            maxBuffer: 64 * 1024 * 1024,
+            encoding: 'utf8'
+        }, (err, stdout, stderr) => {
+            if (err) return reject(new Error(stderr || err.message));
+            resolve(stdout);
+        });
+    });
+}
+
+ipcMain.handle('perform-auto-update', async (event, opts) => {
+    if (mainWindow && event.sender !== mainWindow.webContents) {
+        return { success: false, error: '許可されていない呼び出し元です' };
+    }
+    if (process.platform !== 'win32') {
+        return { success: false, error: '自動更新は Windows のみ対応しています' };
+    }
+    if (updateInProgress) {
+        return { success: false, error: '更新を実行中です' };
+    }
+    updateInProgress = true;
     try {
-        if (!downloadUrl || typeof downloadUrl !== 'string') {
-            return { success: false, error: 'ダウンロードURLが無効です' };
+        // 更新元: 標準(main 側の設定)。renderer が別のリポジトリを指定した場合は、ネイティブのダイアログで本人に確認する
+        let repo = getTrustedUpdateRepo();
+        const requestedRepo = (opts && typeof opts === 'object' && typeof opts.repo === 'string') ? opts.repo.trim() : '';
+        if (requestedRepo && requestedRepo !== repo) {
+            if (!REPO_RE.test(requestedRepo)) return { success: false, error: '更新元の指定が不正です' };
+            const r = await dialog.showMessageBox(mainWindow, {
+                type: 'warning',
+                buttons: ['このリポジトリで更新する', 'キャンセル'],
+                defaultId: 1,
+                cancelId: 1,
+                title: '更新元の確認',
+                message: `更新元が標準と異なります: ${requestedRepo}`,
+                detail: `標準の更新元: ${repo}\nこのリポジトリのリリースを取得してアプリに適用します。心当たりがない場合はキャンセルしてください。`
+            });
+            if (r.response !== 0) return { success: false, error: '更新をキャンセルしました' };
+            repo = requestedRepo;
+        }
+
+        event.sender.send('update-progress', { stage: 'downloading', percent: 0, text: '最新リリースの情報を確認中...' });
+        const release = await httpsGetJson(`https://api.github.com/repos/${repo}/releases/latest`);
+        const tag = String((release && release.tag_name) || '');
+        if (!TAG_RE.test(tag)) throw new Error('リリースのタグが不正です');
+
+        const asset = pickUpdateAsset(release);
+        let downloadUrl;
+        let expectedSha = null;
+        if (asset) {
+            downloadUrl = asset.browser_download_url;
+            if (!downloadUrl.startsWith(`https://github.com/${repo}/`)) throw new Error('リリースのダウンロード先が、更新元のリポジトリと一致しません');
+            expectedSha = parseDigest(asset.digest);
+            if (!expectedSha) {
+                throw new Error('リリースのチェックサム(sha256)が取得できないため、安全のため自動更新を中止しました。GitHub から手動で更新してください。');
+            }
+        } else {
+            // 配布用 zip が無いときは、タグのソースアーカイブを使う(チェックサムは無いが、更新元とホストは固定)
+            downloadUrl = `https://github.com/${repo}/archive/refs/tags/${tag}.zip`;
         }
 
         const tempDir = path.join(os.tmpdir(), 'ostplayer-update-' + Date.now());
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
+        fs.mkdirSync(tempDir, { recursive: true });
         const zipPath = path.join(tempDir, 'update.zip');
         const extractDir = path.join(tempDir, 'extracted');
+        const backupDir = path.join(tempDir, 'backup');
         fs.mkdirSync(extractDir, { recursive: true });
 
         event.sender.send('update-progress', { stage: 'downloading', percent: 0, text: '最新パッケージをダウンロード中...' });
-
-        await downloadFileWithRedirects(downloadUrl, zipPath, (received, total) => {
+        const dl = await downloadFileWithRedirects(downloadUrl, zipPath, (received, total) => {
             const percent = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
             const receivedMB = (received / 1024 / 1024).toFixed(1);
             const totalMB = total > 0 ? (total / 1024 / 1024).toFixed(1) : '?';
@@ -635,22 +870,32 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
             });
         });
 
-        event.sender.send('update-progress', { stage: 'extracting', percent: 100, text: 'アーカイブを展開中...' });
+        event.sender.send('update-progress', { stage: 'extracting', percent: 100, text: 'チェックサムと内容を検証中...' });
+        if (expectedSha && dl.sha256 !== expectedSha) {
+            throw new Error('ダウンロードしたファイルのチェックサムが一致しません。更新を中止しました。');
+        }
 
-        await new Promise((resolve, reject) => {
-            const psCmd = `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}' -Force`;
-            exec(`powershell -NoProfile -NonInteractive -Command "${psCmd}"`, (err, stdout, stderr) => {
-                if (err) {
-                    console.error('Extraction error:', err, stderr);
-                    return reject(new Error('アーカイブ展開に失敗しました: ' + (stderr || err.message)));
-                }
-                resolve();
-            });
-        });
+        // 展開前に zip の中身を確認する(.. や絶対パスで、意図しない場所へ書き込まれるのを防ぐ)
+        const listing = await runPowerShell(
+            "Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead($env:OST_ZIP); try { $z.Entries | ForEach-Object { $_.FullName }; 'TOTAL:' + ($z.Entries | Measure-Object -Property Length -Sum).Sum } finally { $z.Dispose() }",
+            { OST_ZIP: zipPath }
+        );
+        const rows = listing.split(/\r?\n/).filter(Boolean);
+        const totalRow = rows.pop() || '';
+        const totalSize = parseInt(totalRow.replace('TOTAL:', ''), 10);
+        if (!/^TOTAL:/.test(totalRow) || !(totalSize >= 0) || totalSize > UPDATE_MAX_BYTES * 2) {
+            throw new Error('アーカイブの内容を確認できないか、展開後のサイズが大きすぎます');
+        }
+        if (rows.length > 200000 || !validateZipEntryNames(rows)) {
+            throw new Error('アーカイブに安全でないパスが含まれているため、更新を中止しました');
+        }
+
+        await runPowerShell('Expand-Archive -LiteralPath $env:OST_ZIP -DestinationPath $env:OST_DEST -Force', { OST_ZIP: zipPath, OST_DEST: extractDir })
+            .catch((e) => { throw new Error('アーカイブ展開に失敗しました: ' + e.message); });
 
         event.sender.send('update-progress', { stage: 'applying', percent: 100, text: '更新を適用してアプリを再起動します...' });
 
-        // Smart scan extracted directory to determine package type & source path
+        // 展開したものの種類(配布一式 / アプリのソース)を判定する
         function findUpdatePayload(rootDir) {
             let fullBundleDir = null;
             let appSourceDir = null;
@@ -664,7 +909,7 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
                     const hasIndexHtml = entries.includes('index.html');
                     const hasPackageJson = entries.includes('package.json');
 
-                    if ((hasResources || hasExe) && !fullBundleDir) {
+                    if (hasResources && hasExe && !fullBundleDir) {
                         fullBundleDir = dir;
                     }
                     if ((hasIndexHtml || hasPackageJson) && !appSourceDir && !hasResources) {
@@ -673,11 +918,12 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
 
                     for (const entry of entries) {
                         const fullPath = path.join(dir, entry);
-                        if (fs.statSync(fullPath).isDirectory() && entry !== 'node_modules' && entry !== '.git') {
+                        const st = fs.lstatSync(fullPath);
+                        if (st.isDirectory() && !st.isSymbolicLink() && entry !== 'node_modules' && entry !== '.git') {
                             scan(fullPath, depth + 1);
                         }
                     }
-                } catch(e) {}
+                } catch (e) {}
             }
 
             scan(rootDir, 0);
@@ -690,64 +936,31 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
         const isPackaged = app.isPackaged;
         const appDir = isPackaged ? path.dirname(process.execPath) : app.getAppPath();
         const execPath = process.execPath;
-        const currentPid = process.pid;
 
         const payload = findUpdatePayload(extractDir);
-        let sourceDir = payload.path;
+        if (payload.type === 'unknown') {
+            throw new Error('更新パッケージの構成を判別できないため、更新を中止しました');
+        }
+        const sourceDir = payload.path;
         let targetDir = appDir;
-
-        if (isPackaged) {
-            if (payload.type === 'app_source') {
-                const packagedAppDir = path.join(appDir, 'resources', 'app');
-                if (fs.existsSync(packagedAppDir)) {
-                    targetDir = packagedAppDir;
-                } else {
-                    targetDir = appDir;
-                }
-            } else {
-                targetDir = appDir;
-            }
-        } else {
-            targetDir = appDir;
+        if (isPackaged && payload.type === 'app_source') {
+            const packagedAppDir = path.join(appDir, 'resources', 'app');
+            targetDir = fs.existsSync(packagedAppDir) ? packagedAppDir : appDir;
         }
 
+        // アプリのソースだけを差し替える場合はバックアップを取り、失敗したら復元する(配布一式の入れ替えは大きいのでバックアップしない)
+        const needBackup = payload.type === 'app_source';
         const batPath = path.join(tempDir, 'apply_update.bat');
-        let batScript = '';
-
-        if (isPackaged) {
-            batScript = `@echo off
-chcp 65001 > NUL
-timeout /t 1 /nobreak > NUL
-taskkill /PID ${currentPid} /F > NUL 2>&1
-taskkill /IM "OST Player.exe" /F > NUL 2>&1
-taskkill /IM "electron.exe" /F > NUL 2>&1
-timeout /t 2 /nobreak > NUL
-
-robocopy "${sourceDir}" "${targetDir}" /E /IS /IT /NP /R:5 /W:1 > NUL
-
-start "" "${execPath}"
-timeout /t 3 /nobreak > NUL
-rmdir /S /Q "${tempDir}" > NUL 2>&1
-exit
-`;
-        } else {
-            batScript = `@echo off
-chcp 65001 > NUL
-timeout /t 1 /nobreak > NUL
-taskkill /PID ${currentPid} /F > NUL 2>&1
-taskkill /IM "OST Player.exe" /F > NUL 2>&1
-taskkill /IM "electron.exe" /F > NUL 2>&1
-timeout /t 2 /nobreak > NUL
-
-robocopy "${sourceDir}" "${targetDir}" /E /IS /IT /NP /R:5 /W:1 /XD dist .git node_modules > NUL
-
-start "" "${execPath}" "${targetDir}"
-timeout /t 3 /nobreak > NUL
-rmdir /S /Q "${tempDir}" > NUL 2>&1
-exit
-`;
-        }
-
+        const batScript = buildUpdateBatch({
+            pid: process.pid,
+            source: sourceDir,
+            target: targetDir,
+            backup: needBackup ? backupDir : null,
+            execPath,
+            startArgs: isPackaged ? null : targetDir,
+            tempDir,
+            excludeDirs: isPackaged ? [] : ['dist', '.git', 'node_modules']
+        });
         fs.writeFileSync(batPath, batScript, 'utf8');
 
         const child = spawn('cmd.exe', ['/c', batPath], {
@@ -772,6 +985,9 @@ exit
     } catch (error) {
         console.error('Auto update error:', error);
         return { success: false, error: error.message || String(error) };
+    } finally {
+        // 成功時はアプリが終了するので、実質的に失敗したときだけ再実行できるようにする
+        updateInProgress = false;
     }
 });
 

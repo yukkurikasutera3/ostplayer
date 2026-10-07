@@ -205,6 +205,20 @@ input[type="range"]::-webkit-slider-thumb {
         max-height: 88dvh !important;
         padding: 1rem !important;
     }
+
+    /* Phase 3: Sync & Remote on mobile */
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #sync-view {
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        padding: 0.5rem !important;
+    }
+
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #sync-subview-remote,
+    html:not(.desktop-app) body:not(.mini-mode):not(.desktop-app) #sync-subview-transfer {
+        flex-direction: column !important;
+        overflow-y: auto !important;
+    }
 }
 
 /* Hide mobile bottom nav on desktop screens, desktop-app, and mini-mode */

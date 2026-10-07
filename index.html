@@ -1104,12 +1104,23 @@
                 <!-- DJ Ticker Overlay (If announced) -->
                 <div id="sync-dj-ticker" class="hidden bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/60 rounded-xl p-2.5 px-3 flex items-center justify-between text-xs text-emerald-200 shadow-lg animate-pulse shrink-0">
                     <div class="flex items-center space-x-2 truncate">
-                        <span class="text-xs">📢</span>
+                        <span class="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-600">[DJ]</span>
                         <span class="font-bold text-emerald-400 shrink-0">DJ ANNOUNCE:</span>
                         <span id="sync-dj-ticker-text" class="font-bold truncate">---</span>
                     </div>
                 </div>
 
+                <!-- Phase 3 Sync Sub-Navigation Tabs -->
+                <div class="flex items-center justify-between border-b border-gray-800 pb-2 shrink-0">
+                    <div class="flex items-center space-x-2">
+                        <button id="sync-subtab-dj-btn" onclick="switchSyncSubTab('dj')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition border border-emerald-400 bg-emerald-600 text-white cursor-pointer">[DJ Room]</button>
+                        <button id="sync-subtab-remote-btn" onclick="switchSyncSubTab('remote')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition border border-gray-800 bg-gray-900 text-gray-400 hover:text-white cursor-pointer">[ワイヤレスリモコン]</button>
+                        <button id="sync-subtab-transfer-btn" onclick="switchSyncSubTab('transfer')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition border border-gray-800 bg-gray-900 text-gray-400 hover:text-white cursor-pointer">[Wi-Fi プレイリスト転送]</button>
+                    </div>
+                </div>
+
+                <!-- Sub-View 1: DJ Room (Existing) -->
+                <div id="sync-subview-dj" class="flex-1 flex flex-col min-h-0 overflow-hidden space-y-3">
                 <!-- Main 2-Column Dashboard -->
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 min-h-0 overflow-hidden">
                     
@@ -1220,7 +1231,7 @@
                     <div class="flex flex-col bg-gray-900/80 border border-gray-800 rounded-xl p-3 min-h-0 overflow-hidden">
                         <div class="flex items-center justify-between border-b border-gray-800 pb-1.5 mb-2 shrink-0">
                             <span class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center space-x-1">
-                                <span>💬</span><span>DJ Room Live Timeline</span>
+                                <span class="text-[9px] bg-emerald-950 text-emerald-400 px-1 rounded border border-emerald-700 font-mono">[CHAT]</span><span>DJ Room Live Timeline</span>
                             </span>
                             <span class="text-[9px] text-gray-500 font-mono">P2P Mesh Chat</span>
                         </div>
@@ -1247,6 +1258,128 @@
                         </div>
                     </div>
 
+                </div>
+                </div> <!-- End #sync-subview-dj -->
+
+                <!-- Sub-View 2: Wireless Remote Control (Phase 3) -->
+                <div id="sync-subview-remote" class="hidden flex-1 flex flex-col min-h-0 overflow-y-auto space-y-3 pr-1">
+                    <div class="bg-gray-900/90 border border-emerald-500/40 rounded-xl p-4 shadow-xl space-y-4">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                                <h3 class="text-xs font-bold text-emerald-300 uppercase tracking-wider">ワイヤレスリモコン (Remote Controller)</h3>
+                            </div>
+                            <span class="text-[10px] text-gray-400 font-mono">[WebRTC 双方向同期]</span>
+                        </div>
+
+                        <!-- Current Track Status Card -->
+                        <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center space-x-3">
+                            <img id="remote-track-cover" class="w-14 h-14 rounded-lg object-cover border border-emerald-500/30 hidden" alt="Artwork" />
+                            <div class="flex-1 min-w-0">
+                                <div id="remote-track-title" class="font-bold text-white text-sm truncate">再生停止中</div>
+                                <div id="remote-track-artist" class="text-xs text-gray-400 truncate">OST Player</div>
+                                <div id="remote-track-album" class="text-[10px] text-gray-500 truncate"></div>
+                            </div>
+                        </div>
+
+                        <!-- Time & Progress Seek Slider -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-[11px] font-mono">
+                                <span id="remote-time-current" class="text-emerald-400 font-bold">00:00</span>
+                                <span id="remote-time-total" class="text-gray-500">00:00</span>
+                            </div>
+                            <input type="range" id="remote-seek-slider" min="0" max="100" value="0" step="0.1" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteSeek(this.value)" />
+                        </div>
+
+                        <!-- Main Playback Control Buttons -->
+                        <div class="flex items-center space-x-2">
+                            <button onclick="sendRemotePrev()" class="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition cursor-pointer font-bold text-xs active:scale-95 border border-gray-700">
+                                [Prev]
+                            </button>
+                            <button id="remote-play-toggle-btn" onclick="sendRemotePlayToggle()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition cursor-pointer shadow-lg active:scale-95">
+                                再生 [Play]
+                            </button>
+                            <button onclick="sendRemoteNext()" class="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition cursor-pointer font-bold text-xs active:scale-95 border border-gray-700">
+                                [Next]
+                            </button>
+                            <button id="remote-loop-mode-btn" onclick="sendRemoteLoop()" class="px-3 py-3 bg-gray-900 border border-gray-800 text-gray-300 rounded-xl text-xs font-mono hover:border-emerald-500 transition cursor-pointer">
+                                Loop: Off
+                            </button>
+                        </div>
+
+                        <!-- Volume Slider -->
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[11px] text-gray-400">
+                                <span>音量 (Volume)</span>
+                            </div>
+                            <input type="range" id="remote-volume-slider" min="0" max="100" value="80" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteVolume(this.value)" />
+                        </div>
+
+                        <!-- Mode Switcher Buttons -->
+                        <div class="space-y-1.5 border-t border-gray-800 pt-3">
+                            <div class="text-[11px] text-gray-400 font-bold">プレイヤーモード切替 (Player Mode)</div>
+                            <div class="grid grid-cols-5 gap-1.5">
+                                <button data-mode="single" onclick="sendRemoteMode('single')" class="remote-mode-select-btn p-2 rounded-lg text-xs font-bold border border-emerald-400 bg-emerald-600 text-white transition text-center cursor-pointer">Single</button>
+                                <button data-mode="dual" onclick="sendRemoteMode('dual')" class="remote-mode-select-btn p-2 rounded-lg text-xs font-bold border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition text-center cursor-pointer">Dual</button>
+                                <button data-mode="multi" onclick="sendRemoteMode('multi')" class="remote-mode-select-btn p-2 rounded-lg text-xs font-bold border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition text-center cursor-pointer">Multi</button>
+                                <button data-mode="fx" onclick="sendRemoteMode('fx')" class="remote-mode-select-btn p-2 rounded-lg text-xs font-bold border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition text-center cursor-pointer">FX</button>
+                                <button data-mode="sync" onclick="sendRemoteMode('sync')" class="remote-mode-select-btn p-2 rounded-lg text-xs font-bold border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition text-center cursor-pointer">Sync</button>
+                            </div>
+                        </div>
+
+                        <!-- Quick Track Browser Selector -->
+                        <div class="space-y-1.5 border-t border-gray-800 pt-3">
+                            <div class="text-[11px] text-gray-400 font-bold">ホスト楽曲クイック選曲 (Quick Selection)</div>
+                            <div id="remote-playlist-quick-list" class="max-h-48 overflow-y-auto space-y-1 p-1 bg-gray-950 border border-gray-800 rounded-lg">
+                                <div class="text-gray-500 text-[10px] text-center py-2">楽曲リストを同期中...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-View 3: Wi-Fi Batch Playlist Transfer (Phase 3) -->
+                <div id="sync-subview-transfer" class="hidden flex-1 flex flex-col min-h-0 overflow-y-auto space-y-3 pr-1">
+                    <div class="bg-gray-900/90 border border-emerald-500/40 rounded-xl p-4 shadow-xl space-y-4">
+                        <div class="flex items-center space-x-2 border-b border-gray-800 pb-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                            <h3 class="text-xs font-bold text-emerald-300 uppercase tracking-wider">Wi-Fi プレイリスト一括転送 (Batch Playlist Transfer)</h3>
+                        </div>
+
+                        <p class="text-[11px] text-gray-400 leading-relaxed">
+                            同一 Wi-Fi に接続された PC からスマートフォンへ、指定プレイリスト（または全楽曲）の音源データとメタデータを 16KB チャンク分割・ACK 受信確認制御で高速転送します。<br>
+                            受信した楽曲はスマホ端末の IndexedDB に自動保存され、次回以降完全オフラインで再生可能です。
+                        </p>
+
+                        <!-- Source Playlist Select -->
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] text-gray-400 block font-bold">転送対象のプレイリストを選択:</label>
+                            <select id="sync-transfer-playlist-select" class="w-full bg-gray-950 border border-gray-800 text-gray-200 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+                                <option value="__ALL__">すべての楽曲 (All Tracks)</option>
+                            </select>
+                        </div>
+
+                        <!-- Start Transfer Action -->
+                        <button id="sync-start-transfer-btn" onclick="startPlaylistTransferFromUI()" class="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition shadow-lg active:scale-95 cursor-pointer">
+                            一括転送を開始 (Start Transfer)
+                        </button>
+
+                        <!-- Progress Bar Card -->
+                        <div id="sync-transfer-progress-card" class="hidden bg-gray-950 border border-emerald-500/50 rounded-xl p-3.5 space-y-2">
+                            <div id="sync-transfer-progress-label" class="text-xs font-bold text-emerald-300 truncate">転送中...</div>
+                            <div class="w-full bg-gray-900 rounded-full h-2.5 overflow-hidden border border-gray-800">
+                                <div id="sync-transfer-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-150" style="width: 0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-gray-400">
+                                <span id="sync-transfer-progress-count">0 / 0 曲</span>
+                                <span id="sync-transfer-progress-pct" class="font-mono text-emerald-400 font-bold">0%</span>
+                            </div>
+                            <div class="flex justify-end pt-1">
+                                <button id="sync-cancel-transfer-btn" onclick="cancelPlaylistTransferFromUI()" class="px-3 py-1 bg-red-900/60 hover:bg-red-800 border border-red-700 text-red-200 text-[10px] rounded transition cursor-pointer">
+                                    転送中止 (Cancel)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -12854,6 +12987,188 @@
             const foundIdx = playlist.findIndex(t => t.name.toLowerCase().includes(lower));
             if (foundIdx !== -1) {
                 loadSingleTrack(foundIdx, true);
+            }
+        };
+
+        // --- Phase 3 Wireless Remote & Wi-Fi Playlist Transfer Bridges ---
+        window.getCurrentPlayerStateForRemote = function() {
+            let title = '再生停止中';
+            let artist = 'OST Player';
+            let album = '';
+            let coverUrl = null;
+            let duration = 0;
+            let currentTime = 0;
+            let isMidi = false;
+
+            if (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) {
+                const tr = playlist[singleTrackIndex];
+                if (tr) {
+                    title = tr.name || 'Track';
+                    artist = tr.artist || 'OST Player';
+                    album = tr.album || '';
+                    coverUrl = tr.coverUrl || null;
+                    isMidi = !!tr.isMidi;
+                }
+            }
+
+            if (isMidi) {
+                const synth = getMidiSynth('main', false);
+                if (synth) {
+                    const st = synth.getPlayStatus();
+                    duration = st.duration || 0;
+                    currentTime = st.currentTime || 0;
+                }
+            } else {
+                const p = players[currentSinglePlayerIndex];
+                if (p) {
+                    duration = p.duration || 0;
+                    currentTime = p.currentTime || 0;
+                }
+            }
+
+            let vol = 1.0;
+            const volSlider = document.getElementById('single-volume');
+            if (volSlider && !isNaN(parseFloat(volSlider.value))) {
+                vol = parseFloat(volSlider.value);
+            }
+
+            const summary = playlist.slice(0, 100).map((t, idx) => ({
+                name: t.name,
+                artist: t.artist || '',
+                isMidi: !!t.isMidi,
+                index: idx
+            }));
+
+            return {
+                title,
+                artist,
+                album,
+                coverUrl,
+                duration,
+                currentTime,
+                isPlaying: isSinglePlaying,
+                volume: vol,
+                loopMode,
+                playerMode: currentMode,
+                currentIndex: singleTrackIndex,
+                playlistSummary: summary
+            };
+        };
+
+        window.getTrackArrayBufferForTransfer = async function(track) {
+            if (!track) return null;
+            if (track.arrayBuffer) return track.arrayBuffer;
+            if (typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getTrackBuffer) {
+                return await AudioCacheManager.getTrackBuffer(track);
+            }
+            if (track.file && typeof track.file.arrayBuffer === 'function') {
+                return await track.file.arrayBuffer();
+            }
+            return null;
+        };
+
+        window.importTransferredPlaylistItem = async function(trackObj, metadata) {
+            if (!trackObj || !trackObj.file) return;
+            const targetPlaylist = (metadata && metadata.playlistName) || activePlaylist || 'All Tracks';
+            let id = Date.now() + Math.floor(Math.random() * 100000);
+
+            if (typeof db !== 'undefined' && db && typeof saveTrackToDB === 'function') {
+                try {
+                    id = await saveTrackToDB(trackObj.file, targetPlaylist);
+                } catch (e) {
+                    console.warn('[Transfer] IndexedDB save error:', e);
+                }
+            }
+
+            const isMidi = trackObj.isMidi;
+            const isVideo = !isMidi && typeof isVideoFile === 'function' && isVideoFile(trackObj.file);
+
+            const newTrack = {
+                id,
+                name: trackObj.name.replace(/\.[^/.]+$/, ""),
+                url: trackObj.blobUrl || URL.createObjectURL(trackObj.file),
+                file: trackObj.file,
+                filePath: '',
+                playlistName: targetPlaylist,
+                tagTitle: trackObj.tagTitle || '',
+                artist: trackObj.artist || '',
+                album: trackObj.album || '',
+                coverUrl: null,
+                metadataLoaded: isMidi || isVideo,
+                isMidi: isMidi,
+                isVideo: isVideo,
+                duration: trackObj.duration || 0,
+                gameLoop: trackObj.gameLoop || null
+            };
+
+            playlist.push(newTrack);
+            updatePlaylistUI();
+
+            if (typeof ensureTrackMetadata === 'function' && !isMidi && !isVideo) {
+                ensureTrackMetadata(newTrack).then(() => {
+                    updatePlaylistUI();
+                }).catch(() => {});
+            }
+        };
+
+        window.getAvailablePlaylistsList = function() {
+            const set = new Set();
+            playlist.forEach(t => {
+                if (t.playlistName && t.playlistName !== 'All Tracks') set.add(t.playlistName);
+            });
+            return Array.from(set);
+        };
+
+        window.getTracksForPlaylistTransfer = function(playlistName) {
+            if (!playlistName || playlistName === '__ALL__' || playlistName === 'All Tracks') {
+                return playlist;
+            }
+            return playlist.filter(t => t.playlistName === playlistName);
+        };
+
+        window.loadSingleTrackDirect = function(idx) {
+            if (idx >= 0 && idx < playlist.length) {
+                loadSingleTrack(idx, true);
+            }
+        };
+
+        window.playSingleDirect = function() {
+            if (!isSinglePlaying) toggleSinglePlay();
+        };
+
+        window.pauseSingleDirect = function() {
+            if (isSinglePlaying) toggleSinglePlay();
+        };
+
+        window.toggleSingleMute = function() {
+            const volSlider = document.getElementById('single-volume');
+            if (volSlider) {
+                const cur = parseFloat(volSlider.value);
+                if (cur > 0) {
+                    volSlider.dataset.prevVol = cur;
+                    volSlider.value = 0;
+                    updateSingleVolume(0);
+                } else {
+                    const prev = parseFloat(volSlider.dataset.prevVol || 1.0);
+                    volSlider.value = prev;
+                    updateSingleVolume(prev);
+                }
+            }
+        };
+
+        window.notifyPlaylistBatchStart = function(msg) {
+            if (typeof showNotification === 'function') {
+                const pName = (msg && msg.playlistName) ? msg.playlistName : '';
+                const count = (msg && msg.totalTracks) ? msg.totalTracks : 0;
+                showNotification(`[転送開始] プレイリスト「${pName}」(${count}曲) の受信を開始しました`);
+            }
+        };
+
+        window.notifyPlaylistBatchEnd = function(msg) {
+            if (typeof showNotification === 'function') {
+                const pName = (msg && msg.playlistName) ? msg.playlistName : '';
+                const count = (msg && msg.totalTracks) ? msg.totalTracks : 0;
+                showNotification(`[転送完了] プレイリスト「${pName}」(${count}曲) の受信が完了しました`);
             }
         };
     </script>

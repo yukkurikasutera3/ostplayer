@@ -1,19 +1,34 @@
 /**
  * OST Player - Sync Engine (src/sync/sync-engine.js)
- * Synchronizes playback state, MIDI mixer params, and remote control events
+ * Synchronizes playback state, MIDI mixer params, remote control events,
+ * and high-speed Wi-Fi batch playlist transfers.
  */
 
 (function(global) {
     class SyncEngine {
         constructor(session, playerApi) {
             this.session = session;
-            this.api = playerApi; // Interface to single mode audio player
-            this.isRemoteControl = false; // If smartphone is acting as remote
+            this.api = playerApi; // Interface to player controller
+            this.isRemoteControl = false; // If device is acting as a remote
+            this.allowRemoteControl = true; // Host setting: accept remote control commands
             this.isAuxGranted = false; // If listener has DJ privileges
+            this.auxPeerId = null; // Currently assigned AUX peer ID
             this.lastSyncTimestamp = 0;
             this.isSyncingLocally = false;
             this.bufferReady = false;
             this.pendingPlaybackState = null;
+
+            // Playlist batch transfer state
+            this.batchQueue = [];
+            this.isBatchTransferring = false;
+            this.batchTargetPeerId = null;
+            this.batchPlaylistName = '';
+            this.batchTotalCount = 0;
+            this.batchCurrentIndex = 0;
+
+            // Callback listeners for UI controllers
+            this.onRemoteStateUpdate = null;
+            this.onPlaylistBatchProgress = null;
 
             this.setupSessionListeners();
         }
@@ -24,6 +39,8 @@
             });
 
             this.session.on('file_ready', ({ buffer, metadata }) => {
+                // Host does not accept files from listeners
+                if (this.session.role === 'host') return;
                 this.handleIncomingFile(buffer, metadata);
             });
 
@@ -63,19 +80,21 @@
                     break;
 
                 case 'sync_loop_mode':
+                    if (this.session.role !== 'listener') break;
                     if (this.api && typeof this.api.setLoopMode === 'function') {
                         this.api.setLoopMode(msg.loopMode);
                     }
                     break;
 
                 case 'sync_midi_params':
+                    if (this.session.role !== 'listener') break;
                     if (this.api && typeof this.api.applyMidiMixerParams === 'function') {
                         this.api.applyMidiMixerParams(msg.params);
                     }
                     break;
 
                 case 'sync_client_ready':
-                    // Listener is fully ready: Host sends current playback state immediately (without re-sending whole file)
+                    // Listener is fully ready: Host sends current playback state immediately
                     if (this.session.role === 'host') {
                         const targetId = fromPeer || msg.peerId;
                         if (this.api && typeof this.api.resyncPlaybackStateOnly === 'function') {
@@ -86,25 +105,101 @@
                     }
                     break;
 
+                case 'sync_request_initial_state':
+                    // Listener requests initial room state (members + current track)
+                    if (this.session.role === 'host') {
+                        const targetId = fromPeer || msg.peerId;
+                        if (this.api && typeof this.api.broadcastMembersList === 'function') {
+                            this.api.broadcastMembersList();
+                        }
+                        if (this.api && typeof this.api.resyncToNewClient === 'function') {
+                            this.api.resyncToNewClient(targetId);
+                        }
+                        // Also provide immediate remote status
+                        this.broadcastRemoteStatus(targetId);
+                    }
+                    break;
+
+                case 'sync_members_list':
+                    if (this.session.role !== 'listener') break;
+                    if (this.api && typeof this.api.applyMembersList === 'function') {
+                        this.api.applyMembersList(msg.members, msg.totalCount);
+                    }
+                    break;
+
                 case 'sync_remote_cmd':
-                    // Host receives remote command from listener/phone
-                    if (this.session.role === 'host' || this.isAuxGranted) {
+                    // Host accepts command if AUX is held or if remote control is enabled
+                    if (this.session.role === 'host') {
+                        const isAuthorized = (fromPeer && fromPeer === this.auxPeerId) || this.allowRemoteControl || msg.isRemote;
+                        if (isAuthorized) {
+                            this.executeRemoteCommand(msg);
+                        }
+                    } else if (this.isAuxGranted) {
                         this.executeRemoteCommand(msg);
                     }
                     break;
 
+                case 'sync_request_remote_status':
+                    if (this.session.role === 'host') {
+                        this.broadcastRemoteStatus(fromPeer);
+                    }
+                    break;
+
+                case 'sync_remote_status':
+                    // Smartphone / remote receiver updates its display
+                    this.handleRemoteStatus(msg);
+                    break;
+
                 case 'sync_aux_pass':
+                    if (this.session.role !== 'listener') break;
                     this.isAuxGranted = (msg.targetPeerId === this.session.myPeerId);
                     if (this.api && typeof this.api.notifyAuxStatus === 'function') {
                         this.api.notifyAuxStatus(this.isAuxGranted);
+                    }
+                    break;
+
+                // --- Wi-Fi Batch Playlist Transfer Protocol ---
+                case 'sync_playlist_batch_start':
+                    if (this.session.role !== 'listener') break;
+                    if (this.api && typeof this.api.handlePlaylistBatchStart === 'function') {
+                        this.api.handlePlaylistBatchStart(msg);
+                    }
+                    if (typeof this.onPlaylistBatchProgress === 'function') {
+                        this.onPlaylistBatchProgress({
+                            status: 'start',
+                            playlistName: msg.playlistName,
+                            totalTracks: msg.totalTracks,
+                            currentIndex: 0
+                        });
+                    }
+                    break;
+
+                case 'sync_playlist_item_ack':
+                    if (this.session.role === 'host') {
+                        this.handlePlaylistItemAck(msg);
+                    }
+                    break;
+
+                case 'sync_playlist_batch_end':
+                    if (this.session.role !== 'listener') break;
+                    if (this.api && typeof this.api.handlePlaylistBatchEnd === 'function') {
+                        this.api.handlePlaylistBatchEnd(msg);
+                    }
+                    if (typeof this.onPlaylistBatchProgress === 'function') {
+                        this.onPlaylistBatchProgress({
+                            status: 'complete',
+                            playlistName: msg.playlistName,
+                            totalTracks: msg.totalTracks,
+                            currentIndex: msg.totalTracks
+                        });
                     }
                     break;
             }
         }
 
         async handleIncomingFile(buffer, metadata) {
-            if (!buffer || !this.api) return;
-            this.bufferReady = true;
+            if (!buffer || !this.api || this.session.role === 'host') return;
+            metadata = metadata || {};
 
             const mimeType = metadata.mimeType || (metadata.isMidi ? 'audio/midi' : 'audio/mpeg');
             const blob = new Blob([buffer], { type: mimeType });
@@ -124,6 +219,32 @@
                 gameLoop: metadata.gameLoop || null
             };
 
+            // Case A: Part of a batch playlist transfer
+            if (metadata.isPlaylistItem === true) {
+                if (typeof this.api.importPlaylistItem === 'function') {
+                    await this.api.importPlaylistItem(trackObj, metadata);
+                }
+                // Send ACK back to host to request next file
+                this.session.sendToHost({
+                    type: 'sync_playlist_item_ack',
+                    itemIndex: metadata.itemIndex,
+                    trackName: metadata.name,
+                    timestamp: Date.now()
+                });
+                if (typeof this.onPlaylistBatchProgress === 'function') {
+                    this.onPlaylistBatchProgress({
+                        status: 'progress',
+                        playlistName: metadata.playlistName,
+                        totalTracks: metadata.totalTracks,
+                        currentIndex: (metadata.itemIndex || 0) + 1,
+                        currentTrackName: metadata.name
+                    });
+                }
+                return;
+            }
+
+            // Case B: Live DJ Track stream (immediate load & play)
+            this.bufferReady = true;
             this.isSyncingLocally = true;
             if (typeof this.api.loadTrackDirectly === 'function') {
                 await this.api.loadTrackDirectly(trackObj);
@@ -140,7 +261,7 @@
         }
 
         handleTrackChange(msg) {
-            if (this.session.role === 'host') return; // Host is source of truth
+            if (this.session.role === 'host') return;
             if (this.api && typeof this.api.displayIncomingTrackInfo === 'function') {
                 this.api.displayIncomingTrackInfo(msg);
             }
@@ -175,11 +296,49 @@
             this.isSyncingLocally = false;
         }
 
+        // --- Wireless Remote Control: Status Updates ---
+        handleRemoteStatus(msg) {
+            if (typeof this.onRemoteStateUpdate === 'function') {
+                this.onRemoteStateUpdate(msg);
+            }
+            if (this.api && typeof this.api.applyRemoteStatus === 'function') {
+                this.api.applyRemoteStatus(msg);
+            }
+        }
+
+        // Host: Broadcast full player state to remote(s)
+        broadcastRemoteStatus(targetPeerId = null) {
+            if (!this.session || this.session.role !== 'host') return;
+            if (!this.api || typeof this.api.getCurrentPlaybackState !== 'function') return;
+
+            const state = this.api.getCurrentPlaybackState();
+            if (!state) return;
+
+            const packet = {
+                type: 'sync_remote_status',
+                ...state,
+                timestamp: Date.now()
+            };
+
+            if (targetPeerId) {
+                this.session.sendToPeer(targetPeerId, packet);
+            } else {
+                this.session.broadcast(packet);
+            }
+        }
+
+        // Host: Execute command sent from wireless remote
         executeRemoteCommand(msg) {
             if (!this.api) return;
             switch (msg.action) {
                 case 'toggle_play':
                     if (typeof this.api.togglePlay === 'function') this.api.togglePlay();
+                    break;
+                case 'play':
+                    if (typeof this.api.play === 'function') this.api.play();
+                    break;
+                case 'pause':
+                    if (typeof this.api.pause === 'function') this.api.pause();
                     break;
                 case 'next_track':
                     if (typeof this.api.nextTrack === 'function') this.api.nextTrack();
@@ -188,15 +347,237 @@
                     if (typeof this.api.prevTrack === 'function') this.api.prevTrack();
                     break;
                 case 'seek':
-                    if (typeof this.api.seekToPercent === 'function') this.api.seekToPercent(msg.percent);
+                    if (typeof this.api.seekToPercent === 'function' && Number.isFinite(Number(msg.percent))) {
+                        this.api.seekToPercent(Math.min(100, Math.max(0, Number(msg.percent))));
+                    }
                     break;
                 case 'volume':
-                    if (typeof this.api.setVolume === 'function') this.api.setVolume(msg.volume);
+                    if (typeof this.api.setVolume === 'function' && Number.isFinite(Number(msg.volume))) {
+                        this.api.setVolume(Math.min(100, Math.max(0, Number(msg.volume))));
+                    }
                     break;
+                case 'toggle_mute':
+                    if (typeof this.api.toggleMute === 'function') this.api.toggleMute();
+                    break;
+                case 'toggle_loop':
+                    if (typeof this.api.toggleLoopMode === 'function') this.api.toggleLoopMode();
+                    break;
+                case 'set_mode':
+                    if (typeof this.api.setPlayerMode === 'function' && typeof msg.mode === 'string') {
+                        this.api.setPlayerMode(msg.mode);
+                    }
+                    break;
+                case 'select_track':
+                    if (typeof this.api.selectTrackByIndex === 'function' && Number.isInteger(Number(msg.index))) {
+                        this.api.selectTrackByIndex(Number(msg.index));
+                    }
+                    break;
+            }
+
+            // Immediately broadcast refreshed state back to remotes
+            setTimeout(() => {
+                this.broadcastRemoteStatus();
+            }, 50);
+        }
+
+        // Listener: Send remote control command to host
+        sendRemoteCommand(action, payload = {}) {
+            if (!this.session || this.session.role !== 'listener') return;
+            this.session.sendToHost({
+                type: 'sync_remote_cmd',
+                isRemote: true,
+                action,
+                ...payload,
+                timestamp: Date.now()
+            });
+        }
+
+        // Listener: Request immediate status from host
+        requestRemoteStatus() {
+            if (!this.session || this.session.role !== 'listener') return;
+            this.session.sendToHost({
+                type: 'sync_request_remote_status',
+                timestamp: Date.now()
+            });
+        }
+
+        // --- Wi-Fi Batch Playlist Transfer Methods ---
+        async startPlaylistBatchTransfer(playlistName, trackList, targetPeerId = null) {
+            if (!this.session || this.session.role !== 'host') return false;
+            if (!trackList || trackList.length === 0) return false;
+            if (this.isBatchTransferring) {
+                console.warn('[SyncEngine] A playlist batch transfer is already in progress.');
+                return false;
+            }
+
+            this.isBatchTransferring = true;
+            this.batchQueue = [...trackList];
+            this.batchPlaylistName = playlistName || 'Transferred Playlist';
+            this.batchTotalCount = trackList.length;
+            this.batchCurrentIndex = 0;
+            this.batchTargetPeerId = targetPeerId;
+
+            // 1. Send batch start packet
+            const startPacket = {
+                type: 'sync_playlist_batch_start',
+                playlistName: this.batchPlaylistName,
+                totalTracks: this.batchTotalCount,
+                timestamp: Date.now()
+            };
+
+            if (targetPeerId) {
+                this.session.sendToPeer(targetPeerId, startPacket);
+            } else {
+                this.session.broadcast(startPacket);
+            }
+
+            if (typeof this.onPlaylistBatchProgress === 'function') {
+                this.onPlaylistBatchProgress({
+                    status: 'start',
+                    playlistName: this.batchPlaylistName,
+                    totalTracks: this.batchTotalCount,
+                    currentIndex: 0
+                });
+            }
+
+            // 2. Start sending first item
+            await this.sendNextBatchItem();
+            return true;
+        }
+
+        async sendNextBatchItem() {
+            if (!this.isBatchTransferring) return;
+            if (this.batchCurrentIndex >= this.batchTotalCount || this.batchQueue.length === 0) {
+                this.finishPlaylistBatchTransfer();
+                return;
+            }
+
+            const currentTrack = this.batchQueue[this.batchCurrentIndex];
+            if (!currentTrack) {
+                this.batchCurrentIndex++;
+                await this.sendNextBatchItem();
+                return;
+            }
+
+            // Extract ArrayBuffer
+            let arrayBuffer = currentTrack.arrayBuffer;
+            if (!arrayBuffer && this.api && typeof this.api.getTrackBuffer === 'function') {
+                try {
+                    arrayBuffer = await this.api.getTrackBuffer(currentTrack);
+                } catch (e) {
+                    console.warn('[SyncEngine] Failed to get buffer for track:', currentTrack.name, e);
+                }
+            }
+
+            if (!arrayBuffer && currentTrack.file && typeof currentTrack.file.arrayBuffer === 'function') {
+                try {
+                    arrayBuffer = await currentTrack.file.arrayBuffer();
+                } catch (e) {
+                    console.warn('[SyncEngine] Failed to read File arrayBuffer:', e);
+                }
+            }
+
+            if (!arrayBuffer) {
+                console.warn('[SyncEngine] Skipping unreadable track:', currentTrack.name);
+                this.batchCurrentIndex++;
+                await this.sendNextBatchItem();
+                return;
+            }
+
+            const metadata = {
+                name: currentTrack.name || 'Track',
+                tagTitle: currentTrack.tagTitle || currentTrack.name || '',
+                artist: currentTrack.artist || '',
+                album: currentTrack.album || '',
+                isMidi: !!currentTrack.isMidi,
+                duration: currentTrack.duration || 0,
+                gameLoop: currentTrack.gameLoop || null,
+                mimeType: currentTrack.file ? currentTrack.file.type : (currentTrack.isMidi ? 'audio/midi' : 'audio/mpeg'),
+                playlistName: this.batchPlaylistName,
+                isPlaylistItem: true,
+                itemIndex: this.batchCurrentIndex,
+                totalTracks: this.batchTotalCount
+            };
+
+            if (typeof this.onPlaylistBatchProgress === 'function') {
+                this.onPlaylistBatchProgress({
+                    status: 'sending',
+                    playlistName: this.batchPlaylistName,
+                    totalTracks: this.batchTotalCount,
+                    currentIndex: this.batchCurrentIndex + 1,
+                    currentTrackName: metadata.name
+                });
+            }
+
+            // Stream file chunked via P2P session
+            await this.session.sendFile(arrayBuffer, metadata, this.batchTargetPeerId);
+        }
+
+        async handlePlaylistItemAck(ack) {
+            if (!this.isBatchTransferring) return;
+            this.batchCurrentIndex++;
+
+            if (typeof this.onPlaylistBatchProgress === 'function') {
+                this.onPlaylistBatchProgress({
+                    status: 'progress',
+                    playlistName: this.batchPlaylistName,
+                    totalTracks: this.batchTotalCount,
+                    currentIndex: this.batchCurrentIndex,
+                    currentTrackName: ack.trackName || ''
+                });
+            }
+
+            // Yield slightly to prevent network starvation before starting next track
+            setTimeout(async () => {
+                await this.sendNextBatchItem();
+            }, 60);
+        }
+
+        finishPlaylistBatchTransfer() {
+            if (!this.isBatchTransferring) return;
+            this.isBatchTransferring = false;
+
+            const endPacket = {
+                type: 'sync_playlist_batch_end',
+                playlistName: this.batchPlaylistName,
+                totalTracks: this.batchTotalCount,
+                timestamp: Date.now()
+            };
+
+            if (this.batchTargetPeerId) {
+                this.session.sendToPeer(this.batchTargetPeerId, endPacket);
+            } else {
+                this.session.broadcast(endPacket);
+            }
+
+            if (typeof this.onPlaylistBatchProgress === 'function') {
+                this.onPlaylistBatchProgress({
+                    status: 'complete',
+                    playlistName: this.batchPlaylistName,
+                    totalTracks: this.batchTotalCount,
+                    currentIndex: this.batchTotalCount
+                });
+            }
+
+            this.batchQueue = [];
+            this.batchTargetPeerId = null;
+        }
+
+        cancelPlaylistTransfer() {
+            this.isBatchTransferring = false;
+            this.batchQueue = [];
+            this.batchTargetPeerId = null;
+            if (typeof this.onPlaylistBatchProgress === 'function') {
+                this.onPlaylistBatchProgress({
+                    status: 'cancelled',
+                    playlistName: this.batchPlaylistName,
+                    totalTracks: this.batchTotalCount,
+                    currentIndex: this.batchCurrentIndex
+                });
             }
         }
 
-        // --- Host Outgoing Broadcast Methods ---
+        // --- Host Outgoing Broadcast Methods (Live Sync) ---
         broadcastTrack(track, arrayBuffer, targetPeerId = null) {
             if (!this.session || this.session.role !== 'host') return;
             if (!track) return;
@@ -218,17 +599,18 @@
                 timestamp: Date.now()
             };
 
-            // 1. Send track metadata packet
             if (targetPeerId) {
                 this.session.sendToPeer(targetPeerId, trackPacket);
             } else {
                 this.session.broadcast(trackPacket);
             }
 
-            // 2. Stream arrayBuffer to listener(s)
             if (arrayBuffer) {
                 this.session.sendFile(arrayBuffer, meta, targetPeerId);
             }
+
+            // Keep remote control views refreshed
+            this.broadcastRemoteStatus();
         }
 
         broadcastPlayback(isPlaying, currentTime, playbackRate = 1.0, targetPeerId = null) {
@@ -248,6 +630,8 @@
             } else {
                 this.session.broadcast(packet);
             }
+
+            this.broadcastRemoteStatus();
         }
 
         broadcastSeek(targetTime) {
@@ -259,6 +643,8 @@
                 targetTime,
                 timestamp: Date.now()
             });
+
+            this.broadcastRemoteStatus();
         }
 
         broadcastLoopMode(loopMode) {
@@ -267,6 +653,8 @@
                 type: 'sync_loop_mode',
                 loopMode
             });
+
+            this.broadcastRemoteStatus();
         }
 
         broadcastMidiParams(params) {
@@ -277,12 +665,11 @@
             });
         }
 
-        sendRemoteCommand(action, payload = {}) {
+        requestInitialState() {
             if (!this.session || this.session.role !== 'listener') return;
             this.session.sendToHost({
-                type: 'sync_remote_cmd',
-                action,
-                ...payload,
+                type: 'sync_request_initial_state',
+                peerId: this.session.myPeerId,
                 timestamp: Date.now()
             });
         }

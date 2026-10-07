@@ -5,7 +5,7 @@
 (function(window) {
     'use strict';
 
-    let currentMobileTab = 'player'; // 'player' | 'playlist' | 'fx' | 'help'
+    let currentMobileTab = 'player'; // 'player' | 'playlist' | 'fx' | 'sync' | 'help'
 
     function getRightPanel() {
         return document.getElementById('player-right-panel') || document.getElementById('playlist-right-panel');
@@ -38,7 +38,7 @@
 
         // In desktop/electron or mini-mode, do not alter panel layout
         if (isDesktopOrMini()) {
-            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
+            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-sync', 'tab-help');
             if (leftPanel) {
                 leftPanel.classList.remove('hidden');
                 leftPanel.style.display = '';
@@ -51,7 +51,7 @@
         }
 
         // Update body class for pure CSS styling
-        document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
+        document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-sync', 'tab-help');
         document.body.classList.add('tab-' + tab);
 
         // If on small screen, toggle panel visibility
@@ -79,6 +79,11 @@
                     if (typeof window.setPlayerMode === 'function') window.setPlayerMode('single');
                 } else if (tab === 'fx') {
                     if (typeof window.setPlayerMode === 'function') window.setPlayerMode('fx');
+                } else if (tab === 'sync' || tab === 'remote') {
+                    if (typeof window.setPlayerMode === 'function') window.setPlayerMode('sync');
+                    if (tab === 'remote' && typeof window.switchSyncSubTab === 'function') {
+                        window.switchSyncSubTab('remote');
+                    }
                 } else if (tab === 'help') {
                     if (typeof window.setPlayerMode === 'function') window.setPlayerMode('help');
                 }
@@ -95,7 +100,7 @@
         const leftPanel = getLeftPanel();
         const rightPanel = getRightPanel();
         if (isDesktopOrMini() || window.innerWidth > 768) {
-            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-help');
+            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-sync', 'tab-help');
             if (leftPanel) {
                 leftPanel.classList.remove('hidden');
                 leftPanel.style.display = '';
