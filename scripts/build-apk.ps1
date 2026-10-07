@@ -14,12 +14,14 @@ Set-Location "android"
 Set-Location ".."
 
 Write-Host "Checking output APK..."
+$pkgJson = Get-Content "package.json" -Raw | ConvertFrom-Json
+$ver = $pkgJson.version
 $apk = Get-ChildItem -Path "android\app\build\outputs\apk\debug" -Filter "*.apk" | Select-Object -First 1
 if ($apk) {
     if (-not (Test-Path "dist")) { New-Item -ItemType Directory -Force -Path "dist" | Out-Null }
-    $distApk = "dist\OST-Player-v3.4.0-debug.apk"
+    $distApk = "dist\OST-Player-v" + $ver + "-debug.apk"
     Copy-Item -Path $apk.FullName -Destination $distApk -Force
-    Write-Host "SUCCESS! Generated APK:" $distApk "Size:" $apk.Length "bytes"
+    Write-Host "[BUILD SUCCESS] Generated APK: $distApk (Size: $($apk.Length) bytes)"
 } else {
-    Write-Host "No APK found in output directory."
+    Write-Host "[BUILD ERROR] No APK found in output directory."
 }
