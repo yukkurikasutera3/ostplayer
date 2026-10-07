@@ -1489,7 +1489,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.6.1</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.7.0</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1536,7 +1536,7 @@
                 </div>
                 <div class="help-section">
                     <h3 class="help-heading">MIDI再生 (Full Support)</h3>
-                    <p class="help-text">すべてのモード（Single, Dual, Multi, FX, Visual）でMIDIファイル（.mid）を再生できます。高性能な内蔵シンセサイザーにより、ダウンロード待ち時間なしで即座に再生されます。DualやMultiで他の曲とミックスすることも可能です。</p>
+                    <p class="help-text">すべてのモード（Single, Dual, Multi, FX, Sync）でMIDIファイル（.mid）を再生できます。高性能な内蔵シンセサイザーにより、ダウンロード待ち時間なしで即座に再生されます。DualやMultiで他の曲とミックスすることも可能です。</p>
                 </div>
                 <div class="help-section">
                     <h3 class="help-heading">各モードの仕様</h3>
@@ -1548,16 +1548,16 @@
                     <p class="help-text">デッキを好きなだけ追加して、複数の曲を同時に重ねて再生できます。</p>
                     <h4 class="help-subheading">FX Mode</h4>
                     <p class="help-text">イコライザー、リバーブ、重低音強化などのエフェクトをかけて再生できます。MIDIファイルにもエフェクトが適用されます。</p>
-                    <h4 class="help-subheading">Visual Mode</h4>
-                    <p class="help-text">音楽を視覚的に楽しむモードです。</p>
+                    <h4 class="help-subheading">Sync Mode</h4>
+                    <p class="help-text">WebRTC P2P による同期リスニング (DJ Room)、スマホ・ワイヤレスリモコン、Wi-Fi プレイリスト一括転送を行うモードです。</p>
                 </div>
                 <div class="help-section">
                     <h3 class="help-heading">ショートカットキー</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         <div><span class="key-badge">Space</span> : 再生 / 一時停止 (全モード)</div>
                         <div><span class="key-badge">F11</span> : フルスクリーンの切り替え</div>
-                        <div><span class="key-badge">1</span> 〜 <span class="key-badge">6</span> : モード切替 (Single, Dual, Multi, FX, Visual, Help)</div>
-                        <div><span class="key-badge">←</span> / <span class="key-badge">→</span> : 前 / 次の曲 (Single, Visual, FX)</div>
+                        <div><span class="key-badge">1</span> 〜 <span class="key-badge">6</span> : モード切替 (Single, Dual, Multi, FX, Sync, Help)</div>
+                        <div><span class="key-badge">←</span> / <span class="key-badge">→</span> : 前 / 次の曲 (Single, FX)</div>
                         <div><span class="key-badge">↑</span> / <span class="key-badge">↓</span> : 音量の上下 (アクティブなプレイヤー)</div>
                         <div><span class="key-badge">[</span> / <span class="key-badge">]</span> : クロスフェーダー調節 (Dualモード)</div>
                         <div><span class="key-badge">M</span> : 全体消音 (ミュート) の切り替え</div>
@@ -1573,9 +1573,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.6.1 P2P Audio Sync Optimization & Stability</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.7.0 Cross-Platform Remote & Batch Sync</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.7.0 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.7.0] スマホ・ワイヤレスリモコン & Wi-Fi プレイリスト一括転送</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-07</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>スマホ・ワイヤレスリモコン:</strong> WebRTC P2P (6桁コード) を利用し、スマホから PC の再生/一時停止、トラック移動、ループ切替、音量、シーク、プレイヤーモード切替および楽曲クイック選曲をリアルタイム双方向同期。タッチ操作にはハプティック連携。</li>
+                                <li><strong>Wi-Fi プレイリスト一括転送:</strong> PC からスマホ端末へ、指定プレイリスト（または全楽曲）を 16KB チャンク分割・ACK 受信確認制御で高速ストリーミング転送。受信曲はスマホ側 IndexedDB に自動保存され、次回以降オフラインで再生可能。</li>
+                                <li><strong>Sync サブタブ UI 統合:</strong> [DJ Room], [ワイヤレスリモコン], [Wi-Fi プレイリスト転送] の3サブタブを新設し、UI 全体から絵文字を完全排除してテキストバッジで統一。</li>
+                            </ul>
+                        </div>
                         <!-- v3.6.1 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -9758,7 +9770,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.6.1';
+        const APP_VERSION = '3.7.0';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
