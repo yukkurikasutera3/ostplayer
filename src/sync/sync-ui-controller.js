@@ -142,6 +142,9 @@
             importPlaylistItem: async (trackObj, meta) => {
                 if (typeof global.importTransferredPlaylistItem === 'function') {
                     await global.importTransferredPlaylistItem(trackObj, meta);
+                    if (typeof global.triggerAchievement === 'function') {
+                        global.triggerAchievement('sync_playlist_transfer');
+                    }
                 }
             },
             handlePlaylistBatchStart: (msg) => {
@@ -220,6 +223,9 @@
         p2pSession.on('peer_joined', ({ peerId, count }) => {
             appendSystemChat(`参加者 (ID: ...${peerId.slice(-4)}) が接続しました`);
             broadcastMembersList();
+            if (typeof global.triggerAchievement === 'function') {
+                global.triggerAchievement('sync_group_session');
+            }
 
             // Host resyncs current track after a brief DataChannel settling delay (250ms)
             setTimeout(() => {
@@ -354,7 +360,7 @@
             }
 
             if (typeof global.triggerAchievement === 'function') {
-                global.triggerAchievement('sync_host_room');
+                global.triggerAchievement('sync_dj_room');
             }
         } catch (err) {
             console.error('[SyncUI] Failed to create room:', err);
@@ -414,7 +420,7 @@
             showDjTicker(`DJ Room (${code}) に接続`);
 
             if (typeof global.triggerAchievement === 'function') {
-                global.triggerAchievement('sync_join_room');
+                global.triggerAchievement('sync_dj_room');
             }
         } catch (err) {
             console.error('[SyncUI] Failed to join room:', err);
@@ -623,6 +629,9 @@
         });
 
         if (tabName === 'remote') {
+            if (typeof global.triggerAchievement === 'function') {
+                global.triggerAchievement('sync_remote_control');
+            }
             if (p2pSession && p2pSession.role === 'listener' && syncEngine) {
                 syncEngine.requestRemoteStatus();
             } else if (p2pSession && p2pSession.role === 'host' && syncEngine) {
@@ -756,6 +765,9 @@
     function sendRemoteCommand(action, payload = {}) {
         if (!syncEngine) return;
         syncEngine.sendRemoteCommand(action, payload);
+        if (typeof global.triggerAchievement === 'function') {
+            global.triggerAchievement('sync_remote_control');
+        }
     }
 
     function sendRemotePlayToggle() {
@@ -856,6 +868,9 @@
         if (btn) btn.disabled = true;
 
         const success = await syncEngine.startPlaylistBatchTransfer(playlistName, tracks);
+        if (success && typeof global.triggerAchievement === 'function') {
+            global.triggerAchievement('sync_playlist_transfer');
+        }
         if (!success && btn) {
             btn.disabled = false;
         }
