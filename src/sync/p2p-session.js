@@ -127,7 +127,14 @@
                         this.roomCode = code;
                         this.startHeartbeat();
                         this.emit('status', { status: 'host_ready', roomCode: code, peerId: id });
-                        resolve(code);
+                        
+                        // 呼び出し側で単一文字列(code)としても分割代入({ roomCode, peerId })としても
+                        // どちらで受け取っても undefined にならないよう互換プロパティ付き文字列オブジェクトを解決
+                        const codeResult = new String(code);
+                        codeResult.roomCode = code;
+                        codeResult.peerId = id;
+                        codeResult.code = code;
+                        resolve(codeResult);
                     });
 
                     peer.on('connection', (conn) => {

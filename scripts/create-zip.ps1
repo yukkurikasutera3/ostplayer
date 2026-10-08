@@ -7,8 +7,11 @@ $ver = $pkg.version
 $zipPath = "dist\OST-Player-v" + $ver + "-win32-x64.zip"
 $srcFolder = "dist\OST Player-win32-x64"
 
+Write-Host "Building Electron package to ensure dist files are completely up to date..."
+npm run pack
+
 if (-not (Test-Path $srcFolder)) {
-    Write-Error "Source folder $srcFolder does not exist. Run 'npm run pack' first."
+    Write-Error "Source folder $srcFolder does not exist after running 'npm run pack'."
 }
 
 if (Test-Path $zipPath) {

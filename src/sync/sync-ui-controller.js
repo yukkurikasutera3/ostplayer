@@ -326,8 +326,12 @@
 
         try {
             const result = await p2pSession.createRoom();
-            const roomCode = (result && typeof result === 'object') ? result.roomCode : (result || p2pSession.roomCode);
-            const peerId = (result && typeof result === 'object') ? result.peerId : p2pSession.myPeerId;
+            const roomCode = (result && typeof result === 'object' && result.roomCode)
+                ? result.roomCode
+                : (result ? String(result) : (p2pSession.roomCode || ''));
+            const peerId = (result && typeof result === 'object' && result.peerId)
+                ? result.peerId
+                : (p2pSession.myPeerId || '');
             const codeEl = document.getElementById('sync-generated-code');
             const activeCodeEl = document.getElementById('sync-active-room-code');
             const roleBadge = document.getElementById('sync-active-role-badge');
