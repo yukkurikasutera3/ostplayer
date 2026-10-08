@@ -23,6 +23,17 @@ scratch/
 # Development-only internal checklist (must not be committed to repository)
 毎回必ずチェック.txt
 
+# Achievements unlock guide & spoilers (must not be committed or published to GitHub)
+実績解除方法.txt
+実績解除方法.md
+実績解除ガイド.txt
+実績解除ガイド.md
+*実績*.txt
+*実績*.md
+achievements_spoiler*.txt
+achievements_spoiler*.md
+
+
 # Mobile build artifacts
 www/
 android/.gradle/

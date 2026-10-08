@@ -2555,7 +2555,7 @@
         </div>
     </div>
 
-    <!-- 🏆 実績＆トロフィールーム モーダル (v3.0.0) -->
+    <!-- 実績＆トロフィールーム モーダル (v3.0.0) -->
     <div id="trophy-modal" class="fixed inset-0 bg-black/80 items-center justify-center z-[9999] hidden transition-opacity duration-200">
         <div class="modal-content bg-gray-900 border border-amber-500/60 rounded-2xl p-5 sm:p-6 max-w-2xl w-full mx-4 shadow-[0_0_50px_rgba(245,158,11,0.25)] space-y-4 text-gray-200 max-h-[90vh] flex flex-col">
             <!-- Header -->
@@ -2608,8 +2608,8 @@
 
             <!-- Footer Action -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-800 shrink-0 text-xs">
-                <button onclick="confirmResetAchievements()" class="text-gray-500 hover:text-red-400 text-[10px] transition" title="実績を初期化して最初からやり直す">
-                    🔄 実績初期化
+                <button onclick="confirmResetAchievements(this)" id="trophy-reset-btn" class="text-gray-500 hover:text-red-400 text-[10px] transition font-medium" title="実績を初期化して最初からやり直す">
+                    [実績初期化]
                 </button>
                 <button onclick="closeTrophyModal()" class="px-5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg shadow transition">
                     閉じる
@@ -10316,69 +10316,67 @@
         // =========================================================================
 
         const ACHIEVEMENTS_DEFINITIONS = [
-            // 再生・リスニング系 (playback: No. 01 - No. 09)
+            // 再生・リスニング系 (playback: No. 01 - No. 10)
             { id: 'first_play',          category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M8 5v14l11-7z"/></svg>', name: 'No. 01', desc: '初めて楽曲の再生を開始した', hint: 'とにかく何か再生してみよう' },
             { id: 'track_10',           category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>', name: 'No. 02', desc: '累計10曲の再生を達成した', hint: '何度も音楽を楽しもう' },
             { id: 'track_50',           category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>', name: 'No. 03', desc: '累計50曲の再生を達成した', hint: '続けることに意味がある' },
             { id: 'track_100',          category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>', name: 'No. 04', desc: '累計100曲の再生を達成した', hint: 'ひたすら聴き続けると…' },
             { id: 'track_300',          category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>', name: 'No. 05', desc: '累計300曲の再生を達成した（大台突破！）', hint: 'リスナーの極みを目指してさらに音楽を聴き続けよう' },
-            { id: 'playlist_30',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>', name: 'No. 06', desc: 'ライブラリに多くの楽曲を集めた', hint: 'ライブラリを充実させよう' },
-            { id: 'loop_master',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>', name: 'No. 07', desc: '1曲リピート再生を使った', hint: 'あのボタン、もう試した?' },
-            { id: 'shuffle_pro',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>', name: 'No. 08', desc: 'シャッフル再生で曲を切り替えた', hint: 'ランダムに身を任せてみよう' },
-            { id: 'playlist_archive',   category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>', name: 'No. 09', desc: 'プレイリストのJSONエクスポートまたはインポートを実行した', hint: '大切な曲リストを外部ファイルとしてバックアップしよう' },
+            { id: 'track_500',          category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>', name: 'No. 06', desc: '累計500曲の再生を達成した（伝説のリスナー）', hint: '音楽を愛し、ひたすら聴き続けよう' },
+            { id: 'playlist_30',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>', name: 'No. 07', desc: 'ライブラリに多くの楽曲を集めた', hint: 'ライブラリを充実させよう' },
+            { id: 'loop_master',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>', name: 'No. 08', desc: '1曲リピート再生を使った', hint: 'あのボタン、もう試した?' },
+            { id: 'shuffle_pro',        category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>', name: 'No. 09', desc: 'シャッフル再生で曲を切り替えた', hint: 'ランダムに身を任せてみよう' },
+            { id: 'playlist_archive',   category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>', name: 'No. 10', desc: 'プレイリストのJSONエクスポートまたはインポートを実行した', hint: '大切な曲リストを外部ファイルとしてバックアップしよう' },
 
-            // MIDI & SoundFont 系 (midi: No. 10 - No. 18)
-            { id: 'midi_first',          category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 9h-2V4h2v8zm-4 0H7V4h2v8z"/></svg>', name: 'No. 10', desc: '初めてMIDIファイルを再生した', hint: '音楽ファイルにも色んな種類がある' },
-            { id: 'soundfont_custom',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M6 2v6s-4 4-4 8h20c0-4-4-8-4-8V2H6zm9 2v5.5l2.5 2.5H6.5L9 9.5V4h6z"/></svg>', name: 'No. 11', desc: '外部SoundFontをインポートして適用した', hint: '音源ファイルを追加すると変わるかも' },
-            { id: 'soundfont_master',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>', name: 'No. 12', desc: '複数のSoundFont音源ライブラリを切り替えて演奏した', hint: '異なるSoundFontファイルを読み込ませてみよう' },
-            { id: 'pianoroll_view',      category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 3h2v18H3zm2 8h16v2H5zm0-4h12v2H5zm0 8h10v2H5zm14-4h2v10h-2z"/></svg>', name: 'No. 13', desc: 'ピアノロール画面を開いた', hint: 'あるモードで再生中に特別な画面が開ける' },
-            { id: 'midi_export',         category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>', name: 'No. 14', desc: 'MIDIトラックのWAV書き出しを実行した', hint: 'あるトラックには特別な書き出し機能がある' },
-            { id: 'midi_mixer',          category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 18v-2h6v2H3zm0-5v-2h12v2H3zm0-5V6h18v2H3zm14 5v-2h4v2h-4zm-6 5v-2h10v2H11z"/></svg>', name: 'No. 15', desc: 'MIDIミキサーを開いた', hint: '再生中に別のパネルが開けるかもしれない' },
-            { id: 'midi_mixer_save',     category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>', name: 'No. 16', desc: 'MIDIトラック固有のミキサー設定を保存した', hint: 'ミキサーの調整を保存してみよう' },
-            { id: 'midi_all_instruments',category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm8 3v8.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V10h4V6h-6z"/></svg>', name: 'No. 17', desc: 'MIDIチャンネルの音色を8つ以上カスタマイズした', hint: 'ミキサーでたくさんの楽器を選び直してみよう' },
-            { id: 'midi_solo_master',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>', name: 'No. 18', desc: 'MIDIトラックでソロ（Solo）再生を活用した', hint: '特定のパートだけにスポットライトを当ててみよう' },
+            // MIDI & SoundFont 系 (midi: No. 11 - No. 20)
+            { id: 'midi_first',          category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 9h-2V4h2v8zm-4 0H7V4h2v8z"/></svg>', name: 'No. 11', desc: '初めてMIDIファイルを再生した', hint: '音楽ファイルにも色んな種類がある' },
+            { id: 'soundfont_custom',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M6 2v6s-4 4-4 8h20c0-4-4-8-4-8V2H6zm9 2v5.5l2.5 2.5H6.5L9 9.5V4h6z"/></svg>', name: 'No. 12', desc: '外部SoundFontをインポートして適用した', hint: '音源ファイルを追加すると変わるかも' },
+            { id: 'soundfont_master',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>', name: 'No. 13', desc: '複数のSoundFont音源ライブラリを切り替えて演奏した', hint: '異なるSoundFontファイルを読み込ませてみよう' },
+            { id: 'soundfont_hotswap',   category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>', name: 'No. 14', desc: '再生を停止せずにSoundFont音源を即座に切り替えた', hint: 'MIDI再生中に音源フォントを変更してみよう' },
+            { id: 'pianoroll_view',      category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 3h2v18H3zm2 8h16v2H5zm0-4h12v2H5zm0 8h10v2H5zm14-4h2v10h-2z"/></svg>', name: 'No. 15', desc: 'ピアノロール画面を開いた', hint: 'あるモードで再生中に特別な画面が開ける' },
+            { id: 'midi_export',         category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>', name: 'No. 16', desc: 'MIDIトラックのWAV書き出しを実行した', hint: 'あるトラックには特別な書き出し機能がある' },
+            { id: 'midi_mixer',          category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 18v-2h6v2H3zm0-5v-2h12v2H3zm0-5V6h18v2H3zm14 5v-2h4v2h-4zm-6 5v-2h10v2H11z"/></svg>', name: 'No. 17', desc: 'MIDIミキサーを開いた', hint: '再生中に別のパネルが開けるかもしれない' },
+            { id: 'midi_mixer_save',     category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>', name: 'No. 18', desc: 'MIDIトラック固有のミキサー設定を保存した', hint: 'ミキサーの調整を保存してみよう' },
+            { id: 'midi_all_instruments',category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6zm8 3v8.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V10h4V6h-6z"/></svg>', name: 'No. 19', desc: 'MIDIチャンネルの音色を8つ以上カスタマイズした', hint: 'ミキサーでたくさんの楽器を選び直してみよう' },
+            { id: 'midi_solo_master',    category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>', name: 'No. 20', desc: 'MIDIトラックでソロ（Solo）再生を活用した', hint: '特定のパートだけにスポットライトを当ててみよう' },
 
-            // 音響FX & 3D オーディオ系 (audiofx: No. 19 - No. 25)
-            { id: 'spatial_8d',         category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>', name: 'No. 19', desc: '3D Spatial Audio (8D Orbit) を有効化した', hint: 'FXモードの空間系エフェクトを探ってみよう' },
-            { id: 'spatial_pad',        category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm-9 3H1v2h2v-2zm18 0h-2v2h2v-2zM11 1v2h2V1h-2zm0 20v2h2v-2h-2z"/></svg>', name: 'No. 20', desc: '2D空間パッドで音源の位置を動かした', hint: 'FXモードのどこかでドラッグできる場所がある' },
-            { id: 'eq_master',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 12h4v9H4v-9zm6-5h4v14h-4V7zm6-4h4v18h-4V3z"/></svg>', name: 'No. 21', desc: '5バンドイコライザーをカスタマイズした', hint: 'FXモードには音を整える機能がある' },
-            { id: 'lofi_vibe',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-4 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm-4-7H4V8h8v9zm4 5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>', name: 'No. 22', desc: 'レトロ音響エフェクトをONにした', hint: 'FXモードにはレトロな雰囲気のエフェクトがある' },
-            { id: 'norm_guardian',      category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>', name: 'No. 23', desc: 'NORM機能を有効にして音量を均一化した', hint: 'ヘッダー周辺のボタンを眺めてみよう' },
-            { id: 'time_warp',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>', name: 'No. 24', desc: '再生速度を大きく変更した', hint: 'FXモードには時間を操る機能がある' },
-            { id: 'live_record',        category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>', name: 'No. 25', desc: '録音機能でミックスを記録した', hint: 'どこかに録音できる機能があるはず' },
+            // 音響FX & 3D オーディオ系 (audiofx: No. 21 - No. 28)
+            { id: 'spatial_8d',         category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>', name: 'No. 21', desc: '3D Spatial Audio (8D Orbit) を有効化した', hint: 'FXモードの空間系エフェクトを探ってみよう' },
+            { id: 'spatial_pad',        category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm-9 3H1v2h2v-2zm18 0h-2v2h2v-2zM11 1v2h2V1h-2zm0 20v2h2v-2h-2z"/></svg>', name: 'No. 22', desc: '2D空間パッドで音源の位置を動かした', hint: 'FXモードのどこかでドラッグできる場所がある' },
+            { id: 'eq_master',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 12h4v9H4v-9zm6-5h4v14h-4V7zm6-4h4v18h-4V3z"/></svg>', name: 'No. 23', desc: '5バンドイコライザーをカスタマイズした', hint: 'FXモードには音を整える機能がある' },
+            { id: 'eq_preset_explorer', category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>', name: 'No. 24', desc: '複数のイコライザープリセットを切り替えて試聴した', hint: 'FX画面のEQプリセットを色々試してみよう' },
+            { id: 'lofi_vibe',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M20 6H4c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-4 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm-4-7H4V8h8v9zm4 5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>', name: 'No. 25', desc: 'レトロ音響エフェクトをONにした', hint: 'FXモードにはレトロな雰囲気のエフェクトがある' },
+            { id: 'norm_guardian',      category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>', name: 'No. 26', desc: 'NORM機能を有効にして音量を均一化した', hint: 'ヘッダー周辺のボタンを眺めてみよう' },
+            { id: 'time_warp',          category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>', name: 'No. 27', desc: '再生速度を大きく変更した', hint: 'FXモードには時間を操る機能がある' },
+            { id: 'live_record',        category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>', name: 'No. 28', desc: '録音機能でミックスを記録した', hint: 'どこかに録音できる機能があるはず' },
 
-            // DJ & 機能系 (dj: No. 26 - No. 30)
-            { id: 'crossfade_first',    category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>', name: 'No. 26', desc: 'オートクロスフェードで曲をシームレスに繋いだ', hint: '曲の切り替えを滑らかにする方法がある' },
-            { id: 'crossfade_10',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L12 10.66 10.48 12h.01L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l2.83-2.5.01.01L13.52 12h-.01l2.69-2.39c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.38-5.4-5.38z"/></svg>', name: 'No. 27', desc: 'クロスフェードを何度も繰り返した', hint: 'フェードをたくさん重ねよう' },
-            { id: 'dual_dj',            category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>', name: 'No. 28', desc: 'Dualモードで2デッキを同時再生した', hint: '2つのデッキを同時に動かすモードがある' },
-            { id: 'night_owl_dj',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>', name: 'No. 29', desc: '深夜（午前2時〜5時）にDual/MultiデッキでDJプレイした', hint: '夜更かししながら2つ以上のデッキを回してみよう' },
-            { id: 'multi_studio',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg>', name: 'No. 30', desc: 'Multiモードで多数のデッキを同時起動した', hint: 'どこまでもデッキを増やしてみよう' },
+            // DJ & 同期リスニング系 (dj: No. 29 - No. 38)
+            { id: 'crossfade_first',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>', name: 'No. 29', desc: 'オートクロスフェードで曲をシームレスに繋いだ', hint: '曲の切り替えを滑らかにする方法がある' },
+            { id: 'crossfade_10',          category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L12 10.66 10.48 12h.01L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l2.83-2.5.01.01L13.52 12h-.01l2.69-2.39c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.38-5.4-5.38z"/></svg>', name: 'No. 30', desc: 'クロスフェードを何度も繰り返した', hint: 'フェードをたくさん重ねよう' },
+            { id: 'dual_dj',               category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>', name: 'No. 31', desc: 'Dualモードで2デッキを同時再生した', hint: '2つのデッキを同時に動かすモードがある' },
+            { id: 'night_owl_dj',          category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>', name: 'No. 32', desc: '深夜（午前2時〜5時）にDual/MultiデッキでDJプレイした', hint: '夜更かししながら2つ以上のデッキを回してみよう' },
+            { id: 'multi_studio',          category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg>', name: 'No. 33', desc: 'Multiモードで多数のデッキを同時起動した', hint: 'どこまでもデッキを増やしてみよう' },
+            { id: 'sync_dj_room',          category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', name: 'No. 34', desc: 'P2P SyncでDJルームを開設、または参加した', hint: 'Syncモードで部屋を作るかコードで参加してみよう' },
+            { id: 'sync_dj_announce',      category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>', name: 'No. 35', desc: 'DJ Roomでリアルタイムチャットまたはアナウンスを送信した', hint: 'Syncモードのチャットでメッセージを届けてみよう' },
+            { id: 'sync_remote_control',   category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-5-1c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z"/></svg>', name: 'No. 36', desc: 'ワイヤレスリモコンモードで端末同士を連携させた', hint: 'スマホをPCのリモコンとして接続してみよう' },
+            { id: 'sync_playlist_transfer',category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>', name: 'No. 37', desc: 'Wi-Fi経由で楽曲またはプレイリストを一括転送した', hint: 'Sync画面のWi-Fi転送機能で曲を送受信してみよう' },
+            { id: 'sync_group_session',    category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>', name: 'No. 38', desc: 'DJ Roomで他のリスナーと接続してグループリスニングを行った', hint: 'ルームに誰かが参加すると…' },
 
-            // ビジュアル & テーマ系 (visual: No. 31 - No. 36)
-            { id: 'theme_5',            category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>', name: 'No. 31', desc: '複数の異なるテーマを使った', hint: 'テーマを色々切り替えていると…' },
-            { id: 'theme_clear',        category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3l1.88 5.77H20l-4.94 3.59 1.88 5.77L12 14.54l-4.94 3.59 1.88-5.77L4 8.77h6.12z"/></svg>', name: 'No. 32', desc: '透明感のあるテーマを適用した', hint: 'すっきりしたテーマを一度試してみよう' },
-            { id: 'custom_bg',          category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>', name: 'No. 33', desc: 'カスタム背景画像を設定した', hint: '自分の画像を背景にできる機能がある' },
-            { id: 'sync_dj_room',       category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', name: 'No. 34', desc: 'P2P SyncでDJルームを開設、または参加した', hint: 'Syncモードで部屋を作るかコードで参加してみよう' },
-            { id: 'sync_dj_announce',   category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>', name: 'No. 35', desc: 'DJ Roomでリアルタイムチャットまたはアナウンスを送信した', hint: 'Syncモードのチャットでメッセージを届けてみよう' },
-            { id: 'video_cinema',       category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>', name: 'No. 36', desc: '動画ファイルをインポートして再生した', hint: '音楽以外のファイルも読み込める' },
+            // ビジュアル & テーマ系 (visual: No. 39 - No. 44)
+            { id: 'theme_5',            category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>', name: 'No. 39', desc: '複数の異なるテーマを使った', hint: 'テーマを色々切り替えていると…' },
+            { id: 'theme_clear',        category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 3l1.88 5.77H20l-4.94 3.59 1.88 5.77L12 14.54l-4.94 3.59 1.88-5.77L4 8.77h6.12z"/></svg>', name: 'No. 40', desc: '透明感のあるテーマを適用した', hint: 'すっきりしたテーマを一度試してみよう' },
+            { id: 'custom_bg',          category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>', name: 'No. 41', desc: 'カスタム背景画像を設定した', hint: '自分の画像を背景にできる機能がある' },
+            { id: 'layout_voyager',     category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6h16v12H4zM2 4v16h20V4H2zm4 4h4v4H6zm6 0h6v2h-6zm0 4h6v2h-6z"/></svg>', name: 'No. 42', desc: '3種類以上の異なるUIレイアウトを切り替えて鑑賞した', hint: 'TerminalやRetro LCDなど様々なレイアウトを試そう' },
+            { id: 'visualizer_master',  category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>', name: 'No. 43', desc: '全種類のビジュアライザーモードを切り替えて鑑賞した', hint: '様々なビジュアライザーの描画モードを眺めてみよう' },
+            { id: 'video_cinema',       category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>', name: 'No. 44', desc: '動画ファイルをインポートして再生した', hint: '音楽以外のファイルも読み込める' },
 
-            // シークレット系 (secrets: No. 37 - No. 40)
-            { id: 'midnight_hacker',    category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M10 2c-1.82 0-3.53.5-5 1.35C7.99 5.08 10 8.3 10 12s-2.01 6.92-5 8.65C6.47 21.5 8.18 22 10 22c5.52 0 10-4.48 10-10S15.52 2 10 2z"/></svg>', name: 'No. 37', desc: '誰も起きていない時間に音楽を聴いた', hint: '???' },
-            { id: 'discord_star',       category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4l-4 4V6c0-1.1.9-2 2-2zm2 3v2h12V7H6zm0 4v2h8v-2H6z"/></svg>', name: 'No. 38', desc: '外部との連携を有効にして再生した', hint: '???' },
-            { id: 'cat_oia_uia',        category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M8.35 3c-.6.05-1.1.55-1.15 1.2-.01.09 0 .19 0 .29C7.2 5.28 7.5 6 8.1 6.35c.6.35 1.36.23 1.89-.18.22-.17.4-.35.52-.54.5-.71.43-1.7-.2-2.26C9.8 3.1 9.16 2.95 8.35 3zM15.65 3c-.81-.05-1.45.1-1.96.37-.63.56-.7 1.55-.2 2.26.12.19.3.37.52.54.53.41 1.29.53 1.89.18.6-.35.9-1.07.9-1.86 0-.1.01-.2 0-.29-.05-.65-.55-1.15-1.15-1.2zM5 9c-.81-.05-1.45.1-1.96.37-.63.56-.7 1.55-.2 2.26.12.19.3.37.52.54.53.41 1.29.53 1.89.18.6-.35.9-1.07.9-1.86 0-.1.01-.2 0-.29C6.1 9.55 5.6 9.05 5 9zm14 0c-.6.05-1.1.55-1.15 1.2-.01.09 0 .19 0 .29 0 .79.3 1.51.9 1.86.6.35 1.36.23 1.89-.18.22-.17.4-.35.52-.54.5-.71.43-1.7-.2-2.26C20.45 9.1 19.81 8.95 19 9zm-7 .5c-2.21 0-4 1.79-4 4v4c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-4c0-2.21-1.79-4-4-4z"/></svg>', name: 'No. 39', desc: '謎の来訪者に遭遇した', hint: '???' },
-            { id: 'konami_code',        category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>', name: 'No. 40', desc: '伝説のコマンドを入力した (↑↑↓↓←→←→BA)', hint: '???' },
-
-            // 新規追加 (v3.7.0 拡張: No. 41 - No. 50)
-            { id: 'sync_remote_control',   category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14zm-5-1c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z"/></svg>', name: 'No. 41', desc: 'ワイヤレスリモコンモードで端末同士を連携させた', hint: 'スマホをPCのリモコンとして接続してみよう' },
-            { id: 'sync_playlist_transfer',category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></svg>', name: 'No. 42', desc: 'Wi-Fi経由で楽曲またはプレイリストを一括転送した', hint: 'Sync画面のWi-Fi転送機能で曲を送受信してみよう' },
-            { id: 'layout_voyager',        category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M4 6h16v12H4zM2 4v16h20V4H2zm4 4h4v4H6zm6 0h6v2h-6zm0 4h6v2h-6z"/></svg>', name: 'No. 43', desc: '3種類以上の異なるUIレイアウトを切り替えて鑑賞した', hint: 'TerminalやRetro LCDなど様々なレイアウトを試そう' },
-            { id: 'visualizer_master',     category: 'visual', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>', name: 'No. 44', desc: '全種類のビジュアライザーモードを切り替えて鑑賞した', hint: '様々なビジュアライザーの描画モードを眺めてみよう' },
-            { id: 'ghost_sstp',            category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M12 2a9 9 0 0 0-9 9c0 3.58 2.1 6.67 5.14 8.08.31.25.53.59.53.97V21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-.95c0-.38.22-.72.53-.97C18.9 17.67 21 14.58 21 11a9 9 0 0 0-9-9zm-2.5 10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>', name: 'No. 45', desc: 'デスクトップマスコット（伺か / SSTP）と連携した', hint: '???' },
-            { id: 'eq_preset_explorer',    category: 'audiofx', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>', name: 'No. 46', desc: '複数のイコライザープリセットを切り替えて試聴した', hint: 'FX画面のEQプリセットを色々試してみよう' },
-            { id: 'track_500',             category: 'playback', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>', name: 'No. 47', desc: '累計500曲の再生を達成した（伝説のリスナー）', hint: '音楽を愛し、ひたすら聴き続けよう' },
-            { id: 'soundfont_hotswap',     category: 'midi', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>', name: 'No. 48', desc: '再生を停止せずにSoundFont音源を即座に切り替えた', hint: 'MIDI再生中に音源フォントを変更してみよう' },
-            { id: 'sync_group_session',    category: 'dj', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#f59e0b"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>', name: 'No. 49', desc: 'DJ Roomで他のリスナーと接続してグループリスニングを行った', hint: 'ルームに誰かが参加すると…' },
-            { id: 'master_trophy',         category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>', name: 'No. 50', desc: 'すべての実績を獲得し、完全制覇（コンプリート）を達成した', hint: '???' }
+            // シークレット系 (secrets: No. 45 - No. 50)
+            { id: 'midnight_hacker',    category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M10 2c-1.82 0-3.53.5-5 1.35C7.99 5.08 10 8.3 10 12s-2.01 6.92-5 8.65C6.47 21.5 8.18 22 10 22c5.52 0 10-4.48 10-10S15.52 2 10 2z"/></svg>', name: 'No. 45', desc: '誰も起きていない時間に音楽を聴いた', hint: '???' },
+            { id: 'discord_star',       category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4l-4 4V6c0-1.1.9-2 2-2zm2 3v2h12V7H6zm0 4v2h8v-2H6z"/></svg>', name: 'No. 46', desc: '外部との連携を有効にして再生した', hint: '???' },
+            { id: 'cat_oia_uia',        category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M8.35 3c-.6.05-1.1.55-1.15 1.2-.01.09 0 .19 0 .29C7.2 5.28 7.5 6 8.1 6.35c.6.35 1.36.23 1.89-.18.22-.17.4-.35.52-.54.5-.71.43-1.7-.2-2.26C9.8 3.1 9.16 2.95 8.35 3zM15.65 3c-.81-.05-1.45.1-1.96.37-.63.56-.7 1.55-.2 2.26.12.19.3.37.52.54.53.41 1.29.53 1.89.18.6-.35.9-1.07.9-1.86 0-.1.01-.2 0-.29-.05-.65-.55-1.15-1.15-1.2zM5 9c-.81-.05-1.45.1-1.96.37-.63.56-.7 1.55-.2 2.26.12.19.3.37.52.54.53.41 1.29.53 1.89.18.6-.35.9-1.07.9-1.86 0-.1.01-.2 0-.29C6.1 9.55 5.6 9.05 5 9zm14 0c-.6.05-1.1.55-1.15 1.2-.01.09 0 .19 0 .29 0 .79.3 1.51.9 1.86.6.35 1.36.23 1.89-.18.22-.17.4-.35.52-.54.5-.71.43-1.7-.2-2.26C20.45 9.1 19.81 8.95 19 9zm-7 .5c-2.21 0-4 1.79-4 4v4c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-4c0-2.21-1.79-4-4-4z"/></svg>', name: 'No. 47', desc: '謎の来訪者に遭遇した', hint: '???' },
+            { id: 'konami_code',        category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>', name: 'No. 48', desc: '伝説のコマンドを入力した (↑↑↓↓←→←→BA)', hint: '???' },
+            { id: 'ghost_sstp',         category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M12 2a9 9 0 0 0-9 9c0 3.58 2.1 6.67 5.14 8.08.31.25.53.59.53.97V21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-.95c0-.38.22-.72.53-.97C18.9 17.67 21 14.58 21 11a9 9 0 0 0-9-9zm-2.5 10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>', name: 'No. 49', desc: 'デスクトップマスコット（伺か / SSTP）と連携した', hint: '???' },
+            { id: 'master_trophy',      category: 'secrets', icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#6b7280"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>', name: 'No. 50', desc: 'すべての実績を獲得し、完全制覇（コンプリート）を達成した', hint: '???' }
         ];
 
 
@@ -10447,16 +10445,6 @@
 
         function saveAchievements(saveToDb = true) {
             try {
-                // 解除済みデータが空でない限り、既存の localStorage データを不意に消去しない
-                if (Object.keys(achievementsState.unlocked).length === 0) {
-                    const existingRaw = localStorage.getItem('ost_achievements_v3');
-                    if (existingRaw) {
-                        const existing = JSON.parse(existingRaw);
-                        if (existing && existing.unlocked && Object.keys(existing.unlocked).length > 0) {
-                            achievementsState.unlocked = Object.assign({}, existing.unlocked, achievementsState.unlocked);
-                        }
-                    }
-                }
                 localStorage.setItem('ost_achievements_v3', JSON.stringify(achievementsState));
             } catch(e) {}
 
@@ -10662,26 +10650,65 @@
             });
         }
 
-        function confirmResetAchievements() {
-            if (confirm("本当に実績データを初期化しますか？（解除したすべてのトロフィーが未解除に戻ります）")) {
-                achievementsState = {
-                    unlocked: {},
-                    stats: {
-                        playCount: 0,
-                        crossfadeCount: 0,
-                        themesUsed: {},
-                        visualizersViewed: {},
-                        easterVinylClicks: 0
+        let resetConfirmTimer = null;
+        function confirmResetAchievements(btn) {
+            if (!btn) btn = document.getElementById('trophy-reset-btn');
+            if (btn && !btn.dataset.confirmed) {
+                btn.dataset.confirmed = "true";
+                btn.textContent = "[本当に初期化しますか？]";
+                btn.classList.add('text-red-400', 'font-bold');
+                clearTimeout(resetConfirmTimer);
+                resetConfirmTimer = setTimeout(() => {
+                    if (btn) {
+                        delete btn.dataset.confirmed;
+                        btn.textContent = "[実績初期化]";
+                        btn.classList.remove('text-red-400', 'font-bold');
                     }
-                };
-                saveAchievements(true);
-                renderTrophyModal();
-                showNotification("実績データを初期化しました");
+                }, 4000);
+                return;
             }
+
+            if (btn) {
+                delete btn.dataset.confirmed;
+                btn.textContent = "[実績初期化]";
+                btn.classList.remove('text-red-400', 'font-bold');
+            }
+            resetAchievements();
+        }
+
+        function resetAchievements() {
+            achievementsState = {
+                unlocked: {},
+                stats: {
+                    playCount: 0,
+                    crossfadeCount: 0,
+                    themesUsed: {},
+                    visualizersViewed: {},
+                    soundfontsUsed: {},
+                    layoutsUsed: {},
+                    eqPresetsUsed: {},
+                    easterVinylClicks: 0
+                }
+            };
+            try {
+                localStorage.setItem('ost_achievements_v3', JSON.stringify(achievementsState));
+            } catch(e) {}
+
+            if (db) {
+                try {
+                    const tx = db.transaction(['settings'], 'readwrite');
+                    tx.objectStore('settings').put({ id: 'achievements_v3', data: achievementsState });
+                } catch(e) {}
+            }
+
+            updateTrophyHeaderBadge();
+            renderTrophyModal();
+            showNotification("[実績] すべての実績データを初期化しました");
         }
         window.confirmResetAchievements = confirmResetAchievements;
+        window.resetAchievements = resetAchievements;
 
-        // --- 🐱 踊るスピニングキャット (Oia Uia!) イースターエッグ ---
+        // --- スピニングキャット (Oia Uia!) イースターエッグ ---
         function triggerEasterCat(source = 'random') {
             const container = document.getElementById('easter-cat-container');
             if (container) {
