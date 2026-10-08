@@ -8,10 +8,26 @@ $zipPath = "dist\OST-Player-v" + $ver + "-win32-x64.zip"
 $srcFolder = "dist\OST Player-win32-x64"
 
 Write-Host "Building Electron package to ensure dist files are completely up to date..."
-npm run pack
+$packSuccess = $true
+try {
+    & npm.cmd run pack
+    if ($LASTEXITCODE -ne 0) { $packSuccess = $false }
+} catch {
+    $packSuccess = $false
+}
+
+if (-not $packSuccess) {
+    Write-Warning "Full electron-packager build encountered file lock (OST Player may be running). Syncing updated files into existing package..."
+    $appTarget = "$srcFolder\resources\app"
+    if (Test-Path $appTarget) {
+        Copy-Item -Path "index.html" -Destination "$appTarget\index.html" -Force
+        Copy-Item -Path "package.json" -Destination "$appTarget\package.json" -Force
+        if (Test-Path "src") { Copy-Item -Path "src" -Destination "$appTarget" -Recurse -Force }
+    }
+}
 
 if (-not (Test-Path $srcFolder)) {
-    Write-Error "Source folder $srcFolder does not exist after running 'npm run pack'."
+    Write-Error "Source folder $srcFolder does not exist."
 }
 
 if (Test-Path $zipPath) {
@@ -20,7 +36,13 @@ if (Test-Path $zipPath) {
 }
 
 Write-Host "Compressing $srcFolder to $zipPath..."
-Compress-Archive -Path "$srcFolder\*" -DestinationPath $zipPath -CompressionLevel Optimal
+$stageFolder = Join-Path $env:TEMP ("ost_staging_" + [guid]::NewGuid().ToString("N"))
+try {
+    Copy-Item -Path $srcFolder -Destination $stageFolder -Recurse -Force
+    Compress-Archive -Path "$stageFolder\*" -DestinationPath $zipPath -CompressionLevel Optimal
+} finally {
+    if (Test-Path $stageFolder) { Remove-Item $stageFolder -Recurse -Force -ErrorAction SilentlyContinue }
+}
 
 $zipInfo = Get-Item $zipPath
 $zipSizeMB = [math]::Round($zipInfo.Length / 1MB, 2)

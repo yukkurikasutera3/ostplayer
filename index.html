@@ -2326,35 +2326,45 @@
             <div>
                 <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">プリセットテーマ (10種類)</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <button data-theme-btn="cyberpunk" onclick="setTheme('cyberpunk', true)" class="p-2.5 rounded-lg border border-blue-500/50 bg-slate-900 text-blue-300 font-bold hover:bg-slate-800 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Cyber]</span><span>Cyberpunk</span>
+                    <button data-theme-btn="cyberpunk" onclick="setTheme('cyberpunk', true)" class="p-2.5 rounded-lg border border-blue-500/50 bg-slate-900 text-blue-300 font-bold hover:bg-slate-800 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15L11 21z"/></svg>
+                        <span>Cyberpunk</span>
                     </button>
-                    <button data-theme-btn="synthwave" onclick="setTheme('synthwave', true)" class="p-2.5 rounded-lg border border-purple-500/50 bg-purple-950 text-pink-300 font-bold hover:bg-purple-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Synth]</span><span>Synthwave</span>
+                    <button data-theme-btn="synthwave" onclick="setTheme('synthwave', true)" class="p-2.5 rounded-lg border border-purple-500/50 bg-purple-950 text-pink-300 font-bold hover:bg-purple-900 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 14H6l1-2h10l1 2zm-1-4H7V8h10v6zm-7-4c-.83 0-1.5.67-1.5 1.5S7.17 13 8 13s1.5-.67 1.5-1.5S8.83 10 8 10zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/></svg>
+                        <span>Synthwave</span>
                     </button>
-                    <button data-theme-btn="emerald" onclick="setTheme('emerald', true)" class="p-2.5 rounded-lg border border-emerald-500/50 bg-emerald-950 text-emerald-300 font-bold hover:bg-emerald-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Emerald]</span><span>Emerald</span>
+                    <button data-theme-btn="emerald" onclick="setTheme('emerald', true)" class="p-2.5 rounded-lg border border-emerald-500/50 bg-emerald-950 text-emerald-300 font-bold hover:bg-emerald-900 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M19 3H5L2 9l10 12L22 9l-3-6zM9.62 8l1.5-3h1.76l1.5 3H9.62zM11 10v6.68L4.44 10H11zm2 0h6.56L13 16.68V10zm3.8-2l-1.5-3h2.83l2 3h-3.33zM3.87 8l2-3h2.83l-1.5 3H3.87z"/></svg>
+                        <span>Emerald</span>
                     </button>
-                    <button data-theme-btn="sakura" onclick="setTheme('sakura', true)" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950/80 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Sakura]</span><span>Sakura Bloom</span>
+                    <button data-theme-btn="sakura" onclick="setTheme('sakura', true)" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950/80 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M12 2a4 4 0 0 0-4 4c0 1.63.97 3.03 2.37 3.66A4 4 0 0 0 6 12a4 4 0 0 0 4 4c1.63 0 3.03-.97 3.66-2.37A4 4 0 0 0 16 16a4 4 0 0 0 4-4c0-1.63-.97-3.03-2.37-3.66A4 4 0 0 0 16 6a4 4 0 0 0-4-4zm0 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>
+                        <span>Sakura Bloom</span>
                     </button>
-                    <button data-theme-btn="sunset" onclick="setTheme('sunset', true)" class="p-2.5 rounded-lg border border-orange-600/50 bg-orange-950/80 text-orange-300 font-bold hover:bg-orange-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Sunset]</span><span>Sunset Amber</span>
+                    <button data-theme-btn="sunset" onclick="setTheme('sunset', true)" class="p-2.5 rounded-lg border border-orange-600/50 bg-orange-950/80 text-orange-300 font-bold hover:bg-orange-900 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M12 4a8 8 0 0 0-8 8h16a8 8 0 0 0-8-8zm-9 9h18v2H3zm2 4h14v2H5zm3 4h8v2H8z"/></svg>
+                        <span>Sunset Amber</span>
                     </button>
-                    <button data-theme-btn="light" onclick="setTheme('light', true)" class="p-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-900 font-bold hover:bg-slate-200 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Light]</span><span>Studio Light</span>
+                    <button data-theme-btn="light" onclick="setTheme('light', true)" class="p-2.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-900 font-bold hover:bg-slate-200 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zm-3 18a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+                        <span>Studio Light</span>
                     </button>
-                    <button data-theme-btn="gameboy" onclick="setTheme('gameboy', true)" class="p-2.5 rounded-lg border border-green-800 bg-[#8b956d] text-[#0f380f] font-bold hover:opacity-90 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Retro]</span><span>Game Boy</span>
+                    <button data-theme-btn="gameboy" onclick="setTheme('gameboy', true)" class="p-2.5 rounded-lg border border-green-800 bg-[#8b956d] text-[#0f380f] font-bold hover:opacity-90 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H8V5h8v6zm-5 4H9v-2h2V13h2v2h2v2h-2v2h-2v-2zm4.5 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm1.5-2.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+                        <span>Game Boy</span>
                     </button>
-                    <button data-theme-btn="clear" onclick="setTheme('clear', true)" class="p-2.5 rounded-lg border border-sky-400/60 bg-sky-950/40 text-sky-200 font-bold hover:bg-sky-900/60 transition flex items-center justify-center space-x-1.5 shadow-[0_0_12px_rgba(56,189,248,0.25)]">
-                        <span>[Clear]</span><span>Clear Glass</span>
+                    <button data-theme-btn="clear" onclick="setTheme('clear', true)" class="p-2.5 rounded-lg border border-sky-400/60 bg-sky-950/40 text-sky-200 font-bold hover:bg-sky-900/60 transition flex items-center justify-center space-x-2 shadow-[0_0_12px_rgba(56,189,248,0.25)]">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5L12 2z"/></svg>
+                        <span>Clear Glass</span>
                     </button>
-                    <button data-theme-btn="custom" onclick="setTheme('custom', true)" class="p-2.5 rounded-lg border border-cyan-500/50 bg-cyan-950 text-cyan-300 font-bold hover:bg-cyan-900 transition flex items-center justify-center space-x-1.5 shadow-sm">
-                        <span>[Custom]</span><span>Custom Image</span>
+                    <button data-theme-btn="custom" onclick="setTheme('custom', true)" class="p-2.5 rounded-lg border border-cyan-500/50 bg-cyan-950 text-cyan-300 font-bold hover:bg-cyan-900 transition flex items-center justify-center space-x-2 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                        <span>Custom Image</span>
                     </button>
-                    <button data-theme-btn="video" onclick="setTheme('video', true)" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-1.5 shadow-[0_0_12px_rgba(244,63,94,0.25)]">
-                        <span>[Video]</span><span>Video</span>
+                    <button data-theme-btn="video" onclick="setTheme('video', true)" class="p-2.5 rounded-lg border border-rose-500/50 bg-rose-950 text-rose-300 font-bold hover:bg-rose-900 transition flex items-center justify-center space-x-2 shadow-[0_0_12px_rgba(244,63,94,0.25)]">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="shrink-0"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                        <span>Video</span>
                     </button>
                 </div>
             </div>
@@ -2369,7 +2379,7 @@
                 <!-- ドロップ＆ファイル選択エリア -->
                 <div id="custom-bg-dropzone" onclick="document.getElementById('custom-bg-file-input').click()" class="border-2 border-dashed border-gray-600 hover:border-cyan-400 rounded-lg p-4 text-center cursor-pointer bg-gray-900/50 transition">
                     <input type="file" id="custom-bg-file-input" accept="image/*" class="hidden">
-                    <p class="text-xs text-gray-300 font-bold">🖼️ 画像をドラッグ＆ドロップ、またはクリックして選択</p>
+                    <p class="text-xs text-gray-300 font-bold flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" class="text-cyan-400 shrink-0"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg><span>画像をドラッグ＆ドロップ、またはクリックして選択</span></p>
                     <p class="text-[10px] text-gray-500 mt-1">対応: PNG, JPG, WebP, GIF (自動保存対応)</p>
                 </div>
 
