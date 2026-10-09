@@ -4,23 +4,27 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:ANDROID_SDK_ROOT = "$env:LOCALAPPDATA\Android\Sdk"
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 
+$rootDir = (Get-Item -LiteralPath ".").FullName
+
 Write-Host "Syncing web assets..."
 node scripts/prepare-mobile.js
 npx cap sync android
 
 Write-Host "Building APK with Gradle..."
-Set-Location "android"
+Set-Location -LiteralPath "$rootDir\android"
 & .\gradlew.bat assembleDebug
-Set-Location ".."
+Set-Location -LiteralPath $rootDir
 
 Write-Host "Checking output APK..."
-$pkgJson = Get-Content "package.json" -Raw | ConvertFrom-Json
+$pkgJson = Get-Content (Join-Path $rootDir "package.json") -Raw | ConvertFrom-Json
 $ver = $pkgJson.version
-$apk = Get-ChildItem -Path "android\app\build\outputs\apk\debug" -Filter "*.apk" | Select-Object -First 1
+$apkDir = Join-Path $rootDir "android\app\build\outputs\apk\debug"
+$apk = Get-ChildItem -LiteralPath $apkDir -Filter "*.apk" | Select-Object -First 1
 if ($apk) {
-    if (-not (Test-Path "dist")) { New-Item -ItemType Directory -Force -Path "dist" | Out-Null }
-    $distApk = "dist\OST-Player-v" + $ver + "-debug.apk"
-    Copy-Item -Path $apk.FullName -Destination $distApk -Force
+    $distDir = Join-Path $rootDir "dist"
+    if (-not (Test-Path -LiteralPath $distDir)) { New-Item -ItemType Directory -Force -Path $distDir | Out-Null }
+    $distApk = Join-Path $distDir ("OST-Player-v" + $ver + "-debug.apk")
+    Copy-Item -LiteralPath $apk.FullName -Destination $distApk -Force
     Write-Host "[BUILD SUCCESS] Generated APK: $distApk (Size: $($apk.Length) bytes)"
 } else {
     Write-Host "[BUILD ERROR] No APK found in output directory."
