@@ -4,7 +4,7 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:ANDROID_SDK_ROOT = "$env:LOCALAPPDATA\Android\Sdk"
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 
-$rootDir = (Get-Item -LiteralPath ".").FullName
+$rootDir = (Get-Location).Path
 
 Write-Host "Syncing web assets..."
 node scripts/prepare-mobile.js

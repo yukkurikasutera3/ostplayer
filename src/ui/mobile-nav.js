@@ -7,6 +7,8 @@
 
     let currentMobileTab = 'player'; // 'player' | 'playlist' | 'fx' | 'sync' | 'help'
 
+    let lastWindowWidth = window.innerWidth;
+
     function getRightPanel() {
         return document.getElementById('player-right-panel') || document.getElementById('playlist-right-panel');
     }
@@ -21,7 +23,7 @@
         return isElectron || isMini;
     }
 
-    function setMobileTab(tab) {
+    function setMobileTab(tab, switchMode = true) {
         currentMobileTab = tab;
 
         const leftPanel = getLeftPanel();
@@ -75,28 +77,73 @@
                     leftPanel.style.display = 'flex';
                 }
 
-                if (tab === 'player') {
-                    if (typeof window.setPlayerMode === 'function') window.setPlayerMode('single');
-                } else if (tab === 'fx') {
-                    if (typeof window.setPlayerMode === 'function') window.setPlayerMode('fx');
-                } else if (tab === 'sync' || tab === 'remote') {
-                    if (typeof window.setPlayerMode === 'function') window.setPlayerMode('sync');
-                    if (tab === 'remote' && typeof window.switchSyncSubTab === 'function') {
-                        window.switchSyncSubTab('remote');
+                if (switchMode) {
+                    if (tab === 'player') {
+                        if (typeof window.setPlayerMode === 'function') window.setPlayerMode('single');
+                    } else if (tab === 'fx') {
+                        if (typeof window.setPlayerMode === 'function') window.setPlayerMode('fx');
+                    } else if (tab === 'sync' || tab === 'remote') {
+                        if (typeof window.setPlayerMode === 'function') window.setPlayerMode('sync');
+                        if (tab === 'remote' && typeof window.switchSyncSubTab === 'function') {
+                            window.switchSyncSubTab('remote');
+                        }
+                    } else if (tab === 'help') {
+                        if (typeof window.setPlayerMode === 'function') window.setPlayerMode('help');
                     }
-                } else if (tab === 'help') {
-                    if (typeof window.setPlayerMode === 'function') window.setPlayerMode('help');
                 }
             }
         }
 
-        if (window.MobileBridge && window.MobileBridge.hapticFeedback) {
+        if (switchMode && window.MobileBridge && window.MobileBridge.hapticFeedback) {
             window.MobileBridge.hapticFeedback('light');
+        }
+    }
+
+    // Called when player mode is switched externally (e.g. Mode pill buttons, shortcuts)
+    function syncMode(mode) {
+        let tab = 'player';
+        if (mode === 'fx') tab = 'fx';
+        else if (mode === 'sync') tab = 'sync';
+        else if (mode === 'help') tab = 'help';
+        else tab = 'player'; // 'single', 'dual', 'multi'
+
+        currentMobileTab = tab;
+
+        const navBtns = document.querySelectorAll('.mobile-nav-btn');
+        navBtns.forEach(btn => {
+            if (btn.dataset.tab === tab) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        if (!isDesktopOrMini() && window.innerWidth <= 768) {
+            document.body.classList.remove('tab-player', 'tab-playlist', 'tab-fx', 'tab-sync', 'tab-help');
+            document.body.classList.add('tab-' + tab);
+            const leftPanel = getLeftPanel();
+            const rightPanel = getRightPanel();
+            if (rightPanel) {
+                rightPanel.classList.add('hidden');
+                rightPanel.style.display = 'none';
+            }
+            if (leftPanel) {
+                leftPanel.classList.remove('hidden');
+                leftPanel.style.display = 'flex';
+            }
         }
     }
 
     // Handle resize to restore desktop dual-panel layout or apply mobile state
     window.addEventListener('resize', () => {
+        const currentWidth = window.innerWidth;
+        // On mobile keyboards opening/closing, window.innerHeight changes but innerWidth remains identical.
+        // We do not want to re-evaluate or switch tabs on vertical keyboard resizes!
+        if (currentWidth === lastWindowWidth && !isDesktopOrMini() && currentWidth <= 768) {
+            return;
+        }
+        lastWindowWidth = currentWidth;
+
         const leftPanel = getLeftPanel();
         const rightPanel = getRightPanel();
         if (isDesktopOrMini() || window.innerWidth > 768) {
@@ -110,7 +157,7 @@
                 rightPanel.style.display = '';
             }
         } else {
-            setMobileTab(currentMobileTab);
+            setMobileTab(currentMobileTab, false);
         }
     });
 
@@ -182,7 +229,14 @@
     // Auto-initialize mobile tab on startup immediately
     function autoInitMobile() {
         if (!isDesktopOrMini() && window.innerWidth <= 768) {
-            setMobileTab('player');
+            let initialTab = currentMobileTab || 'player';
+            if (typeof window.getCurrentMode === 'function') {
+                const curMode = window.getCurrentMode();
+                if (curMode === 'fx') initialTab = 'fx';
+                else if (curMode === 'sync') initialTab = 'sync';
+                else if (curMode === 'help') initialTab = 'help';
+            }
+            setMobileTab(initialTab, false);
         }
         initTouchGestures();
     }
@@ -199,6 +253,7 @@
 
     window.MobileNav = {
         setTab: setMobileTab,
-        getCurrentTab: () => currentMobileTab
+        getCurrentTab: () => currentMobileTab,
+        syncMode: syncMode
     };
 })(window);
