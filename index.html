@@ -518,7 +518,7 @@
         .mini-mode #mini-player-view { display: flex !important; height: 100% !important; border: none !important; }
         .mini-mode .w-4\/12, .mini-mode .w-5\/12, .mini-mode .md\:w-4\/12 { display: none !important; }
 
-        /* ⚡ Mini Player Text Marquee (長いタイトルの滑らかな自動スクロール) */
+        /* [Marquee] Mini Player Text Marquee (長いタイトルの滑らかな自動スクロール) */
         @keyframes mini-marquee-scroll {
             0%, 20% {
                 transform: translateX(0);
@@ -537,7 +537,7 @@
 </head>
 <body id="app-body" class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4 font-sans relative transition-colors duration-300">
 
-    <!-- 🚀 アプリ起動ロードスプラッシュ画面 (真ん中にアイコン & 周囲にロードのくるくる) -->
+    <!-- [Splash] アプリ起動ロードスプラッシュ画面 (真ん中にアイコン & 周囲にロードのくるくる) -->
     <div id="app-splash-screen" class="fixed inset-0 bg-[#0d0f17] z-[99999] flex items-center justify-center transition-opacity duration-300 ease-out select-none">
         <div class="relative w-28 h-28 flex items-center justify-center">
             <!-- 周囲で回転するロードのクルクル -->
@@ -629,7 +629,7 @@
                     <h2 id="single-title" class="text-xl sm:text-2xl font-bold truncate text-white mb-1 px-4 max-w-full">No Track Selected</h2>
                     <p id="single-status" class="text-xs sm:text-sm text-gray-400">リストから曲を選択してください</p>
                     <div id="single-game-loop-badge" class="hidden mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 flex items-center space-x-1 shadow-sm">
-                        <span>🎮</span><span>GAME LOOP DETECTED</span>
+                        <span>[LOOP]</span><span>GAME LOOP DETECTED</span>
                     </div>
                 </div>
 
@@ -674,7 +674,7 @@
                 <div id="piano-roll-panel" class="hidden bg-gray-900/95 border border-cyan-500/30 rounded-xl p-3 sm:p-4 my-2 max-h-[360px]">
                     <div class="flex justify-between items-center mb-2 pb-1.5 border-b border-gray-800">
                         <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center">
-                            <span class="mr-1.5">🎹</span> Waterfall Piano Visualizer
+                            <span class="mr-1.5">[PIANO]</span> Waterfall Piano Visualizer
                         </h4>
                         <button id="close-piano-roll-btn" class="text-gray-500 hover:text-white text-xs cursor-pointer">✕ 閉じる</button>
                     </div>
@@ -1017,7 +1017,7 @@
                         <div class="flex-1">
                             <div class="flex items-center justify-between mb-1">
                                 <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center space-x-1">
-                                    <span>🌀</span><span>3D Spatial Audio / 8D Orbit</span>
+                                    <span>[3D]</span><span>3D Spatial Audio / 8D Orbit</span>
                                 </span>
                                 <div class="flex flex-col items-end space-y-1 shrink-0">
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -1038,12 +1038,12 @@
                         </div>
                     </div>
 
-                    <!-- 🎤 Vocal Cut / Karaoke Panel -->
+                    <!-- [Vocal] Vocal Cut / Karaoke Panel -->
                     <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-rose-500/40 space-y-2">
                         <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
                             <div class="flex items-center space-x-2">
                                 <span class="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center space-x-1">
-                                    <span>🎤</span><span>Vocal Cut / Karaoke Mode</span>
+                                    <span>[VOCAL]</span><span>Vocal Cut / Karaoke Mode</span>
                                 </span>
                                 <span class="text-[9px] text-gray-400">センター定位のボーカルを逆位相低減</span>
                             </div>
@@ -1059,11 +1059,11 @@
                         </div>
                     </div>
 
-                    <!-- 🎚️ Stereo Pan, L/R Swap & Mono Mix Panel -->
+                    <!-- [Pan] Stereo Pan, L/R Swap & Mono Mix Panel -->
                     <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-cyan-500/40 space-y-2">
                         <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
                             <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center space-x-1">
-                                <span>🎚️</span><span>Stereo Pan & Channel Control</span>
+                                <span>[PAN]</span><span>Stereo Pan & Channel Control</span>
                             </span>
                             <div class="flex items-center space-x-1.5">
                                 <button id="fx-swap-lr-btn" class="text-[10px] px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 transition cursor-pointer" title="左右チャンネルを反転">Swap L/R</button>
@@ -1077,12 +1077,12 @@
                         </div>
                     </div>
 
-                    <!-- 👾 Retro 8-bit & 16-bit Bitcrusher Panel -->
+                    <!-- [Bitcrush] Retro 8-bit & 16-bit Bitcrusher Panel -->
                     <div class="mt-3 bg-gray-900/60 p-3 rounded-lg border border-yellow-500/40 space-y-2">
                         <div class="flex justify-between items-center border-b border-gray-700/60 pb-1.5">
                             <div class="flex items-center space-x-2">
                                 <span class="text-xs font-bold text-yellow-400 uppercase tracking-wider flex items-center space-x-1">
-                                    <span>👾</span><span>Retro Bitcrusher (8-bit / 16-bit)</span>
+                                    <span>[CRUSH]</span><span>Retro Bitcrusher (8-bit / 16-bit)</span>
                                 </span>
                                 <span class="text-[9px] text-gray-400">ドット絵・レトロゲーム音源エフェクト</span>
                             </div>
@@ -1762,7 +1762,7 @@
                                 <li><strong>SpessaSynth MIDI 再生 & Paused 状態の完全修正:</strong> 音声要素の非同期 pause イベントによる状態上書きを防ぎ、シーク・一時停止・連続再生を快適化。</li>
                                 <li><strong>動画クロスフェード後の背景クリーンアップ:</strong> クロスフェード完了時に前の動画が背景に残る問題を修正し、動画背景を完全にアンロード・同期。</li>
                                 <li><strong>Dual モードから Single モードへのトラック漏洩防止:</strong> Dual デッキで読み込んだ曲が Single モード側へ意図せず残留・再生されないようデッキ間を完全隔離。</li>
-                                <li><strong>大画面ビジュアル「🔮 Quantum Orb」新搭載:</strong> 何もなかった Cyber Grid を、プラズマコア・3Dオービット粒子リング・ベース衝撃波が躍動する大迫力の Quantum Orb に刷新。</li>
+                                <li><strong>大画面ビジュアル「[Quantum Orb]」新搭載:</strong> 何もなかった Cyber Grid を、プラズマコア・3Dオービット粒子リング・ベース衝撃波が躍動する大迫力の Quantum Orb に刷新。</li>
                                 <li><strong>プレイリスト JSON エクスポート/インポートの完全復元:</strong> ローカル絶対パスを保存し、JSON インポート時に Electron IPC 経由で実ファイルを自動取得・IndexedDB 登録・ライブラリ復元に対応。</li>
                             </ul>
                         </div>
@@ -2264,14 +2264,14 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <input type="text" id="playlist-search-input" placeholder="🔍 曲名で検索..." class="flex-1 min-w-0 bg-gray-900/90 text-xs text-gray-200 border border-gray-700/80 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
+                    <input type="text" id="playlist-search-input" placeholder="曲名・アーティスト・アルバムで検索..." class="flex-1 min-w-0 bg-gray-900/90 text-xs text-gray-200 border border-gray-700/80 rounded px-2.5 py-1 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <!-- Type Filter Buttons -->
                 <div class="flex items-center space-x-1 text-[10px] overflow-x-auto py-0.5">
                     <button id="filter-all-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-blue-500 bg-blue-500/20 text-blue-300 shrink-0" data-filter="all">All</button>
-                    <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50 shrink-0" data-filter="midi">🎹 MIDI</button>
-                    <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50 shrink-0" data-filter="audio">🎵 Audio</button>
-                    <button id="filter-video-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 hover:border-rose-500/50 shrink-0" data-filter="video">🎬 Video</button>
+                    <button id="filter-midi-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-yellow-300 hover:border-yellow-500/50 shrink-0" data-filter="midi">[MIDI] MIDI</button>
+                    <button id="filter-audio-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-green-300 hover:border-green-500/50 shrink-0" data-filter="audio">[AUDIO] Audio</button>
+                    <button id="filter-video-btn" class="filter-type-btn px-2 py-0.5 rounded-full border font-bold transition border-gray-700 bg-gray-800 text-gray-400 hover:text-rose-300 hover:border-rose-500/50 shrink-0" data-filter="video">[VIDEO] Video</button>
                 </div>
             </div>
             <!-- Playlists Section -->
@@ -2301,7 +2301,7 @@
                     <span>+</span><span>ファイル追加</span>
                 </button>
                 <button onclick="document.getElementById('folder-input').click()" class="flex-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold py-1.5 rounded transition flex justify-center items-center space-x-1" title="フォルダを追加">
-                    <span>📁</span><span>フォルダ追加</span>
+                    <span>[+]</span><span>フォルダ追加</span>
                 </button>
                 <button id="clear-playlist-btn" class="bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-500/30 text-xs font-bold py-1.5 px-2 rounded transition flex justify-center items-center" title="プレイリストを全消し">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="#f87171"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
@@ -2339,7 +2339,7 @@
         <div class="modal-content bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl space-y-5 text-gray-200">
             <div class="flex justify-between items-center border-b border-gray-800 pb-3">
                 <h3 class="text-lg font-bold text-white flex items-center space-x-2">
-                    <span>🎨</span>
+                    <span>[THEME]</span>
                     <span>テーマ・レイアウト & 背景</span>
                 </h3>
                 <button onclick="closeThemeModal()" class="text-gray-400 hover:text-white text-sm">✕ 閉じる</button>
@@ -2452,7 +2452,7 @@
             <div class="bg-gray-800/80 p-4 rounded-lg border border-rose-900/50 space-y-2">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-rose-300 uppercase tracking-wider flex items-center space-x-1.5">
-                        <span>🎬</span><span>動画再生時は背景を動画にする (Video Background)</span>
+                        <span>[VIDEO]</span><span>動画再生時は背景を動画にする (Video Background)</span>
                     </span>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="video-bg-toggle" class="sr-only peer" checked>
@@ -2466,7 +2466,7 @@
             <div class="bg-gray-800/80 p-4 rounded-lg border border-purple-900/50 space-y-3">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center space-x-1">
-                        <span>🌌</span><span>背景ビジュアライザー (Ambient Visualizer)</span>
+                        <span>[VISUAL]</span><span>背景ビジュアライザー (Ambient Visualizer)</span>
                     </span>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="bg-vis-toggle" class="sr-only peer" checked>
@@ -2521,7 +2521,7 @@
         <div class="bg-gray-900 border border-emerald-500/80 p-6 rounded-2xl shadow-[0_0_50px_rgba(16,185,129,0.3)] flex flex-col space-y-4 w-full max-w-md mx-4">
             <div class="flex justify-between items-center text-sm font-bold text-emerald-400 border-b border-gray-800 pb-3">
                 <span id="export-widget-title" class="flex items-center space-x-2 text-base">
-                    <span class="animate-spin text-emerald-400">⚡</span>
+                    <span class="animate-spin text-emerald-400">*</span>
                     <span>SoundFont 高速WAV書き出し中...</span>
                 </span>
                 <span id="export-widget-percent" class="font-mono text-xl text-emerald-300 font-extrabold">0%</span>
@@ -2533,7 +2533,7 @@
                 <span id="export-widget-detail" class="truncate max-w-[240px]">SoundFont 演奏キャプチャ中</span>
                 <span id="export-widget-eta" class="text-emerald-300 font-bold shrink-0 ml-2">残り時間計算中...</span>
             </div>
-            <p class="text-[11px] text-gray-400 text-center">⚠️ 書き出し中は音源保護のためアプリ操作をロックしています</p>
+            <p class="text-[11px] text-gray-400 text-center">[注意] 書き出し中は音源保護のためアプリ操作をロックしています</p>
             <button id="export-widget-stop-btn" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition cursor-pointer flex items-center justify-center space-x-2 shadow-lg border border-emerald-400/30">
                 <span>⏹️ 完了してWAV保存</span>
             </button>
@@ -2610,7 +2610,7 @@
     <!-- 実績解除ポップアップ通知コンテナ -->
     <div id="achievement-toast-container" class="fixed top-6 right-6 z-[10000] flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
-    <!-- 🐱 踊るスピニングキャット (Oia Uia!) イースターエッグ コンテナ -->
+    <!-- [Easter Egg] 踊るスピニングキャット (Oia Uia!) コンテナ -->
     <div id="easter-cat-container" class="fixed bottom-6 right-6 z-[9990] hidden select-none cursor-pointer" onclick="onEasterCatClicked(event)">
         <div class="relative flex flex-col items-center bg-gray-900/90 backdrop-blur-md px-3 py-2 rounded-xl border border-pink-500/60 shadow-[0_0_20px_rgba(236,72,153,0.4)]">
             <button onclick="hideEasterCat(event)" class="absolute -top-2 -right-2 bg-gray-800 text-gray-400 hover:text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] border border-gray-600 shadow" title="close">x</button>
@@ -3467,7 +3467,7 @@
                 searchInput.addEventListener('input', (e) => {
                     playlistSearchQuery = e.target.value;
                     updatePlaylistUI();
-                    // 🐱 Easter Egg: type 'cat' or 'uia' to summon the spinning cat
+                    // [Easter Egg] Easter Egg: type 'cat' or 'uia' to summon the spinning cat
                     const q = e.target.value.toLowerCase().trim();
                     if (q === 'cat' || q === 'uia' || q === 'oia' || q === 'oia uia') {
                         triggerEasterCat('search');
@@ -3536,7 +3536,7 @@
                     isBgVideoEnabled = videoBgToggle.checked;
                     localStorage.setItem('ost_video_bg_enabled', isBgVideoEnabled ? 'true' : 'false');
                     updateVideoBackgroundState(isCurrentTrackVideoPlaying());
-                    showNotification(isBgVideoEnabled ? "🎬 動画背景連動: 有効 (ON)" : "🎬 動画背景連動: 無効 (OFF)");
+                    showNotification(isBgVideoEnabled ? "[VIDEO] 動画背景連動: 有効 (ON)" : "[VIDEO] 動画背景連動: 無効 (OFF)");
                 });
             }
 
@@ -3881,7 +3881,7 @@
                 
                 let key = e.key;
 
-                // 🎮 Konami Code detection
+                // [Easter Egg] Konami Code detection
                 const lowerKey = key.toLowerCase();
                 const expectedKey = KONAMI_SEQUENCE[konamiIndex];
                 if (key === expectedKey || lowerKey === expectedKey) {
@@ -3890,7 +3890,7 @@
                         konamiIndex = 0;
                         triggerAchievement('konami_code');
                         triggerEasterCat('konami');
-                        showNotification("🎮 KONAMI CODE UNLOCKED! 🌟 宇宙の真理へ到達！");
+                        showNotification("[KONAMI] KONAMI CODE UNLOCKED! 宇宙の真理へ到達！");
                     }
                 } else {
                     konamiIndex = (key === 'ArrowUp') ? 1 : 0;
@@ -4250,7 +4250,7 @@
             return synth;
         }
 
-        // --- ⚡ 高性能インメモリオーディオRAMキャッシュマネージャー ---
+        // --- [Cache] 高性能インメモリオーディオRAMキャッシュマネージャー ---
         const AudioCacheManager = {
             blobUrlCache: new Map(),
             midiArrayBufferCache: new Map(),
@@ -4347,6 +4347,27 @@
                 return null;
             },
 
+            releaseTrack(track) {
+                if (!track) return;
+                const key = track.id || track.name;
+                if (this.blobUrlCache.has(key)) {
+                    const url = this.blobUrlCache.get(key);
+                    try { URL.revokeObjectURL(url); } catch (e) {}
+                    this.blobUrlCache.delete(key);
+                }
+                if (this.midiArrayBufferCache.has(key)) {
+                    this.midiArrayBufferCache.delete(key);
+                }
+            },
+
+            clearAll() {
+                for (const url of this.blobUrlCache.values()) {
+                    try { URL.revokeObjectURL(url); } catch (e) {}
+                }
+                this.blobUrlCache.clear();
+                this.midiArrayBufferCache.clear();
+            },
+
             preloadNextTrack(currentIndex) {
                 if (!playlist || playlist.length === 0) return;
                 const nextIdx = (currentIndex + 1) % playlist.length;
@@ -4361,7 +4382,7 @@
             }
         };
 
-        // --- ⚡ 超軽量MIDIチャンネルLEDバッチ描画マネージャー ---
+        // --- [MIDI] 超軽量MIDIチャンネルLEDバッチ描画マネージャー ---
         const midiLedActiveUntil = new Float64Array(16);
         let isMidiLedLoopRunning = false;
         let cachedMidiLedElements = null;
@@ -4432,7 +4453,7 @@
                 
                 if (cmd === 0x90 && msg[2] > 0) {
                     if (isChannelSilenced) {
-                        // ⚡ 完全消音ガード: ミュート/非ソロ時はノート発音イベント自体を破棄して貫通を完全阻止
+                        // [MuteGuard] 完全消音ガード: ミュート/非ソロ時はノート発音イベント自体を破棄して貫通を完全阻止
                         return;
                     }
                     triggerMidiChannelLed(ch);
@@ -4459,7 +4480,7 @@
                     const ctrl = msg[1];
                     // Volume (CC7), Expression (CC11), Volume LSB (CC39), Expression LSB (CC43)
                     if (isChannelSilenced && (ctrl === 7 || ctrl === 11 || ctrl === 39 || ctrl === 43)) {
-                        // ⚡ 音量/エクスプレッション指定を 0 に固定して貫通を防止
+                        // [MuteGuard] 音量/エクスプレッション指定を 0 に固定して貫通を防止
                         msg[2] = 0;
                         originalSend(msg, time);
                     } else if (ctrl === 7) {
@@ -4482,7 +4503,7 @@
             };
         }
 
-        // 🎵 128 General MIDI Instruments Standard List
+        // [MIDI] 128 General MIDI Instruments Standard List
         const GM_INSTRUMENTS = [
             "Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
             "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavinet",
@@ -5629,6 +5650,10 @@
 
         async function loadMidiData(synth, arrayBuffer, destNode) {
             if (!synth) return;
+            if (!arrayBuffer || !(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength === 0) {
+                console.warn("loadMidiData: 無効なMIDIデータです (empty or invalid ArrayBuffer)");
+                throw new Error("無効なMIDIデータです");
+            }
             if (audioContext && audioContext.state === 'suspended') {
                 await audioContext.resume().catch(e=>console.warn(e));
             }
@@ -5644,7 +5669,7 @@
                     synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
                 }
 
-                // ⚡ 新しい曲の読み込み時は再生位置・シークバーを 0 に完全リセット
+                // [Reset] 新しい曲の読み込み時は再生位置・シークバーを 0 に完全リセット
                 if (typeof synth.locateMIDI === 'function') {
                     try { synth.locateMIDI(0); } catch(e){}
                 }
@@ -5921,7 +5946,7 @@
                 }
             }
             
-            // ⚡ タイムシーク後もソロ/ミュート/音量/カスタム楽器設定を完全維持・再適用
+            // [Sync] タイムシーク後もソロ/ミュート/音量/カスタム楽器設定を完全維持・再適用
             applyMidiChannelStates(synth);
         }
 
@@ -5929,10 +5954,18 @@
         function initAudio() {
             if (audioContext) return;
             const AC = window.AudioContext || window.webkitAudioContext;
-            audioContext = new AC({
-                latencyHint: 'playback', // ⚡ 音楽再生用の広帯域ジッターバッファ（処理落ち・ラグによる音飛びを完全防止）
-                sampleRate: 44100
-            });
+            try {
+                audioContext = new AC({
+                    latencyHint: 'playback', // [Audio] 広帯域ジッターバッファ
+                    sampleRate: 44100
+                });
+            } catch (e1) {
+                try {
+                    audioContext = new AC({ latencyHint: 'playback' });
+                } catch (e2) {
+                    audioContext = new AC();
+                }
+            }
 
             const bgVideoEl = document.getElementById('custom-bg-video');
             if (bgVideoEl && players[0] !== bgVideoEl) {
@@ -6037,6 +6070,21 @@
                 singleSources[i] = src;
                 singleGainNodes[i] = gain;
 
+                p.addEventListener('error', (e) => {
+                    console.warn(`Player ${i} error:`, e, p.error);
+                    if (currentMode === 'single' || currentMode === 'sync') {
+                        if (i === currentSinglePlayerIndex) {
+                            isSinglePlaying = false;
+                            updateSingleUIState();
+                        }
+                    } else if (currentMode === 'dual') {
+                        updateDualUIState(i);
+                    } else if (currentMode === 'fx') {
+                        isFxPlaying = false;
+                        updateFxUIState(false);
+                    }
+                });
+
                 p.addEventListener('timeupdate', () => {
                     if (currentMode === 'single' || currentMode === 'sync') handleSingleTimeUpdate(i);
                     else if (currentMode === 'dual') handleDualTimeUpdate(i);
@@ -6044,8 +6092,11 @@
                 });
                 p.addEventListener('ended', () => {
                     if (currentMode === 'single' || currentMode === 'sync') handleSingleEnded(i);
+                    else if (currentMode === 'dual') {
+                        updateDualUIState(i);
+                    }
                     else if (currentMode === 'fx') {
-                        if(isFxLoop) { p.currentTime=0; p.play(); }
+                        if(isFxLoop) { p.currentTime=0; p.play().catch(()=>{}); }
                         else { isFxPlaying=false; updateFxUIState(false); }
                     }
                 });
@@ -6086,7 +6137,7 @@
             drawVisualizer();
         }
 
-        // ⚡ ScriptProcessorバイパス・ネイティブ直結ルーティング（通常時は最速C++スレッドで直結処理）
+        // [Routing] ScriptProcessorバイパス・ネイティブ直結ルーティング（通常時は最速C++スレッドで直結処理）
         function updateMasterEffectsRouting() {
             if (!audioContext || !masterHighpassNode || !masterGainNode) return;
             
@@ -6450,7 +6501,7 @@
             if (barEl) barEl.style.width = `${clamped}%`;
             if (title && titleEl) {
                 if (clamped >= 100) {
-                    titleEl.innerHTML = `<span>✨</span><span>${title}</span>`;
+                    titleEl.innerHTML = `<span>[実績]</span><span>${title}</span>`;
                 } else {
                     titleEl.innerHTML = `<span class="animate-spin">⏳</span><span>${title}</span>`;
                 }
@@ -6590,7 +6641,7 @@
             if (widget) widget.classList.remove('hidden');
             
             updateExportProgress(0, 'WAV書き出し準備中...', `MIDIトラック (${track.name})`);
-            showNotification(`⚡ SoundFont (${sfName}) で (${track.name}) をWAV書き出し中...`);
+            showNotification(`[書き出し] SoundFont (${sfName}) で (${track.name}) をWAV書き出し中...`);
 
             const stopBtn = document.getElementById('export-widget-stop-btn');
             if (stopBtn) stopBtn.classList.remove('hidden');
@@ -6682,7 +6733,7 @@
                 finishExportState();
 
                 updateExportProgress(100, '書き出し完了！', `${cleanName}_${cleanSf}.wav を保存しました`);
-                showNotification(`✨ SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
+                showNotification(`[完了] SoundFont WAV書き出し完了！ ${cleanName}_${cleanSf}.wav を保存しました！`);
                 hideExportProgressWidget(2500);
 
             } catch (err) {
@@ -6818,7 +6869,11 @@
                 AudioCacheManager.preloadNextTrack(index);
                 p.play().then(() => {
                     updateFxUIState(true);
-                }).catch(e=>console.log(e));
+                }).catch(e => {
+                    console.warn("FX p.play error:", e);
+                    isFxPlaying = false;
+                    updateFxUIState(false);
+                });
             }
         }
         
@@ -6965,7 +7020,7 @@
             notifySstpTrackPlay(track);
             if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
 
-            // 🏆 Achievement triggers on track load+play
+            // [Achievement] triggers on track load+play
             if (autoPlay) {
                 triggerAchievement('first_play');
                 achievementsState.stats.playCount = (achievementsState.stats.playCount || 0) + 1;
@@ -7003,31 +7058,39 @@
                 if (singleGainNodes[0] && singleGainNodes[0].gain) {
                     singleGainNodes[0].gain.setValueAtTime(parseFloat(ui.single.vol.value) || 0.8, audioContext.currentTime);
                 }
-                const synth = getMidiSynth('main');
-                const arrayBuffer = await AudioCacheManager.getMidiBuffer(track);
-                await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
-                
-                initMidiMixerUI();
-                document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
-                document.getElementById('single-piano-roll-btn').classList.remove('hidden');
-                document.getElementById('single-chord-wheel-btn').classList.remove('hidden');
-                document.getElementById('single-midi-export-btn').classList.remove('hidden');
-                
-                ui.single.title.textContent = track.name + " (MIDI)";
-                showNotification(`▶ 再生中: ${track.name}`);
-                AudioCacheManager.preloadNextTrack(index); // ⚡ 次の曲をRAM先行キャッシュ
-                if(autoPlay) {
-                    isSinglePlaying = true;
-                    synth.playMIDI();
-                    updateSingleUIState();
-                }
-
-                // ⚡ P2P Sync Broadcast (Host)
-                if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
-                    window.syncEngine.broadcastTrack(track, arrayBuffer);
-                    if (autoPlay) {
-                        window.syncEngine.broadcastPlayback(true, 0);
+                try {
+                    const synth = getMidiSynth('main');
+                    const arrayBuffer = await AudioCacheManager.getMidiBuffer(track);
+                    await loadMidiData(synth, arrayBuffer, singleGainNodes[0]);
+                    
+                    initMidiMixerUI();
+                    document.getElementById('single-midi-mixer-btn').classList.remove('hidden');
+                    document.getElementById('single-piano-roll-btn').classList.remove('hidden');
+                    document.getElementById('single-chord-wheel-btn').classList.remove('hidden');
+                    document.getElementById('single-midi-export-btn').classList.remove('hidden');
+                    
+                    ui.single.title.textContent = track.name + " (MIDI)";
+                    showNotification(`▶ 再生中: ${track.name}`);
+                    AudioCacheManager.preloadNextTrack(index); // [Preload] 次の曲をRAM先行キャッシュ
+                    if(autoPlay) {
+                        isSinglePlaying = true;
+                        synth.playMIDI();
+                        updateSingleUIState();
                     }
+
+                    // [Sync] P2P Sync Broadcast (Host)
+                    if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
+                        window.syncEngine.broadcastTrack(track, arrayBuffer);
+                        if (autoPlay) {
+                            window.syncEngine.broadcastPlayback(true, 0);
+                        }
+                    }
+                } catch (err) {
+                    console.error("MIDI track load error:", err);
+                    showNotification(`[エラー] MIDIトラックの読み込みに失敗しました: ${track.name}`);
+                    isSinglePlaying = false;
+                    updateSingleUIState();
+                    return;
                 }
 
             } else {
@@ -7057,19 +7120,21 @@
                 if (singleGainNodes[1] && singleGainNodes[1].gain) singleGainNodes[1].gain.value = 0;
 
                 showNotification(`▶ 再生中: ${track.name}`);
-                AudioCacheManager.preloadNextTrack(index); // ⚡ 次の曲をRAM先行キャッシュ
+                AudioCacheManager.preloadNextTrack(index); // [Preload] 次の曲をRAM先行キャッシュ
                 if(autoPlay) {
                     isSinglePlaying = true;
                     updateSingleUIState();
                     p.play().catch(e => {
                         console.warn("p.play error:", e);
+                        isSinglePlaying = false;
+                        updateSingleUIState();
                     });
                 } else {
                     isSinglePlaying = false;
                     updateSingleUIState();
                 }
 
-                // ⚡ P2P Sync Broadcast (Host)
+                // [Sync] P2P Sync Broadcast (Host)
                 if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
                     AudioCacheManager.getTrackBuffer(track).then(buf => {
                         if (buf) {
@@ -7213,7 +7278,11 @@
                         return;
                     }
                     if(p.paused) {
-                        p.play().catch(e => console.warn(e));
+                        p.play().catch(e => {
+                            console.warn("toggleSinglePlay error:", e);
+                            isSinglePlaying = false;
+                            updateSingleUIState();
+                        });
                         isSinglePlaying = true;
                     } else {
                         p.pause();
@@ -7253,7 +7322,7 @@
             const p = players[i];
             if(isNaN(p.duration)) return;
 
-            // 🎮 Game Loop Point Auto-Seek (0ms Instant Seamless Jump)
+            // [GameLoop] Auto-Seek (0ms Instant Seamless Jump)
             const currentTrack = playlist[singleTrackIndex];
             if (currentTrack && currentTrack.gameLoop && currentTrack.gameLoop.hasLoop && (loopMode === 3 || loopMode === 2 || loopMode === 0)) {
                 const gl = currentTrack.gameLoop;
@@ -7776,7 +7845,7 @@
             const geom = calculatePianoKeyGeometry(W, H, keyboardHeight);
             const keyboardY = geom.keyboardY;
             const fallAreaHeight = keyboardY;
-            const lookaheadSec = 1.1; // ⚡ 高速（1.1s）デフォルト固定のダイナミック滝表示
+            const lookaheadSec = 1.1; // [Visualizer] 高速（1.1s）デフォルト固定のダイナミック滝表示
 
             // Draw subtle vertical lane guidelines
             ctx.lineWidth = 0.5;
@@ -7988,6 +8057,8 @@
             initAudio();
             if(audioContext.state === 'suspended') audioContext.resume();
             
+            stopDualDeck(activeDualDeckIndex);
+            
             const track = playlist[trackIndex];
             const deckKey = activeDualDeckIndex === 0 ? 'dualA' : 'dualB';
             dualTracks[activeDualDeckIndex] = track;
@@ -8046,7 +8117,7 @@
             } else {
                 const p = players[i];
                 if(!p.src) return;
-                if(p.paused) p.play(); else p.pause();
+                if(p.paused) p.play().catch(e => console.warn(e)); else p.pause();
             }
         }
 
@@ -8274,13 +8345,13 @@
 
             if (track.isMidi) {
                 const synth = getMidiSynth(deck);
-                const buf = await track.file.arrayBuffer();
+                const buf = await AudioCacheManager.getMidiBuffer(track);
                 await loadMidiData(synth, buf, deck.gainNode);
                 deck.ui.title.textContent = track.name + " (MIDI)";
                 deck.player.src = "";
             } else {
-                if (!track.url && track.file) track.url = URL.createObjectURL(track.file);
-                deck.player.src = track.url;
+                const trackUrl = await AudioCacheManager.getTrackUrl(track);
+                deck.player.src = trackUrl;
                 deck.player.currentTime = 0;
                 deck.ui.title.textContent = track.name;
             }
@@ -8529,7 +8600,7 @@
             loopMode = (loopMode + 1) % 4; // 0: Off, 1: All, 2: 1, 3: Game Loop
             updateLoopButtonUI();
             if (loopMode === 3) {
-                showNotification("🎮 ゲームサントラ・シームレス無限ループ (ON)");
+                showNotification("[LOOP] ゲームサントラ・シームレス無限ループ (ON)");
             }
             if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
                 window.syncEngine.broadcastLoopMode(loopMode);
@@ -8548,7 +8619,7 @@
             const filteredTracks = playlist.map((track, idx) => ({ ...track, originalIndex: idx }))
                 .filter(item => {
                     const matchPlaylist = (activePlaylist === 'All Tracks' || item.playlistName === activePlaylist);
-                    const matchQuery = !query || item.name.toLowerCase().includes(query) || (item.artist && item.artist.toLowerCase().includes(query));
+                    const matchQuery = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.tagTitle && item.tagTitle.toLowerCase().includes(query)) || (item.artist && item.artist.toLowerCase().includes(query)) || (item.album && item.album.toLowerCase().includes(query));
                     const matchType = playlistFilterType === 'all' 
                         || (playlistFilterType === 'midi' && item.isMidi) 
                         || (playlistFilterType === 'video' && item.isVideo) 
@@ -9606,7 +9677,7 @@
             }
         }
 
-        // 👻 SSP (伺か) SSTP Manager
+        // [SSTP] SSP (伺か) SSTP Manager
         let isSstpEnabled = localStorage.getItem('ost_sstp_enabled') !== '0'; // Default ON
         let sstpScriptTemplate = localStorage.getItem('ost_sstp_script') || '\\0\\s[0]『{title}』({artist})を再生中だよ！\\e';
         let sstpPort = parseInt(localStorage.getItem('ost_sstp_port')) || 9801;
@@ -9644,7 +9715,7 @@
 
         function testSstpSpeech() {
             if (!window.electronAPI || !window.electronAPI.testSstp) {
-                showNotification("⚠️ Electron環境でのみ動作します");
+                showNotification("[警告] Electron環境でのみ動作します");
                 return;
             }
             saveSstpSettings();
@@ -9652,7 +9723,7 @@
                 port: sstpPort,
                 script: sstpScriptTemplate
             });
-            showNotification("👻 SSP(伺か)へテスト発話を送信しました！");
+            showNotification("[SSTP] SSP(伺か)へテスト発話を送信しました！");
         }
         window.testSstpSpeech = testSstpSpeech;
 
@@ -10053,7 +10124,7 @@
 
         function testDiscordPresence() {
             if (!window.electronAPI || !window.electronAPI.testDiscord) {
-                showNotification("⚠️ Electron環境でのみ動作します");
+                showNotification("[警告] Electron環境でのみ動作します");
                 return;
             }
             saveDiscordSettings();
@@ -11535,7 +11606,7 @@
                         if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
 
                         if (restoredCount > 0) {
-                            showNotification(`✨ JSONから ${restoredCount} 曲をライブラリに追加しました！` + (missingPaths > 0 ? ` (${missingPaths}曲のパスが見つかりませんでした)` : ''));
+                            showNotification(`[復元] JSONから ${restoredCount} 曲をライブラリに追加しました！` + (missingPaths > 0 ? ` (${missingPaths}曲のパスが見つかりませんでした)` : ''));
                         } else {
                             showNotification("プレイリストフォルダ情報を読み込みました (曲ファイルのパスが見つかりませんでした)");
                         }
@@ -12360,7 +12431,7 @@
             showNotification(`▶ ${addedCount} 曲をライブラリに追加しました`);
             if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
 
-            // 🏆 Post-add achievement checks
+            // [Achievement] Post-add achievement checks
             if (playlist.length >= 30) triggerAchievement('playlist_30');
             const hasVideo = news.some(f => isVideoFile && isVideoFile(f));
             if (hasVideo) triggerAchievement('video_cinema');
@@ -12859,6 +12930,7 @@
             
             if (all) {
                 stopAllAudio();
+                AudioCacheManager.clearAll();
                 try { await clearDB(); } catch(e){}
                 playlist = [];
                 ui.single.title.textContent = "No Track Selected";
@@ -12873,6 +12945,7 @@
                     try { await deleteTrackFromDB(t.id); } catch(e){}
                 }
                 const removedName = t ? t.name : '';
+                AudioCacheManager.releaseTrack(t);
                 playlist.splice(idx, 1);
                 
                 if (currentMode === 'single') {
@@ -13323,7 +13396,7 @@
                     ctx.shadowBlur = 0;
 
                 } else if (visualType === 'orb' || visualType === 'grid') {
-                    // --- 5. 🔮 3D Quantum Plasma Orb & Orbital Particle Galaxy ---
+                    // --- 5. [Visual] 3D Quantum Plasma Orb & Orbital Particle Galaxy ---
                     const cx = w / 2;
                     const cy = h / 2 - 20;
                     visOrbRotation += 0.015 + (bassNorm * 0.04);

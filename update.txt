@@ -3,6 +3,35 @@ OST Player - 開発・アップデート履歴 (Update Log)
 ================================================================================
 
 --------------------------------------------------------------------------------
+[v3.7.2] - 2026-10-09
+--------------------------------------------------------------------------------
+【音響ライフサイクル堅牢化・デッキ状態同期・メモリ解放・プレイリスト検索強化 & 全絵文字完全撤廃】
+・Web Audio API 初期化多段フォールバック (AudioContext Hardening):
+  - 一部 Android 端末や外付け DAC、Bluetooth ヘッドセット環境において、sampleRate: 44100 固定生成で NotSupportedError 等がスローされる問題を解消。
+  - sampleRate 指定 -> latencyHint: 'playback' のみ -> 引数なしデフォルトコンストラクタの段階的フォールバックを実装し、全プラットフォームでの確実な音声エンジン初期化を保証。
+・HTML5 Audio (players) エラーハンドリング & 再生失敗時リカバリ:
+  - players[0] / players[1] に error イベントリスナーを追加し、デコードエラーやネットワーク切断時に isSinglePlaying などの内部状態と再生ボタン UI を安全に停止状態へ復旧。
+  - loadSingleTrack, toggleSinglePlay, loadFxTrack における p.play() の Promise catch ハンドラを強化し、再生失敗時にも再生中フラグが残らないよう防護。
+・Dual モード終了検知 & デッキ音源完全隔離:
+  - Deck A / Deck B の再生終了時 (ended イベント) に dual UI 状態を正しく更新する処理を追加し、曲終了後も再生アイコンが残り続ける不具合を解消。
+  - 再生中のデッキに対して別の楽曲をロードした際、ロード処理前に stopDualDeck を確実に実行して旧音源 (MIDI/Audio) の残留・二重発音を防止。
+・Multi Deck の P2P / キャッシュ音源対応:
+  - loadToMultiDeck において track.file.arrayBuffer() を直接呼び出していた箇所を、AudioCacheManager.getMidiBuffer および AudioCacheManager.getTrackUrl に刷新。
+  - P2P 受信楽曲や IndexedDB 復元楽曲など track.file が存在しない環境でも TypeError を起こさず正常にロード・再生可能に修正。
+・AudioCacheManager メモリ解放 & オブジェクトURLリーク解消:
+  - releaseTrack(track) および clearAll() メソッドを新設。
+  - 単一楽曲の削除時およびプレイリスト全曲クリア時に、生成された Blob URL を URL.revokeObjectURL で即座に破棄し、ArrayBuffer キャッシュを解放して長時間のリスニングにおけるメモリ蓄積を防止。
+・プレイリスト検索の ID3 タグ対応 (Enhanced Search):
+  - ファイル名 (name) だけでなく、ID3 タグの楽曲タイトル (tagTitle)、アーティスト名 (artist)、アルバム名 (album) のすべてを対象に検索クエリを評価。
+  - ファイル名が英数字コードの楽曲でもタイトル名やアルバム名で即座に絞り込み可能に。
+・MIDI 読み込みバリデーション & 例外保護:
+  - loadMidiData において null / 空の ArrayBuffer に対するガードチェックを追加。
+  - loadSingleTrack 内で MIDI データ解析・初期化を try/catch で保護し、壊れた MIDI ファイルが選択された場合もアプリがクラッシュせず安全に通知表示と状態復帰を行うよう強化。
+・全絵文字の完全撤廃 (Emoji Clean Codebase):
+  - index.html 内に残存していたすべての絵文字 (通知、ボタン、ヘッダー、コメント、トースト) を検出・全置換。
+  - 規約に準拠したクリーンなテキストバッジ ([LOOP], [PIANO], [3D], [VOCAL], [PAN], [CRUSH], [THEME], [VIDEO], [VISUAL], [警告], [SSTP], [復元] 等) へ統一。
+
+--------------------------------------------------------------------------------
 [v3.7.1] - 2026-10-09
 --------------------------------------------------------------------------------
 【Android バッテリー消費・過熱の根本解消 & Cover Wall 重複ジャケット集約 & 実績・UI洗練】
