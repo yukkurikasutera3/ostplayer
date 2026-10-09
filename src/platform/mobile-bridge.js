@@ -84,7 +84,9 @@
         },
 
         // Screen WakeLock (Keep screen on during active visualizer / music playback)
-        requestWakeLock: async function() {
+        requestWakeLock: async function(force = false) {
+            const isEnabled = localStorage.getItem('ost_wakelock_enabled') === '1';
+            if (!isEnabled && !force) return;
             if ('wakeLock' in navigator && !wakeLock) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
@@ -102,6 +104,10 @@
                     wakeLock = null;
                 } catch (e) {}
             }
+        },
+
+        isWakeLockActive: function() {
+            return !!wakeLock;
         }
     };
 })(window);

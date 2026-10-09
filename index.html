@@ -17,7 +17,7 @@
             if (_savedTheme === 'midnight' || _savedTheme === 'deepsea') { _savedTheme = 'cyberpunk'; localStorage.setItem('ost_theme', _savedTheme); }
             document.documentElement.classList.add('theme-' + _savedTheme);
             const _savedLayout = localStorage.getItem('ost_layout');
-            document.documentElement.dataset.layout = ['library', 'cover', 'album', 'shelf', 'now', 'stage', 'term', 'lcd'].includes(_savedLayout) ? _savedLayout : 'split';
+            document.documentElement.dataset.layout = ['library', 'cover', 'album', 'shelf', 'stage', 'term', 'lcd'].includes(_savedLayout) ? _savedLayout : 'split';
             if (window.electronAPI || (window.process && window.process.type)) {
                 document.documentElement.classList.add('desktop-app');
                 document.addEventListener('DOMContentLoaded', () => {
@@ -341,7 +341,7 @@
         }
         html[data-midi-open="1"]:is([data-layout="library"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="lcd"]) #playlist, html[data-midi-open="1"][data-layout="cover"] #cover-wall { visibility: hidden; }
 
-        /* ===== Layout: Album browser / Shelf / Now playing ===== */
+        /* ===== Layout: Album browser / Shelf ===== */
         #album-sidebar, #shelf-strip { display: none; }
         .alb-item { display: flex; align-items: center; gap: .5rem; text-align: left; padding: .35rem .5rem; border-radius: .4rem; font-size: .8rem; color: inherit; background: transparent; border: 0; cursor: pointer; min-width: 0; }
         .alb-item:hover { background: rgba(127,127,127,.18); }
@@ -362,8 +362,6 @@
                 grid-template-areas: "top" "shelf" "tool" "tool2" "list" "foot" "bar" "lfoot"; }
             html[data-layout="shelf"] #shelf-strip { grid-area: shelf; display: flex; align-items: flex-end; gap: 4px; padding: .9rem 1.25rem 0; overflow-x: auto; overflow-y: hidden; min-height: 130px; border-bottom: 5px solid var(--theme-border, rgba(75,85,99,.6)); }
             html[data-layout="album"] #player-right-panel > div:has(#playlist-select), html[data-layout="shelf"] #player-right-panel > div:has(#playlist-select) { grid-area: tool2; }
-            html[data-skin="now"] #player-left-panel { width: 72%; }
-            html[data-skin="now"] #player-right-panel { width: 28%; }
         }
 
         /* ===== Layout: Visualizer stage (既存の背景ビジュアライザーを主役に) / Terminal (文字主体) ===== */
@@ -440,6 +438,31 @@
         html[data-tiles="1"] body:not(.mini-mode) #cover-wall .cw-grid { grid-template-columns: repeat(auto-fill, minmax(min(var(--cw-size, 132px), 45%), 1fr)); gap: .6rem; padding: .5rem .75rem 1rem; }
         .cw-actions button { width: 1.5rem; height: 1.5rem; border-radius: .35rem; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: .75rem; cursor: pointer; }
         .cw-empty { grid-column: 1 / -1; text-align: center; padding: 2rem; opacity: .7; font-size: .85rem; }
+        /* Cover wall: 同じジャケットの曲をまとめる(スタック表示 + 展開パネル) */
+        #cover-wall .cw-head .cw-toggle { margin-right: auto; display: inline-flex; align-items: center; gap: .35rem; font-size: .7rem; padding: .2rem .6rem; border-radius: 9999px; border: 1px solid var(--theme-border, rgba(75,85,99,.8)); color: inherit; background: transparent; cursor: pointer; transition: background-color .15s, border-color .15s; }
+        #cover-wall .cw-head .cw-toggle svg { width: 14px; height: 14px; flex: none; }
+        #cover-wall .cw-head .cw-toggle[aria-pressed="true"] { background: rgba(59,130,246,.28); border-color: #3b82f6; font-weight: 600; }
+        .cw-grid.cw-dense { grid-auto-flow: row dense; }
+        .cw-group .cw-art { box-shadow: 3px -3px 0 -1px color-mix(in srgb, var(--theme-border, #4b5563) 85%, transparent), 6px -6px 0 -2px color-mix(in srgb, var(--theme-border, #4b5563) 55%, transparent); overflow: hidden; }
+        .cw-tile.cw-group { content-visibility: visible; }
+        .cw-group.open .cw-art { border: 2px solid #3b82f6; }
+        .cw-count { position: absolute; right: .3rem; bottom: .3rem; display: inline-flex; align-items: center; gap: .2rem; font-size: .62rem; font-weight: 700; padding: .05rem .4rem; border-radius: 9999px; background: rgba(0,0,0,.72); color: #fff; }
+        .cw-count svg { width: 10px; height: 10px; }
+        .cw-chev { display: inline-block; transition: transform .2s; }
+        .cw-group.open .cw-chev { transform: rotate(180deg); }
+        .cw-panel { grid-column: 1 / -1; border-radius: .75rem; border: 1px solid color-mix(in srgb, #3b82f6 55%, transparent); background: color-mix(in srgb, var(--theme-bg-card, #0f172a) 80%, transparent); padding: .6rem .75rem .8rem; animation: cwPanelIn .2s ease-out; }
+        @keyframes cwPanelIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+        .cw-panel-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; min-width: 0; }
+        .cw-panel-thumb { width: 36px; height: 36px; border-radius: .35rem; overflow: hidden; flex: none; background: rgba(127,127,127,.2); }
+        .cw-panel-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .cw-panel-info { flex: 1; min-width: 0; }
+        .cw-panel-title { font-size: .85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-panel-sub { font-size: .68rem; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cw-panel-head button { display: inline-flex; align-items: center; gap: .3rem; flex: none; font-size: .7rem; padding: .25rem .65rem; border-radius: 9999px; border: 1px solid var(--theme-border, rgba(75,85,99,.8)); color: inherit; background: transparent; cursor: pointer; }
+        .cw-panel-head button:hover { background: rgba(127,127,127,.18); }
+        .cw-panel-head button svg { width: 12px; height: 12px; }
+        .cw-panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cw-size, 132px), 1fr)); gap: .9rem; }
+        html[data-tiles="1"] body:not(.mini-mode) #cover-wall .cw-panel-grid { grid-template-columns: repeat(auto-fill, minmax(min(var(--cw-size, 132px), 45%), 1fr)); gap: .6rem; }
         @media (min-width: 768px) {
             html:is([data-layout="cover"], [data-layout="term"]) #main-app-container { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
                 grid-template-areas: "top" "tool" "tool2" "list" "foot" "bar" "lfoot"; }
@@ -1489,7 +1512,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.7.0</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.7.1</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1573,9 +1596,22 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.7.0 Cross-Platform Remote & Batch Sync</span>
+                        <span class="text-[10px] text-emerald-300 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">v3.7.1 Battery Optimization & Cover Wall Grouping</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.7.1 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
+                            <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.7.1] Androidバッテリー消費・過熱の根本解消 & Cover Wall 重複ジャケット集約</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-09</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>Android / モバイル超省電力化 (FIX#27):</strong> 画面常時点灯 (Screen WakeLock) のオプトイン化（デフォルトOFF・画面消灯＆バックグラウンド再生許可）、停止時および画面消灯/非表示時 (document.hidden) の全描画ループ即時停止 (CPU/GPU負荷 0%)、Canvasテクスチャ毎フレーム再生成の廃止、モバイル 30 FPS 上限キャップ、高負荷エフェクトのバイパスにより充電中・駆動中の過熱とバッテリー急減を完全解消。</li>
+                                <li><strong>Cover wall 重複ジャケット集約:</strong> 同じジャケット画像の複数楽曲を1つのグループタイルに集約するトグルスイッチを新設。クリックで展開パネルが開き、同一アルバム・サントラの全収録曲をシームレスに一覧・先頭再生可能。</li>
+                                <li><strong>実績システム初期化・連番整理:</strong> 解除済み実績の初期化（リセット）が正しく動作しない不具合を完全修正。全実績番号をジャンル別 (No. 01 〜 No. 50) に連番整理。</li>
+                                <li><strong>UIクリーンアップ & SVGアイコン化:</strong> テーマ選択モーダルをテキストからクリーンなSVGアイコン表示へ刷新。Nowplaying表記の不要な重複を整理。</li>
+                            </ul>
+                        </div>
                         <!-- v3.7.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -1590,8 +1626,8 @@
                             </ul>
                         </div>
                         <!-- v3.6.1 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-teal-500/50">
+                            <div class="flex items-center justify-between text-teal-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.6.1] P2P 同期リスニング (DJ Room) 通常オーディオミリ秒同期の完全最適化</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-10-03</span>
                             </div>
@@ -1602,8 +1638,8 @@
                             </ul>
                         </div>
                         <!-- v3.6.0 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-violet-500/50">
+                            <div class="flex items-center justify-between text-violet-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.6.0] 全9種類のマルチUIレイアウトシステム & 新世代UIリフレッシュ</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-10-03</span>
                             </div>
@@ -1614,8 +1650,8 @@
                             </ul>
                         </div>
                         <!-- v3.5.2 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-amber-500/50">
+                            <div class="flex items-center justify-between text-amber-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.5.2] 各種不具合修正 & MediaSession/OSメディアキー安定化 & ドキュメント更新</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-26</span>
                             </div>
@@ -1626,8 +1662,8 @@
                             </ul>
                         </div>
                         <!-- v3.5.1 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-fuchsia-500/50">
+                            <div class="flex items-center justify-between text-fuchsia-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.5.1] 隠し実績システム更新 & P2P Sync連動 & トロフィールーム最適化</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-25</span>
                             </div>
@@ -1637,8 +1673,8 @@
                             </ul>
                         </div>
                         <!-- v3.5.0 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-gray-700/50">
-                            <div class="flex items-center justify-between text-gray-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-sky-500/50">
+                            <div class="flex items-center justify-between text-sky-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.5.0] P2P 同期リスニング & DJ Room モード (WebRTC)</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-24</span>
                             </div>
@@ -1650,8 +1686,8 @@
                             </ul>
                         </div>
                         <!-- v3.4.1 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
+                            <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.4.1] 五度圏コード認識精度向上 & プレイリスト管理モーダル化 & UI最適化</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-24</span>
                             </div>
@@ -1662,8 +1698,8 @@
                             </ul>
                         </div>
                         <!-- v3.4.0 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-rose-500/50">
+                            <div class="flex items-center justify-between text-rose-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.4.0] Spotify 関連の完全抹消 & 純粋ローカル・MIDI 最適化</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-16</span>
                             </div>
@@ -1716,8 +1752,8 @@
                             </ul>
                         </div>
                         <!-- v3.1.0 -->
-                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
-                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-lime-500/50">
+                            <div class="flex items-center justify-between text-lime-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
                                 <span>[v3.1.0] 最新アップデート & 不具合修正</span>
                                 <span class="text-[10px] text-gray-400 font-normal">2026-09-11</span>
                             </div>
@@ -2314,12 +2350,11 @@
                     <button data-layout-btn="cover" onclick="setLayout('cover')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Cover wall</button>
                     <button data-layout-btn="album" onclick="setLayout('album')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Album</button>
                     <button data-layout-btn="shelf" onclick="setLayout('shelf')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Shelf</button>
-                    <button data-layout-btn="now" onclick="setLayout('now')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Now playing</button>
                     <button data-layout-btn="stage" onclick="setLayout('stage')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Stage</button>
                     <button data-layout-btn="term" onclick="setLayout('term')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Terminal</button>
                     <button data-layout-btn="lcd" onclick="setLayout('lcd')" class="p-2.5 rounded-lg border border-gray-600 bg-slate-900 text-gray-200 font-bold transition-all">Retro LCD</button>
                 </div>
-                <p class="text-[10px] text-gray-500 mt-2">Terminal / Stage / Now playing は全モードで有効です。Cover wall と Album / Shelf は、Dual / Multi / FX では右の曲一覧がタイル / アルバムチップになります。Library / Retro LCD は Single モードのときだけ適用され、他のモードでは Split になります。Stage は背景ビジュアライザーを使い、Terminal は j/k 移動・Enter 再生・/ 検索です。</p>
+                <p class="text-[10px] text-gray-500 mt-2">Terminal / Stage は全モードで有効です。Cover wall と Album / Shelf は、Dual / Multi / FX では右の曲一覧がタイル / アルバムチップになります。Cover wall では「同じジャケットをまとめる」で重複ジャケットの曲を1枚に束ね、クリックで展開できます。Library / Retro LCD は Single モードのときだけ適用され、他のモードでは Split になります。Stage は背景ビジュアライザーを使い、Terminal は j/k 移動・Enter 再生・/ 検索です。</p>
             </div>
 
             <!-- プリセットテーマ選択 -->
@@ -2441,6 +2476,21 @@
                     <button onclick="setBgVisType('particles')" id="bg-vis-btn-particles" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition">Particles</button>
                     <button onclick="setBgVisType('aura')" id="bg-vis-btn-aura" class="bg-gray-900/60 border border-gray-700/80 text-gray-400 text-[11px] font-bold py-1.5 rounded-lg hover:bg-purple-900/30 transition" title="重低音に合わせてプレイヤーが縦方向に弾む">Beat Bounce</button>
                 </div>
+            </div>
+
+            <!-- 省電力・画面点灯維持 (Screen WakeLock) コントロール -->
+            <div class="bg-gray-800/80 p-4 rounded-lg border border-amber-900/50 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center space-x-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="shrink-0"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+                        <span>再生中の画面点灯を維持 (Screen WakeLock)</span>
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="wakelock-toggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                </div>
+                <p class="text-[10px] text-gray-400">OFF (推奨・省電力): 通常の音楽アプリ同様に画面消灯やバックグラウンド再生を許可し、バッテリー激減や発熱を防ぎます。ON: 再生中に画面を常時点灯させます（Stage/Visualモード時は自動点灯）。</p>
             </div>
 
             <div class="flex justify-end pt-2 border-t border-gray-800">
@@ -3044,6 +3094,7 @@
                 initDiscordUI();
                 initUpdateCheckerUI();
                 initMobileMediaSessionControls();
+                initWakeLockUI();
                 startMidiGlobalLoop();
                 
                 // Auto update check on startup (delayed 3.5s to avoid startup lag)
@@ -3312,6 +3363,7 @@
                         triggerAchievement('spatial_8d');
                     }
                     updateMasterEffectsRouting();
+                    if (typeof update8DOrbitLoop === 'function') update8DOrbitLoop();
                 });
             }
 
@@ -3353,6 +3405,7 @@
                     is8DOrbiting = false;
                     is3DManualActive = true;
                     if (orbit8dInput) orbit8dInput.checked = false;
+                    if (typeof update8DOrbitLoop === 'function') update8DOrbitLoop();
                     
                     updateMasterEffectsRouting();
                     set3DPannerPos(x, 0, z);
@@ -5650,9 +5703,91 @@
             }
         }
 
-        // Global MIDI Loop (updates all active UI smoothly)
-        function startMidiGlobalLoop() {
-            const update = () => {
+        // ===== Battery & Power Management Helpers =====
+        function isMobileDevice() {
+            return !!(window.OST_PLATFORM && window.OST_PLATFORM.isMobile) || 
+                   /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+        }
+
+        function isAnyAudioPlaying() {
+            try {
+                if (typeof isSinglePlaying !== 'undefined' && isSinglePlaying) return true;
+                if (typeof isFxPlaying !== 'undefined' && isFxPlaying) return true;
+                if (typeof players !== 'undefined' && Array.isArray(players) && players.some(p => p && !p.paused && !p.ended)) return true;
+                if (typeof decks !== 'undefined' && Array.isArray(decks) && decks.some(d => d.player && !d.player.paused && !d.player.ended)) return true;
+                return isAnyMidiPlaying();
+            } catch(e) {
+                return false;
+            }
+        }
+        function isAnyPlaybackActive() {
+            return isAnyAudioPlaying();
+        }
+
+        function isAnyMidiPlaying() {
+            try {
+                if (typeof getMidiSynth === 'function') {
+                    if (currentMode === 'single' || currentMode === 'sync' || currentMode === 'visual') {
+                        const s = getMidiSynth('main', false);
+                        if (s && s.getPlayStatus && s.getPlayStatus().play) return true;
+                    }
+                    if (currentMode === 'fx') {
+                        const s = getMidiSynth('main', false);
+                        if (s && s.getPlayStatus && s.getPlayStatus().play) return true;
+                    }
+                    if (currentMode === 'dual') {
+                        const sA = getMidiSynth('dualA', false);
+                        const sB = getMidiSynth('dualB', false);
+                        if ((sA && sA.getPlayStatus && sA.getPlayStatus().play) || (sB && sB.getPlayStatus && sB.getPlayStatus().play)) return true;
+                    }
+                }
+                if (typeof decks !== 'undefined' && Array.isArray(decks) && decks.some(d => d.track && d.track.isMidi && ((d.midiSynth && d.midiSynth.getPlayStatus && d.midiSynth.getPlayStatus().play) || (d.spessaSynth && d.spessaSynth.getPlayStatus && d.spessaSynth.getPlayStatus().play)))) {
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        }
+
+        function resumePlaybackVisualizers() {
+            if (typeof updateVisualizerLoop === 'function') updateVisualizerLoop();
+            if (typeof updateBgVisualizerLoop === 'function') updateBgVisualizerLoop();
+            if (typeof updateMidiGlobalLoop === 'function') updateMidiGlobalLoop();
+            if (typeof update8DOrbitLoop === 'function') update8DOrbitLoop();
+            if (typeof startLcdLoop === 'function') startLcdLoop();
+        }
+
+        function pausePlaybackVisualizers() {
+            if (typeof trackVisAnimId !== 'undefined' && trackVisAnimId) { cancelAnimationFrame(trackVisAnimId); trackVisAnimId = null; }
+            if (typeof bgVisAnimId !== 'undefined' && bgVisAnimId) { cancelAnimationFrame(bgVisAnimId); bgVisAnimId = null; }
+            if (typeof midiLoopAnimId !== 'undefined' && midiLoopAnimId) { cancelAnimationFrame(midiLoopAnimId); midiLoopAnimId = null; }
+            if (typeof orbit8DAnimId !== 'undefined' && orbit8DAnimId) { cancelAnimationFrame(orbit8DAnimId); orbit8DAnimId = null; }
+            if (typeof lcdRaf !== 'undefined' && lcdRaf) { cancelAnimationFrame(lcdRaf); lcdRaf = 0; }
+        }
+
+        // Global MIDI Loop (updates all active UI smoothly only when MIDI is playing)
+        let midiLoopAnimId = null;
+        let lastMidiLoopTime = 0;
+
+        function updateMidiGlobalLoop() {
+            if (!isAnyMidiPlaying() || document.hidden) {
+                if (midiLoopAnimId) {
+                    cancelAnimationFrame(midiLoopAnimId);
+                    midiLoopAnimId = null;
+                }
+                return;
+            }
+            if (midiLoopAnimId) return;
+
+            const update = (now) => {
+                if (!isAnyMidiPlaying() || document.hidden) {
+                    midiLoopAnimId = null;
+                    return;
+                }
+                midiLoopAnimId = requestAnimationFrame(update);
+
+                if (isMobileDevice() && now && now - lastMidiLoopTime < 32) return;
+                lastMidiLoopTime = now || performance.now();
+
                 // Single/Sync UI Update
                 if (currentMode === 'single' || currentMode === 'sync') {
                     const synth = getMidiSynth('main', false);
@@ -5742,10 +5877,12 @@
                          }
                     }
                 }
-
-                requestAnimationFrame(update);
             };
-            requestAnimationFrame(update);
+            midiLoopAnimId = requestAnimationFrame(update);
+        }
+
+        function startMidiGlobalLoop() {
+            updateMidiGlobalLoop();
         }
 
         function seekMidi(synth, percent) {
@@ -8544,7 +8681,7 @@
         const REMOVED_THEMES = { midnight: 'cyberpunk', deepsea: 'cyberpunk' };
         let currentTheme = (() => { const v = localStorage.getItem('ost_theme') || 'cyberpunk'; return REMOVED_THEMES[v] || v; })();
         // レイアウト設定: 'split'(現行) / 'library' / 'cover'。保存値は不正なら split に倒す
-        const LAYOUTS = ['split', 'library', 'cover', 'album', 'shelf', 'now', 'stage', 'term', 'lcd'];
+        const LAYOUTS = ['split', 'library', 'cover', 'album', 'shelf', 'stage', 'term', 'lcd'];
         let currentLayout = (() => { try { const v = localStorage.getItem('ost_layout'); return LAYOUTS.includes(v) ? v : 'split'; } catch (e) { return 'split'; } })();
         let customBgData = null;
 
@@ -8682,6 +8819,10 @@
                 modal.classList.add('flex'); 
                 setTheme(currentTheme);
                 applyLayout();
+                const wlToggle = document.getElementById('wakelock-toggle');
+                if (wlToggle) {
+                    wlToggle.checked = localStorage.getItem('ost_wakelock_enabled') === '1';
+                }
             }
         }
         window.openThemeModal = openThemeModal;
@@ -9043,7 +9184,7 @@
         }
         function lcdDraw() {
             lcdRaf = 0;
-            if (effectiveLayout() !== 'lcd') return;
+            if (effectiveLayout() !== 'lcd' || document.hidden || !isAnyPlaybackActive()) return;
             const cv = document.querySelector('#lcd-panel .lcd-spectrum');
             if (cv) {
                 const ctx = cv.getContext('2d');
@@ -9140,6 +9281,48 @@
         }
         const CW_PX = { 1: 104, 2: 132, 3: 176 };
         let cwSize = (() => { try { const v = parseInt(localStorage.getItem('ost_cw_size'), 10); return CW_PX[v] ? v : 2; } catch (e) { return 2; } })();
+        // 同じジャケットの曲を1枚にまとめる(既定ON)。展開中のグループはジャケットのキーで覚える
+        let cwGroup = (() => { try { return localStorage.getItem('ost_cw_group') !== '0'; } catch (e) { return true; } })();
+        let cwExpandedKey = null;
+        const CW_SVG = {
+            stack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="13" height="13" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></svg>',
+            play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+            close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+            chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+        };
+        // 長いデータ(data: URL / 画像バイト列)の同一判定用フィンガープリント: 長さ + 間引き FNV-1a + 末尾64要素
+        function cwHashSample(len, at) {
+            let h = 0x811c9dc5;
+            const step = Math.max(1, Math.floor(len / 4096));
+            for (let i = 0; i < len; i += step) { h ^= at(i); h = Math.imul(h, 0x01000193); }
+            for (let i = Math.max(0, len - 64); i < len; i++) { h ^= at(i); h = Math.imul(h, 0x01000193); }
+            return len + ':' + (h >>> 0).toString(36);
+        }
+        // 曲ごとのジャケットキー(キャッシュ付き)。ジャケット無しは null = まとめない
+        const cwKeyCache = new WeakMap();
+        function cwCoverKey(track) {
+            const u = track && track.coverUrl;
+            if (!u || typeof u !== 'string') return null;
+            const c = cwKeyCache.get(track);
+            if (c && c.u === u) return c.k;
+            const k = u.length <= 256 ? u : cwHashSample(u.length, i => u.charCodeAt(i));
+            cwKeyCache.set(track, { u, k });
+            return k;
+        }
+        function cwSetGroup(on) {
+            cwGroup = !!on;
+            try { localStorage.setItem('ost_cw_group', cwGroup ? '1' : '0'); } catch (e) {}
+            const btn = document.querySelector('#cover-wall .cw-toggle');
+            if (btn) btn.setAttribute('aria-pressed', cwGroup ? 'true' : 'false');
+            try { updatePlaylistUI(); } catch (e) {}
+        }
+        function cwToggleExpand(key) {
+            cwExpandedKey = (cwExpandedKey === key) ? null : key;
+            try { updatePlaylistUI(); } catch (e) {}
+            if (cwExpandedKey === null) return;
+            const panel = document.querySelector('#cover-wall .cw-panel');
+            if (panel) requestAnimationFrame(() => panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+        }
 
         function initCoverWall() {
             let wall = document.getElementById('cover-wall');
@@ -9164,7 +9347,17 @@
                 applySize();
             });
             applySize();
-            head.append(label, range);
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'cw-toggle';
+            toggle.setAttribute('aria-pressed', cwGroup ? 'true' : 'false');
+            toggle.title = '同じジャケットの曲を1枚にまとめて表示します。クリックで展開できます';
+            toggle.innerHTML = CW_SVG.stack;
+            const toggleText = document.createElement('span');
+            toggleText.textContent = '同じジャケットをまとめる';
+            toggle.appendChild(toggleText);
+            toggle.addEventListener('click', () => cwSetGroup(!cwGroup));
+            head.append(toggle, label, range);
             wall.append(head, grid);
             const rp = document.getElementById('player-right-panel');
             const pl = document.getElementById('playlist');
@@ -9172,11 +9365,167 @@
             return wall;
         }
 
+        // 曲1つ分のタイル(通常表示 / 展開パネル内で共通)
+        function buildCwTile(idx) {
+            const track = playlist[idx];
+            if (!track) return null;
+            const title = (track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name;
+            const tile = document.createElement('div');
+            const st = cwActive(track, idx);
+            tile.className = 'cw-tile' + (st.active ? ' active' : '');
+            tile.tabIndex = 0;
+            tile.setAttribute('role', 'button');
+            tile.setAttribute('aria-label', title);
+            tile.title = track.name;
+            const art = document.createElement('div');
+            art.className = 'cw-art';
+            if (track.coverUrl) {
+                const img = document.createElement('img');
+                img.src = track.coverUrl; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+                art.appendChild(img);
+            } else {
+                art.textContent = '\u266A';
+            }
+            if (track.isMidi || track.isVideo) {
+                const tag = document.createElement('span');
+                tag.className = 'cw-tag';
+                tag.textContent = track.isMidi ? 'MIDI' : 'VIDEO';
+                art.appendChild(tag);
+            }
+            if (st.badge) {
+                const db = document.createElement('span');
+                db.className = 'cw-deck';
+                db.textContent = st.badge;
+                art.appendChild(db);
+            }
+            const actions = document.createElement('div');
+            actions.className = 'cw-actions';
+            [['\u21C4', 'プレイリスト間移動', () => openMoveModal(idx)], ['\u2715', 'この曲を削除', () => confirmDelete(idx)]].forEach(([icon, tip, fn]) => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.textContent = icon; b.title = tip; b.setAttribute('aria-label', tip);
+                b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); fn(); });
+                actions.appendChild(b);
+            });
+            art.appendChild(actions);
+            const t = document.createElement('div');
+            t.className = 'cw-title';
+            t.textContent = title;
+            const sub = document.createElement('div');
+            sub.className = 'cw-sub';
+            sub.textContent = track.artist || '';
+            tile.append(art, t, sub);
+            tile.addEventListener('click', () => playTrackFromWall(idx, track));
+            tile.addEventListener('keydown', (e) => {
+                if (e.target !== tile) return;
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrackFromWall(idx, track); }
+            });
+            return tile;
+        }
+
+        // グループの表示名: 全曲でアルバム名が共通ならそれ、無ければ先頭曲のタイトル。副題は共通アーティスト
+        function cwGroupLabels(g) {
+            const tracks = g.idxs.map(i => playlist[i]);
+            const common = (f) => { const v = (f(tracks[0]) || '').trim(); return v && tracks.every(t => (f(t) || '').trim() === v) ? v : ''; };
+            const first = tracks[0];
+            const firstTitle = (first.tagTitle && first.tagTitle.trim()) ? first.tagTitle.trim() : first.name;
+            return { title: common(t => t.album) || firstTitle, artist: common(t => t.artist) };
+        }
+
+        function buildCwGroupTile(g) {
+            const first = playlist[g.idxs[0]];
+            const open = cwExpandedKey === g.key;
+            const active = g.idxs.some(i => cwActive(playlist[i], i).active);
+            const lab = cwGroupLabels(g);
+            const tile = document.createElement('div');
+            tile.className = 'cw-tile cw-group' + (active ? ' active' : '') + (open ? ' open' : '');
+            tile.tabIndex = 0;
+            tile.setAttribute('role', 'button');
+            tile.setAttribute('aria-expanded', open ? 'true' : 'false');
+            tile.setAttribute('aria-label', `${lab.title} (${g.idxs.length}曲。クリックで${open ? '閉じる' : '展開'})`);
+            tile.title = `${lab.title} - ${g.idxs.length}曲`;
+            tile._cwKey = g.key;
+            const art = document.createElement('div');
+            art.className = 'cw-art';
+            const img = document.createElement('img');
+            img.src = first.coverUrl; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+            art.appendChild(img);
+            const count = document.createElement('span');
+            count.className = 'cw-count';
+            count.innerHTML = CW_SVG.stack;
+            count.appendChild(document.createTextNode(`${g.idxs.length}曲`));
+            art.appendChild(count);
+            const t = document.createElement('div');
+            t.className = 'cw-title';
+            const chev = document.createElement('span');
+            chev.className = 'cw-chev';
+            chev.style.cssText = 'width:10px;height:10px;margin-right:.25rem;vertical-align:-1px;';
+            chev.innerHTML = CW_SVG.chev;
+            chev.firstChild.style.cssText = 'width:10px;height:10px;display:block;';
+            t.append(chev, document.createTextNode(lab.title));
+            const sub = document.createElement('div');
+            sub.className = 'cw-sub';
+            sub.textContent = lab.artist ? `${lab.artist} / ${g.idxs.length}曲` : `${g.idxs.length}曲`;
+            tile.append(art, t, sub);
+            tile.addEventListener('click', () => cwToggleExpand(g.key));
+            tile.addEventListener('keydown', (e) => {
+                if (e.target !== tile) return;
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cwToggleExpand(g.key); }
+                else if (e.key === 'Escape' && open) { e.preventDefault(); cwToggleExpand(g.key); }
+            });
+            return tile;
+        }
+
+        // 展開パネル: grid-column 1/-1 + grid-auto-flow: dense で、グループタイルのある行のすぐ下に入る
+        function buildCwGroupPanel(g) {
+            const first = playlist[g.idxs[0]];
+            const lab = cwGroupLabels(g);
+            const panel = document.createElement('div');
+            panel.className = 'cw-panel';
+            panel.setAttribute('role', 'region');
+            panel.setAttribute('aria-label', `${lab.title} の曲一覧`);
+            const head = document.createElement('div');
+            head.className = 'cw-panel-head';
+            const thumb = document.createElement('div');
+            thumb.className = 'cw-panel-thumb';
+            const img = document.createElement('img');
+            img.src = first.coverUrl; img.alt = '';
+            thumb.appendChild(img);
+            const info = document.createElement('div');
+            info.className = 'cw-panel-info';
+            const pt = document.createElement('div');
+            pt.className = 'cw-panel-title';
+            pt.textContent = lab.title;
+            const ps = document.createElement('div');
+            ps.className = 'cw-panel-sub';
+            ps.textContent = lab.artist ? `${lab.artist} / ${g.idxs.length}曲` : `${g.idxs.length}曲`;
+            info.append(pt, ps);
+            const mk = (svg, text, fn) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.innerHTML = svg;
+                b.appendChild(document.createTextNode(text));
+                b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+                return b;
+            };
+            const playBtn = mk(CW_SVG.play, '先頭から再生', () => playTrackFromWall(g.idxs[0], playlist[g.idxs[0]]));
+            const closeBtn = mk(CW_SVG.close, '閉じる', () => cwToggleExpand(g.key));
+            head.append(thumb, info, playBtn, closeBtn);
+            const body = document.createElement('div');
+            body.className = 'cw-panel-grid';
+            g.idxs.forEach(i => { const tile = buildCwTile(i); if (tile) body.appendChild(tile); });
+            panel.append(head, body);
+            panel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); cwToggleExpand(g.key); } });
+            return panel;
+        }
+
         function renderCoverWall(items) {
             const wall = initCoverWall();
             if (!wall) return;
             const grid = wall.querySelector('.cw-grid');
+            const prevScroll = grid.scrollTop;
+            const focusedKey = (document.activeElement && grid.contains(document.activeElement)) ? document.activeElement._cwKey : undefined;
             grid.textContent = '';
+            grid.classList.remove('cw-dense');
             if (!items.length) {
                 const empty = document.createElement('div');
                 empty.className = 'cw-empty';
@@ -9185,63 +9534,41 @@
                 return;
             }
             const frag = document.createDocumentFragment();
-            items.forEach(item => {
-                const idx = item.originalIndex;
-                const track = playlist[idx];
-                if (!track) return;
-                const title = (track.tagTitle && track.tagTitle.trim()) ? track.tagTitle.trim() : track.name;
-                const tile = document.createElement('div');
-                const st = cwActive(track, idx);
-                tile.className = 'cw-tile' + (st.active ? ' active' : '');
-                tile.tabIndex = 0;
-                tile.setAttribute('role', 'button');
-                tile.setAttribute('aria-label', title);
-                tile.title = track.name;
-                const art = document.createElement('div');
-                art.className = 'cw-art';
-                if (track.coverUrl) {
-                    const img = document.createElement('img');
-                    img.src = track.coverUrl; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
-                    art.appendChild(img);
-                } else {
-                    art.textContent = '\u266A';
-                }
-                if (track.isMidi || track.isVideo) {
-                    const tag = document.createElement('span');
-                    tag.className = 'cw-tag';
-                    tag.textContent = track.isMidi ? 'MIDI' : 'VIDEO';
-                    art.appendChild(tag);
-                }
-                if (st.badge) {
-                    const db = document.createElement('span');
-                    db.className = 'cw-deck';
-                    db.textContent = st.badge;
-                    art.appendChild(db);
-                }
-                const actions = document.createElement('div');
-                actions.className = 'cw-actions';
-                [['\u21C4', 'プレイリスト間移動', () => openMoveModal(idx)], ['\u2715', 'この曲を削除', () => confirmDelete(idx)]].forEach(([icon, tip, fn]) => {
-                    const b = document.createElement('button');
-                    b.type = 'button'; b.textContent = icon; b.title = tip; b.setAttribute('aria-label', tip);
-                    b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); fn(); });
-                    actions.appendChild(b);
+            if (!cwGroup) {
+                items.forEach(item => { const tile = buildCwTile(item.originalIndex); if (tile) frag.appendChild(tile); });
+            } else {
+                // 出現順を保ったまま、同じジャケットの曲を最初に出た位置へまとめる
+                const groups = new Map();
+                const order = [];
+                items.forEach(item => {
+                    const idx = item.originalIndex;
+                    const track = playlist[idx];
+                    if (!track) return;
+                    const key = cwCoverKey(track);
+                    if (!key) { order.push({ single: idx }); return; }
+                    let g = groups.get(key);
+                    if (!g) { g = { key, idxs: [] }; groups.set(key, g); order.push(g); }
+                    g.idxs.push(idx);
                 });
-                art.appendChild(actions);
-                const t = document.createElement('div');
-                t.className = 'cw-title';
-                t.textContent = title;
-                const sub = document.createElement('div');
-                sub.className = 'cw-sub';
-                sub.textContent = track.artist || '';
-                tile.append(art, t, sub);
-                tile.addEventListener('click', () => playTrackFromWall(idx, track));
-                tile.addEventListener('keydown', (e) => {
-                    if (e.target !== tile) return;
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrackFromWall(idx, track); }
+                let expandedFound = false;
+                order.forEach(e => {
+                    if (e.single !== undefined || e.idxs.length < 2) {
+                        const tile = buildCwTile(e.single !== undefined ? e.single : e.idxs[0]);
+                        if (tile) frag.appendChild(tile);
+                        return;
+                    }
+                    frag.appendChild(buildCwGroupTile(e));
+                    if (cwExpandedKey === e.key) { frag.appendChild(buildCwGroupPanel(e)); expandedFound = true; }
                 });
-                frag.appendChild(tile);
-            });
+                if (expandedFound) grid.classList.add('cw-dense');
+                else cwExpandedKey = null;
+            }
             grid.appendChild(frag);
+            grid.scrollTop = prevScroll;
+            if (focusedKey !== undefined) {
+                const again = Array.from(grid.querySelectorAll('.cw-group')).find(el => el._cwKey === focusedKey);
+                if (again) again.focus({ preventScroll: true });
+            }
         }
 
         // 👻 SSP (伺か) SSTP Manager
@@ -9464,6 +9791,7 @@
         }
 
         function broadcastDiscordPresence() {
+            broadcastMediaSession();
             if (!window.electronAPI || !window.electronAPI.updateDiscordPresence) return;
 
             if (!isDiscordEnabled) {
@@ -9540,8 +9868,6 @@
                 startTime: discordPlaybackStartTime,
                 endTime: endTime
             });
-
-            broadcastMediaSession();
         }
         window.broadcastDiscordPresence = broadcastDiscordPresence;
 
@@ -9568,6 +9894,7 @@
                 });
                 if (isPlaying) {
                     window.MobileBridge.requestWakeLock();
+                    resumePlaybackVisualizers();
                 } else {
                     window.MobileBridge.releaseWakeLock();
                 }
@@ -9576,6 +9903,40 @@
                 window.MobileBridge.releaseWakeLock();
             }
         }
+
+        function initWakeLockUI() {
+            const toggle = document.getElementById('wakelock-toggle');
+            if (toggle) {
+                toggle.checked = localStorage.getItem('ost_wakelock_enabled') === '1';
+                toggle.addEventListener('change', (e) => {
+                    const enabled = e.target.checked;
+                    localStorage.setItem('ost_wakelock_enabled', enabled ? '1' : '0');
+                    if (window.MobileBridge) {
+                        if (enabled && isAnyPlaybackActive()) {
+                            window.MobileBridge.requestWakeLock(true);
+                        } else if (!enabled) {
+                            window.MobileBridge.releaseWakeLock();
+                        }
+                    }
+                    showNotification(`再生中の画面点灯維持: ${enabled ? 'ON (画面常時点灯)' : 'OFF (省電力・画面消灯許可)'}`);
+                });
+            }
+        }
+        window.initWakeLockUI = initWakeLockUI;
+
+        // Background / Lock Screen Power Saver: Stop all GPU/CPU loops when app is hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                pausePlaybackVisualizers();
+            } else {
+                if (isAnyPlaybackActive()) {
+                    if (window.MobileBridge && localStorage.getItem('ost_wakelock_enabled') === '1') {
+                        window.MobileBridge.requestWakeLock();
+                    }
+                    resumePlaybackVisualizers();
+                }
+            }
+        });
         function seekTo(seekSeconds) {
             const track = playlist[singleTrackIndex];
             if (track && track.isMidi) {
@@ -9800,7 +10161,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.7.0';
+        const APP_VERSION = '3.7.1';
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;
@@ -10766,10 +11127,12 @@
         window.onEasterCatClicked = onEasterCatClicked;
 
         // --- Fullscreen Background Visualizer ---
-        let isBgVisualizerEnabled = localStorage.getItem('ost_bg_vis_enabled') !== 'false';
+        const defaultBgVis = (window.OST_PLATFORM && window.OST_PLATFORM.isMobile) ? 'false' : 'true';
+        let isBgVisualizerEnabled = (localStorage.getItem('ost_bg_vis_enabled') !== null ? localStorage.getItem('ost_bg_vis_enabled') : defaultBgVis) === 'true';
         let bgVisualizerType = localStorage.getItem('ost_bg_vis_type') || 'spectrum';
         let bgParticles = [];
         let bgVisAnimId = null;
+        let lastBgVisTime = 0;
 
         function initBgVisualizer() {
             const canvas = document.getElementById('bg-visualizer-canvas');
@@ -10802,10 +11165,22 @@
                     isBgVisualizerEnabled = e.target.checked;
                     localStorage.setItem('ost_bg_vis_enabled', isBgVisualizerEnabled);
                     showNotification(`背景ビジュアライザーを ${isBgVisualizerEnabled ? 'ON' : 'OFF'} にしました`);
+                    if (isBgVisualizerEnabled) {
+                        updateBgVisualizerLoop();
+                    } else {
+                        if (bgVisAnimId) { cancelAnimationFrame(bgVisAnimId); bgVisAnimId = null; }
+                        const cvs = document.getElementById('bg-visualizer-canvas');
+                        if (cvs) {
+                            const ctx = cvs.getContext('2d');
+                            ctx.clearRect(0, 0, cvs.width, cvs.height);
+                        }
+                        const app = document.getElementById('main-app-container');
+                        if (app) app.style.transform = 'none';
+                    }
                 });
             }
             updateBgVisButtons();
-            renderBgVisualizer();
+            updateBgVisualizerLoop();
         }
 
         function setBgVisType(type) {
@@ -10839,10 +11214,47 @@
 
         let isExportingWav = false;
 
-        function renderBgVisualizer() {
+        function updateBgVisualizerLoop() {
+            if (!isBgVisualizerEnabled || document.hidden || !isAnyPlaybackActive()) {
+                if (bgVisAnimId) {
+                    cancelAnimationFrame(bgVisAnimId);
+                    bgVisAnimId = null;
+                }
+                const canvas = document.getElementById('bg-visualizer-canvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+                const mainApp = document.getElementById('main-app-container');
+                if (mainApp) mainApp.style.transform = 'none';
+                return;
+            }
+            if (bgVisAnimId) return;
+            renderBgVisualizer();
+        }
+
+        function renderBgVisualizer(now) {
             if (isExportingWav) return;
+            if (!isBgVisualizerEnabled || document.hidden || !isAnyPlaybackActive()) {
+                bgVisAnimId = null;
+                const canvas = document.getElementById('bg-visualizer-canvas');
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+                const mainApp = document.getElementById('main-app-container');
+                if (mainApp) mainApp.style.transform = 'none';
+                return;
+            }
+
             bgVisAnimId = requestAnimationFrame(renderBgVisualizer);
-            
+
+            const isMobile = isMobileDevice();
+            if (isMobile) {
+                if (now && now - lastBgVisTime < 32) return;
+                lastBgVisTime = now || performance.now();
+            }
+
             const canvas = document.getElementById('bg-visualizer-canvas');
             if(!canvas) return;
             const ctx = canvas.getContext('2d');
@@ -10850,8 +11262,6 @@
             const h = canvas.height;
 
             ctx.clearRect(0, 0, w, h);
-
-            if(!isBgVisualizerEnabled) return;
 
             let freqData = new Uint8Array(64);
             let timeData = new Uint8Array(64);
@@ -10907,8 +11317,10 @@
                     ctx.beginPath();
                     ctx.lineWidth = 3;
                     ctx.strokeStyle = waveConfig.color;
-                    ctx.shadowColor = waveConfig.color;
-                    ctx.shadowBlur = 12;
+                    if (!isMobile) {
+                        ctx.shadowColor = waveConfig.color;
+                        ctx.shadowBlur = 12;
+                    }
                     
                     const sliceW = w / 64;
                     let x = 0;
@@ -10921,7 +11333,7 @@
                         x += sliceW;
                     }
                     ctx.stroke();
-                    ctx.shadowBlur = 0;
+                    if (!isMobile) ctx.shadowBlur = 0;
                 });
             } else if(bgVisualizerType === 'particles') {
                 const pulse = (bassEnergy / 255);
@@ -10947,7 +11359,6 @@
                 const cy = h / 2;
                 const normBass = (bassEnergy / 255);
 
-                // Clean Theme-Matched Blue Ambient Vignette Glow (NO Rainbow color cycling)
                 const maxRadius = Math.max(w, h) * (0.35 + normBass * 0.35);
                 const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxRadius);
                 
@@ -10959,29 +11370,29 @@
                 ctx.fillRect(0, 0, w, h);
             }
 
-            // Precise Drum Sub-Bass Kick Transient Bounce for Beat Bounce Mode
-            const mainApp = document.getElementById('main-app-container');
-            if (mainApp) {
-                // Sub-bass drum kick range (bins 0..3: 20Hz ~ 120Hz)
-                let subBassEnergy = 0;
-                if (analyser) {
-                    const len = analyser.frequencyBinCount;
-                    const buf = new Uint8Array(len);
-                    analyser.getByteFrequencyData(buf);
-                    for (let i = 0; i < 4; i++) subBassEnergy += (buf[i] || 0);
-                    subBassEnergy /= 4;
-                }
+            // Precise Drum Sub-Bass Kick Transient Bounce for Beat Bounce Mode (Desktop only)
+            if (!isMobile) {
+                const mainApp = document.getElementById('main-app-container');
+                if (mainApp) {
+                    let subBassEnergy = 0;
+                    if (analyser) {
+                        const len = analyser.frequencyBinCount;
+                        const buf = new Uint8Array(len);
+                        analyser.getByteFrequencyData(buf);
+                        for (let i = 0; i < 4; i++) subBassEnergy += (buf[i] || 0);
+                        subBassEnergy /= 4;
+                    }
 
-                if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && subBassEnergy > 25) {
-                    const kickNorm = Math.pow((subBassEnergy - 25) / 230, 1.1);
-                    const scale = 1 + kickNorm * 0.055;        // 1.00 ~ 1.055 sharp drum kick
-                    const translateY = -kickNorm * 14;          // 0px ~ -14px punchy vertical kick
-                    
-                    mainApp.style.transform = `scale(${scale}) translateY(${translateY}px)`;
-                    mainApp.style.transition = 'transform 0.02s cubic-bezier(0.0, 0.9, 0.1, 1.0)';
-                } else {
-                    mainApp.style.transform = 'none';
-                    mainApp.style.transition = 'transform 0.10s ease-out';
+                    if (isBgVisualizerEnabled && bgVisualizerType === 'aura' && subBassEnergy > 25) {
+                        const kickNorm = Math.pow((subBassEnergy - 25) / 230, 1.1);
+                        const scale = 1 + kickNorm * 0.055;
+                        const translateY = -kickNorm * 14;
+                        mainApp.style.transform = `scale(${scale}) translateY(${translateY}px)`;
+                        mainApp.style.transition = 'transform 0.02s cubic-bezier(0.0, 0.9, 0.1, 1.0)';
+                    } else {
+                        mainApp.style.transform = 'none';
+                        mainApp.style.transition = 'transform 0.10s ease-out';
+                    }
                 }
             }
         }
@@ -11483,6 +11894,7 @@
             return '';
         }
 
+        const COVER_BLOB_BY_FP = new Map();
         function decodeID3Picture(uint8Array) {
             try {
                 const encoding = uint8Array[0];
@@ -11504,8 +11916,14 @@
                 }
                 const imageData = uint8Array.subarray(offset);
                 if (imageData.length > 0) {
+                    // 同じ画像は同じ blob URL を使い回す(メモリ節約 + Cover wall の「同じジャケットをまとめる」判定用)
+                    const fp = mimeType + '|' + cwHashSample(imageData.length, i => imageData[i]);
+                    const hit = COVER_BLOB_BY_FP.get(fp);
+                    if (hit) return hit;
                     const blob = new Blob([imageData], { type: mimeType });
-                    return URL.createObjectURL(blob);
+                    const url = URL.createObjectURL(blob);
+                    COVER_BLOB_BY_FP.set(fp, url);
+                    return url;
                 }
             } catch(e){}
             return null;
@@ -11807,28 +12225,50 @@
         }
         window.resetPannerPosition = resetPannerPosition;
 
-        function start8DOrbitLoop() {
-            const orbitStep = () => {
-                if (is8DOrbiting && panner3DNode && audioContext) {
-                    orbitAngle += 0.035;
-                    const radius = 3.0;
-                    const x = Math.sin(orbitAngle) * radius;
-                    const z = Math.cos(orbitAngle) * radius;
-                    set3DPannerPos(x, 0, z);
-                    
-                    const dot = document.getElementById('panner-source-dot');
-                    if (dot) {
-                        const px = 50 + (x / radius) * 35;
-                        const py = 50 + (z / radius) * 35;
-                        dot.style.left = `${px}%`;
-                        dot.style.top = `${py}%`;
-                    }
+        let orbit8DAnimId = null;
+        let lastOrbitTime = 0;
+
+        function update8DOrbitLoop() {
+            if (!is8DOrbiting || !panner3DNode || !audioContext || document.hidden || !isAnyPlaybackActive()) {
+                if (orbit8DAnimId) {
+                    cancelAnimationFrame(orbit8DAnimId);
+                    orbit8DAnimId = null;
                 }
-                requestAnimationFrame(orbitStep);
+                return;
+            }
+            if (orbit8DAnimId) return;
+
+            const orbitStep = (now) => {
+                if (!is8DOrbiting || !panner3DNode || !audioContext || document.hidden || !isAnyPlaybackActive()) {
+                    orbit8DAnimId = null;
+                    return;
+                }
+                orbit8DAnimId = requestAnimationFrame(orbitStep);
+
+                const isMobile = isMobileDevice();
+                if (isMobile && now && now - lastOrbitTime < 32) return;
+                lastOrbitTime = now || performance.now();
+
+                orbitAngle += 0.035;
+                const radius = 3.0;
+                const x = Math.sin(orbitAngle) * radius;
+                const z = Math.cos(orbitAngle) * radius;
+                set3DPannerPos(x, 0, z);
+                
+                const dot = document.getElementById('panner-source-dot');
+                if (dot) {
+                    const px = 50 + (x / radius) * 35;
+                    const py = 50 + (z / radius) * 35;
+                    dot.style.left = `${px}%`;
+                    dot.style.top = `${py}%`;
+                }
             };
-            requestAnimationFrame(orbitStep);
+            orbit8DAnimId = requestAnimationFrame(orbitStep);
         }
-        start8DOrbitLoop();
+
+        function start8DOrbitLoop() {
+            update8DOrbitLoop();
+        }
 
         async function handleFiles(files) {
             if(!files || !files.length) return;
@@ -12597,15 +13037,57 @@
             orbitY: (Math.random() - 0.5) * 60
         }));
 
-        function drawVisualizer() {
-            requestAnimationFrame(drawVisualizer);
-            
+        let trackVisAnimId = null;
+        let lastTrackVisTime = 0;
+
+        function updateVisualizerLoop() {
+            if (trackVisAnimId) return;
+            trackVisAnimId = requestAnimationFrame(drawVisualizer);
+        }
+
+        function drawVisualizer(now) {
+            const isPlaying = isAnyPlaybackActive();
+            if (document.hidden || !isPlaying) {
+                trackVisAnimId = null;
+                if (!document.hidden) {
+                    const isVisualMode = currentMode === 'visual';
+                    const cvs = isVisualMode ? ui.visual.canvas : ui.canvas;
+                    if (cvs) {
+                        if (cvs.width !== cvs.clientWidth) cvs.width = cvs.clientWidth;
+                        if (cvs.height !== cvs.clientHeight) cvs.height = cvs.clientHeight;
+                        const w = cvs.width;
+                        const h = cvs.height;
+                        if (w && h) {
+                            const ctx = cvs.getContext('2d');
+                            ctx.fillStyle = '#090d16';
+                            ctx.fillRect(0, 0, w, h);
+                            ctx.fillStyle = '#475569';
+                            ctx.font = '12px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(isPlaying ? '' : 'Visualizer Paused', w/2, h/2 + 4);
+                        }
+                    }
+                }
+                return;
+            }
+
+            trackVisAnimId = requestAnimationFrame(drawVisualizer);
+
+            const isMobile = isMobileDevice();
+            if (isMobile) {
+                if (now && now - lastTrackVisTime < 32) return;
+                lastTrackVisTime = now || performance.now();
+            }
+
             const isVisualMode = currentMode === 'visual';
             const cvs = isVisualMode ? ui.visual.canvas : ui.canvas;
             if (!cvs) return;
             const ctx = cvs.getContext('2d');
-            const w = cvs.width = cvs.clientWidth;
-            const h = cvs.height = cvs.clientHeight;
+            if (cvs.width !== cvs.clientWidth) cvs.width = cvs.clientWidth;
+            if (cvs.height !== cvs.clientHeight) cvs.height = cvs.clientHeight;
+            const w = cvs.width;
+            const h = cvs.height;
+            if (!w || !h) return;
 
             // Clear Canvas
             ctx.fillStyle = '#090d16';

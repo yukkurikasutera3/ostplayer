@@ -1,6 +1,6 @@
 ================================================================================
   OST Player - 実装実績 & 今後の大型実装予定リスト (Roadmap & Feature Planning)
-  Current Release: v3.7.0 "Cross-Platform Remote & Batch Sync" (2026年10月 実装完了)
+  Current Release: v3.7.1 "Battery Optimization & Cover Wall Grouping" (2026年10月 実装完了)
   Target Release:  v4.0.0 "Harmonics & Cross-Platform Remote" (2026年10月下旬 予定)
 ================================================================================
 
