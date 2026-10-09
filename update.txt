@@ -27,9 +27,9 @@ OST Player - 開発・アップデート履歴 (Update Log)
 ・MIDI 読み込みバリデーション & 例外保護:
   - loadMidiData において null / 空の ArrayBuffer に対するガードチェックを追加。
   - loadSingleTrack 内で MIDI データ解析・初期化を try/catch で保護し、壊れた MIDI ファイルが選択された場合もアプリがクラッシュせず安全に通知表示と状態復帰を行うよう強化。
-・全絵文字の完全撤廃 (Emoji Clean Codebase):
-  - index.html 内に残存していたすべての絵文字 (通知、ボタン、ヘッダー、コメント、トースト) を検出・全置換。
-  - 規約に準拠したクリーンなテキストバッジ ([LOOP], [PIANO], [3D], [VOCAL], [PAN], [CRUSH], [THEME], [VIDEO], [VISUAL], [警告], [SSTP], [復元] 等) へ統一。
+・全絵文字の完全撤廃 & 高精細ベクター SVG アイコンへの刷新 (Emoji Eradication & SVG Icons):
+  - index.html 内に残存していたすべての絵文字（ボタン、通知、ヘッダー、トースト、WAV書き出しプログレス）を完全撤廃。
+  - Game Loopバッジ（Repeat矢印）、Piano Roll（鍵盤）、3D Spatial Audio（3Dキューブ）、Vocal Cut（マイク）、Stereo Pan（スライダー）、Retro Bitcrusher（ゲームパッド）、ファイル・フォルダ追加（ファイル/フォルダプラス）、検索バー（虫眼鏡）、MIDI/Audio/Videoフィルター、テーマ設定ヘッダー（パレット）、動画背景（フィルム）、背景ビジュアライザー（星・波形）、WAV書き出し中スピナー・警告・完了停止アイコンなど、UI各部をクリーンで視認性の高いインライン SVG ベクターアイコンへ刷新。
 
 --------------------------------------------------------------------------------
 [v3.7.1] - 2026-10-09
