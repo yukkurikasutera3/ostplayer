@@ -27,6 +27,16 @@ OST Player - 開発・アップデート履歴 (Update Log)
 ・MIDI 読み込みバリデーション & 例外保護:
   - loadMidiData において null / 空の ArrayBuffer に対するガードチェックを追加。
   - loadSingleTrack 内で MIDI データ解析・初期化を try/catch で保護し、壊れた MIDI ファイルが選択された場合もアプリがクラッシュせず安全に通知表示と状態復帰を行うよう強化。
+・MIDI 再生時ビジュアライザー & シークバー停止問題の根本解消 (FIX#30):
+  - MIDI 再生開始時、以前の stopAllAudio() でアニメーションループが一時停止された後、MIDI ループ (updateMidiGlobalLoop) およびビジュアライザー描画ループ (resumePlaybackVisualizers) が再始動していなかった問題を完全解消。
+  - loadSingleTrack (MIDI), toggleSinglePlay (MIDI), loadFxTrack (MIDI), toggleFxPlay (MIDI), toggleDualPlay (MIDI), playBothDual (MIDI), toggleDeckPlay (MIDI), playAllDecks (MIDI) の全箇所で確実にアニメーションループとビジュアライザー描画を再開。
+  - isAnyMidiPlaying() の判定を強化し、Single モードで MIDI 再生中 (isSinglePlaying === true) の場合も即座にアクティブと判定してキャンバスの誤消去を防止。
+  - seekSingle において MIDI シーク時に即座に経過時間表示 (ui.single.time, ui.mini.time) を更新し、seekTo において WebAudioTinySynth の tick 単位シークと SpessaSynth の秒単位シークの両方に完全対応。
+・モード切替・未選択時 updateSingleUIInfo 例外の根本修正:
+  - 楽曲未選択時 (singleTrackIndex === -1 や playlist[singleTrackIndex] が undefined) に updateSingleUIInfo が呼び出された際、t.tagTitle へのアクセスで TypeError が発生して以降のスクリプト実行が停止していた不具合を安全に防護。
+・HTML5 Audio (players) 空 src エラー & 再生中断 AbortError 警告の抑制:
+  - players の error リスナーにおいて、初期化時や停止処理 (removeAttribute / load) による空 src エラーを正確に除外。
+  - 再生 Promise (p.play()) において、トラック切替や一時停止による正常な AbortError (interrupted by a call to pause) の console.warn 警告スパムを抑制。
 ・全絵文字の完全撤廃 & 高精細ベクター SVG アイコンへの刷新 (Emoji Eradication & SVG Icons):
   - index.html 内に残存していたすべての絵文字（ボタン、通知、ヘッダー、トースト、WAV書き出しプログレス）を完全撤廃。
   - Game Loopバッジ（Repeat矢印）、Piano Roll（鍵盤）、3D Spatial Audio（3Dキューブ）、Vocal Cut（マイク）、Stereo Pan（スライダー）、Retro Bitcrusher（ゲームパッド）、ファイル・フォルダ追加（ファイル/フォルダプラス）、検索バー（虫眼鏡）、MIDI/Audio/Videoフィルター、テーマ設定ヘッダー（パレット）、動画背景（フィルム）、背景ビジュアライザー（星・波形）、WAV書き出し中スピナー・警告・完了停止アイコンなど、UI各部をクリーンで視認性の高いインライン SVG ベクターアイコンへ刷新。
