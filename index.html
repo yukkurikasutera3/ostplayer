@@ -1518,7 +1518,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.7.1</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.7.2</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1602,9 +1602,24 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-emerald-300 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">v3.7.1 Battery Optimization & Cover Wall Grouping</span>
+                        <span class="text-[10px] text-emerald-300 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">v3.7.2 SVG Icons & Core Hardening</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.7.2 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
+                            <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.7.2] 音響ライフサイクル堅牢化・メモリ解放 & 高精細 SVG アイコン刷新</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-09</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>Web Audio API 初期化多段フォールバック:</strong> sampleRate 44100 固定時の NotSupportedError を段階的フォールバックで解消。</li>
+                                <li><strong>HTML5 Audio エラーハンドリング & 状態復旧:</strong> 再生失敗・切断時の UI 状態とフラグの安全復元。</li>
+                                <li><strong>Dual / Multi デッキ隔離 & P2P音源対応:</strong> デッキ曲切り替え時の旧音源停止、Multi Deck での AudioCacheManager バッファ取得。</li>
+                                <li><strong>AudioCacheManager メモリ解放:</strong> 曲削除時および全クリア時の Blob URL および ArrayBuffer 明示解放。</li>
+                                <li><strong>検索 ID3 タグ対応:</strong> ファイル名だけでなく曲名・アーティスト・アルバム名全項目での絞り込み。</li>
+                                <li><strong>全絵文字撤廃 & 高精細ベクター SVG 刷新:</strong> 全 UI 部品をクリーンなインライン SVG ベクターアイコンへ統一。</li>
+                            </ul>
+                        </div>
                         <!-- v3.7.1 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
                             <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -10279,7 +10294,13 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        const APP_VERSION = '3.7.1';
+        let APP_VERSION = '3.7.2';
+        if (window.electronAPI && typeof window.electronAPI.getAppVersion === 'function') {
+            try {
+                const _v = window.electronAPI.getAppVersion();
+                if (_v) APP_VERSION = String(_v).replace(/^[vV\s]+/, '').trim();
+            } catch (e) {}
+        }
         const DEFAULT_UPDATE_REPO = 'yukkurikasutera3/ostplayer';
         let latestReleaseData = null;
         let isAutoUpdating = false;

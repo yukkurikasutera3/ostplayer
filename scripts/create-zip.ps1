@@ -22,6 +22,9 @@ if (-not $packSuccess) {
     if (Test-Path $appTarget) {
         Copy-Item -Path "index.html" -Destination "$appTarget\index.html" -Force
         Copy-Item -Path "package.json" -Destination "$appTarget\package.json" -Force
+        Copy-Item -Path "preload.js" -Destination "$appTarget\preload.js" -Force
+        Copy-Item -Path "main.js" -Destination "$appTarget\main.js" -Force
+        if (Test-Path "desktop") { Copy-Item -Path "desktop" -Destination "$appTarget" -Recurse -Force }
         if (Test-Path "src") { Copy-Item -Path "src" -Destination "$appTarget" -Recurse -Force }
     }
 }

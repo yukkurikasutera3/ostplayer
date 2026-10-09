@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const pkg = require('./package.json');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+    getAppVersion: () => pkg.version,
     toggleMiniMode: (isMini) => ipcRenderer.send('toggle-mini-mode', isMini),
     toggleFullScreen: () => ipcRenderer.send('toggle-fullscreen'),
     notifySstpTrack: (options) => ipcRenderer.send('notify-sstp-track', options),
