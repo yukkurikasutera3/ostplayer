@@ -386,7 +386,10 @@
 
         const input = document.getElementById('sync-join-code-input');
         if (!input) return;
-        const code = input.value.trim();
+        let code = input.value.trim();
+        // 全角数字を半角に変換し、数字のみ抽出
+        code = code.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/\D/g, '').slice(0, 6);
+        input.value = code;
 
         if (!/^\d{6}$/.test(code)) {
             if (typeof global.showNotification === 'function') {
@@ -462,6 +465,19 @@
     function updateStatusUI(info) {
         if (!info) return;
         const statusEl = document.getElementById('sync-setup-status');
+
+        if (info.status === 'disconnected') {
+            leaveSyncSession();
+            if (typeof global.showNotification === 'function') {
+                global.showNotification('[切断] ホストとの接続が切断されました: ' + (info.reason || '通信終了'));
+            }
+            if (statusEl) {
+                statusEl.textContent = '切断されました: ' + (info.reason || '通信終了');
+                statusEl.classList.remove('hidden');
+            }
+            return;
+        }
+
         if (!statusEl) return;
 
         if (info.status === 'connecting') {
@@ -791,11 +807,37 @@
         }
     }
 
+    let remoteSeekThrottleTimer = null;
     function sendRemoteSeek(pct) {
+        if (remoteSeekThrottleTimer) clearTimeout(remoteSeekThrottleTimer);
+        remoteSeekThrottleTimer = setTimeout(() => {
+            sendRemoteCommand('seek', { percent: Number(pct) });
+            remoteSeekThrottleTimer = null;
+        }, 60);
+    }
+
+    function sendRemoteSeekImmediate(pct) {
+        if (remoteSeekThrottleTimer) {
+            clearTimeout(remoteSeekThrottleTimer);
+            remoteSeekThrottleTimer = null;
+        }
         sendRemoteCommand('seek', { percent: Number(pct) });
     }
 
+    let remoteVolumeThrottleTimer = null;
     function sendRemoteVolume(volPct) {
+        if (remoteVolumeThrottleTimer) clearTimeout(remoteVolumeThrottleTimer);
+        remoteVolumeThrottleTimer = setTimeout(() => {
+            sendRemoteCommand('volume', { volume: Number(volPct) / 100 });
+            remoteVolumeThrottleTimer = null;
+        }, 50);
+    }
+
+    function sendRemoteVolumeImmediate(volPct) {
+        if (remoteVolumeThrottleTimer) {
+            clearTimeout(remoteVolumeThrottleTimer);
+            remoteVolumeThrottleTimer = null;
+        }
         sendRemoteCommand('volume', { volume: Number(volPct) / 100 });
     }
 
@@ -1051,7 +1093,9 @@
     global.sendRemotePrev = sendRemotePrev;
     global.sendRemoteNext = sendRemoteNext;
     global.sendRemoteSeek = sendRemoteSeek;
+    global.sendRemoteSeekImmediate = sendRemoteSeekImmediate;
     global.sendRemoteVolume = sendRemoteVolume;
+    global.sendRemoteVolumeImmediate = sendRemoteVolumeImmediate;
     global.sendRemoteLoop = sendRemoteLoop;
     global.sendRemoteMode = sendRemoteMode;
     global.startPlaylistTransferFromUI = startPlaylistTransferFromUI;

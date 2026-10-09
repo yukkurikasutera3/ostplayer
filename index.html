@@ -1311,7 +1311,7 @@
                                 <span id="remote-time-current" class="text-emerald-400 font-bold">00:00</span>
                                 <span id="remote-time-total" class="text-gray-500">00:00</span>
                             </div>
-                            <input type="range" id="remote-seek-slider" min="0" max="100" value="0" step="0.1" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteSeek(this.value)" />
+                            <input type="range" id="remote-seek-slider" min="0" max="100" value="0" step="0.1" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteSeek(this.value)" onchange="sendRemoteSeekImmediate(this.value)" />
                         </div>
 
                         <!-- Main Playback Control Buttons -->
@@ -1335,7 +1335,7 @@
                             <div class="flex items-center justify-between text-[11px] text-gray-400">
                                 <span>音量 (Volume)</span>
                             </div>
-                            <input type="range" id="remote-volume-slider" min="0" max="100" value="80" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteVolume(this.value)" />
+                            <input type="range" id="remote-volume-slider" min="0" max="100" value="80" class="w-full accent-emerald-500 cursor-pointer h-2 bg-gray-800 rounded-lg" oninput="sendRemoteVolume(this.value)" onchange="sendRemoteVolumeImmediate(this.value)" />
                         </div>
 
                         <!-- Mode Switcher Buttons -->
@@ -2482,8 +2482,8 @@
                 </div>
             </div>
 
-            <!-- 省電力・画面点灯維持 (Screen WakeLock) コントロール -->
-            <div class="bg-gray-800/80 p-4 rounded-lg border border-amber-900/50 space-y-2">
+            <!-- 省電力・画面点灯維持 (Screen WakeLock) コントロール (モバイル専用: PC版では非表示) -->
+            <div id="wakelock-settings-section" class="mobile-only bg-gray-800/80 p-4 rounded-lg border border-amber-900/50 space-y-2">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center space-x-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="shrink-0"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
@@ -3185,6 +3185,7 @@
             ui.single.prev.addEventListener('click', () => changeSingleTrack(-1));
             ui.single.next.addEventListener('click', () => changeSingleTrack(1));
             ui.single.seek.addEventListener('input', seekSingle);
+            ui.single.seek.addEventListener('change', () => seekSingle(ui.single.seek.value, true));
             ui.single.vol.addEventListener('input', updateSingleVolume);
             ui.single.loopBtn.addEventListener('click', () => {
                 toggleLoop();
@@ -3242,7 +3243,10 @@
             if (ui.mini.play) ui.mini.play.addEventListener('click', toggleSinglePlay);
             if (ui.mini.prev) ui.mini.prev.addEventListener('click', () => changeSingleTrack(-1));
             if (ui.mini.next) ui.mini.next.addEventListener('click', () => changeSingleTrack(1));
-            if (ui.mini.seek) ui.mini.seek.addEventListener('input', (e) => seekSingle(e.target.value));
+            if (ui.mini.seek) {
+                ui.mini.seek.addEventListener('input', (e) => seekSingle(e.target.value));
+                ui.mini.seek.addEventListener('change', (e) => seekSingle(e.target.value, true));
+            }
             if (ui.mini.vol) ui.mini.vol.addEventListener('input', (e) => updateSingleVolume(e.target.value));
 
             // Piano Roll Events
@@ -7304,7 +7308,26 @@
             }
         }
         
-        function seekSingle(val) {
+        let _seekBroadcastThrottleTimer = null;
+        function broadcastHostSeekThrottled(targetTime) {
+            if (!window.syncEngine || !window.p2pSession || window.p2pSession.role !== 'host') return;
+            if (_seekBroadcastThrottleTimer) return;
+            window.syncEngine.broadcastSeek(targetTime);
+            _seekBroadcastThrottleTimer = setTimeout(() => {
+                _seekBroadcastThrottleTimer = null;
+            }, 80);
+        }
+
+        function broadcastHostSeekImmediate(targetTime) {
+            if (!window.syncEngine || !window.p2pSession || window.p2pSession.role !== 'host') return;
+            if (_seekBroadcastThrottleTimer) {
+                clearTimeout(_seekBroadcastThrottleTimer);
+                _seekBroadcastThrottleTimer = null;
+            }
+            window.syncEngine.broadcastSeek(targetTime);
+        }
+
+        function seekSingle(val, immediate = false) {
             const seekVal = (typeof val === 'number' || typeof val === 'string') ? parseFloat(val) : parseFloat(ui.single.seek.value);
             ui.single.seek.value = seekVal;
             if (ui.mini && ui.mini.seek) ui.mini.seek.value = seekVal;
@@ -7314,14 +7337,18 @@
                 seekMidi(synth, seekVal);
                 if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
                     const status = synth ? synth.getPlayStatus() : null;
-                    if (status) window.syncEngine.broadcastSeek(status.currentTime);
+                    if (status) {
+                        if (immediate) broadcastHostSeekImmediate(status.currentTime);
+                        else broadcastHostSeekThrottled(status.currentTime);
+                    }
                 }
             } else {
                 let p = players[currentSinglePlayerIndex];
                 if(p.duration) {
                     p.currentTime = (seekVal / 100) * p.duration;
                     if (window.syncEngine && window.p2pSession && window.p2pSession.role === 'host') {
-                        window.syncEngine.broadcastSeek(p.currentTime);
+                        if (immediate) broadcastHostSeekImmediate(p.currentTime);
+                        else broadcastHostSeekThrottled(p.currentTime);
                     }
                 }
             }
@@ -13558,6 +13585,7 @@
         // Host 側: 現在再生中のトラック＆再生状態を新規リスナー（または全員）へ再送
         window.resyncCurrentTrackToPeer = async function(targetPeerId, onlyPlaybackState = false) {
             if (!window.syncEngine || !window.p2pSession || window.p2pSession.role !== 'host') return;
+            if (!targetPeerId && window.p2pSession.connections.size === 0) return;
             if (singleTrackIndex < 0 || singleTrackIndex >= playlist.length) return;
             const currentTrack = playlist[singleTrackIndex];
             if (!currentTrack) return;

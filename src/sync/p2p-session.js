@@ -29,12 +29,16 @@
     }
 
     function toUint8(d) {
+        if (!d) return null;
         if (d instanceof Uint8Array) return d;
         if (d instanceof ArrayBuffer) return new Uint8Array(d);
         if (ArrayBuffer.isView(d)) return new Uint8Array(d.buffer, d.byteOffset, d.byteLength);
+        if (d.buffer instanceof ArrayBuffer && typeof d.byteLength === 'number') {
+            return new Uint8Array(d.buffer, d.byteOffset || 0, d.byteLength);
+        }
         // 環境によって配列や { "0": 1, "1": 2 } の形で届くことがある(3.6.x の互換対応)。長さに上限を付けて受け付ける
         if (Array.isArray(d)) return d.length <= CHUNK_SIZE ? Uint8Array.from(d) : null;
-        if (d && typeof d === 'object') {
+        if (typeof d === 'object') {
             const keys = Object.keys(d);
             return keys.length <= CHUNK_SIZE ? Uint8Array.from(keys.map(k => d[k])) : null;
         }
@@ -79,6 +83,7 @@
             this.listeners = {};
             this.incomingChunks = new Map(); // transferId -> { chunks: [], totalChunks, metadata }
             this.activeTransferId = null;
+            this.currentLiveTransferId = null;
             this.heartbeatTimer = null;
         }
 
@@ -116,7 +121,9 @@
                         config: {
                             iceServers: [
                                 { urls: 'stun:stun.l.google.com:19302' },
-                                { urls: 'stun:stun1.l.google.com:19302' }
+                                { urls: 'stun:stun1.l.google.com:19302' },
+                                { urls: 'stun:stun2.l.google.com:19302' },
+                                { urls: 'stun:stun.cloudflare.com:3478' }
                             ]
                         }
                     });
@@ -135,6 +142,13 @@
                         codeResult.peerId = id;
                         codeResult.code = code;
                         resolve(codeResult);
+                    });
+
+                    peer.on('disconnected', () => {
+                        console.warn('[P2P] Host disconnected from signaling server, attempting reconnect...');
+                        if (this.peer && !this.peer.destroyed) {
+                            try { this.peer.reconnect(); } catch(e){}
+                        }
                     });
 
                     peer.on('connection', (conn) => {
@@ -179,7 +193,9 @@
                     config: {
                         iceServers: [
                             { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' }
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' },
+                            { urls: 'stun:stun.cloudflare.com:3478' }
                         ]
                     }
                 });
@@ -217,6 +233,13 @@
                         this.emit('error', err);
                         reject(err);
                     });
+                });
+
+                peer.on('disconnected', () => {
+                    console.warn('[P2P] Listener disconnected from signaling server, attempting reconnect...');
+                    if (this.peer && !this.peer.destroyed) {
+                        try { this.peer.reconnect(); } catch(e){}
+                    }
                 });
 
                 peer.on('error', (err) => {
@@ -314,10 +337,59 @@
             this.emit('message', data, conn ? conn.peer : null);
         }
 
+        // DataChannel backpressure flow control: wait for bufferedAmount to drain
+        async _waitForBufferDrain(targetPeerId = null, threshold = 256 * 1024) {
+            const conns = [];
+            if (this.role === 'host') {
+                if (targetPeerId) {
+                    const c = this.connections.get(targetPeerId);
+                    if (c && c.open) conns.push(c);
+                } else {
+                    for (const c of this.connections.values()) {
+                        if (c && c.open) conns.push(c);
+                    }
+                }
+            } else if (this.role === 'listener' && this.hostConn && this.hostConn.open) {
+                conns.push(this.hostConn);
+            }
+
+            if (conns.length === 0) return;
+
+            const waits = conns.map(conn => {
+                const dc = conn.dataChannel;
+                if (!dc || dc.readyState !== 'open') return Promise.resolve();
+                if (dc.bufferedAmount <= threshold) return Promise.resolve();
+
+                return new Promise(resolve => {
+                    let timer = null;
+                    const onLow = () => {
+                        if (timer) clearTimeout(timer);
+                        try { dc.removeEventListener('bufferedamountlow', onLow); } catch (e) {}
+                        resolve();
+                    };
+                    try {
+                        dc.bufferedAmountLowThreshold = threshold;
+                        dc.addEventListener('bufferedamountlow', onLow, { once: true });
+                    } catch (e) {}
+
+                    timer = setTimeout(() => {
+                        try { dc.removeEventListener('bufferedamountlow', onLow); } catch (e) {}
+                        resolve();
+                    }, 120);
+                });
+            });
+
+            await Promise.all(waits);
+        }
+
         // --- Large File & MIDI ArrayBuffer Chunking ---
         async sendFile(arrayBuffer, metadata = {}, targetPeerId = null) {
             if (!arrayBuffer) return;
+            const isLive = !metadata.isPlaylistItem;
             const transferId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            if (isLive) {
+                this.currentLiveTransferId = transferId;
+            }
             const totalBytes = arrayBuffer.byteLength;
             const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
 
@@ -342,6 +414,11 @@
 
             const uint8 = new Uint8Array(arrayBuffer);
             for (let i = 0; i < totalChunks; i++) {
+                if (isLive && this.currentLiveTransferId !== transferId) {
+                    // Superseded by newer track selection; abort sending old track chunks
+                    return;
+                }
+
                 const start = i * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, totalBytes);
                 // Send raw slice / TypedArray directly
@@ -358,9 +435,14 @@
 
                 sendPacket(chunkPacket);
                 this.emit('send_progress', { pct: Math.round(((i + 1) / totalChunks) * 100), transferId });
-                // Slight tick yielding to prevent data channel choking
-                if (i % 16 === 0) await new Promise(r => setTimeout(r, 0));
+
+                // Flow control: wait for DataChannel buffer to drain every 4 chunks (64KB)
+                if (i % 4 === 0) {
+                    await this._waitForBufferDrain(targetPeerId, 256 * 1024);
+                }
             }
+
+            if (isLive && this.currentLiveTransferId !== transferId) return;
 
             const endPacket = {
                 type: 'file_chunk',
@@ -414,8 +496,18 @@
                     if (!Number.isInteger(tb) || tb < 1 || tb > MAX_FILE_BYTES || Math.ceil(tb / CHUNK_SIZE) !== totalChunks) return;
                 }
                 if (this.incomingChunks.has(transferId)) return;
-                if (this.incomingChunks.size >= MAX_CONCURRENT_TRANSFERS) return;
                 const metadata = sanitizeFileMetadata(packet.metadata);
+
+                // 新しいライブトラックを受信した場合、未完了の古いライブトラック転送を破棄
+                if (!metadata.isPlaylistItem) {
+                    for (const [id, t] of this.incomingChunks.entries()) {
+                        if (t && t.metadata && !t.metadata.isPlaylistItem) {
+                            this.incomingChunks.delete(id);
+                        }
+                    }
+                }
+
+                if (this.incomingChunks.size >= MAX_CONCURRENT_TRANSFERS) return;
                 this.incomingChunks.set(transferId, {
                     chunks: new Array(totalChunks),
                     receivedCount: 0,
@@ -559,6 +651,11 @@
         startHeartbeat() {
             this.stopHeartbeat();
             this.heartbeatTimer = setInterval(() => {
+                // Keep signaling server connection alive if device woke from sleep
+                if (this.peer && this.peer.disconnected && !this.peer.destroyed) {
+                    try { this.peer.reconnect(); } catch(e){}
+                }
+
                 if (this.role === 'listener' && this.hostConn && this.hostConn.open) {
                     this.sendToHost({ type: 'ping', clientTime: Date.now() });
                 } else if (this.role === 'host') {

@@ -236,3 +236,9 @@ html.desktop-app #mobile-bottom-nav,
     visibility: hidden !important;
     pointer-events: none !important;
 }
+
+/* Mobile-only settings (Screen WakeLock etc.) are never shown in the Electron desktop app */
+html.desktop-app .mobile-only,
+body.desktop-app .mobile-only {
+    display: none !important;
+}

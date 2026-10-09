@@ -84,7 +84,10 @@
         },
 
         // Screen WakeLock (Keep screen on during active visualizer / music playback)
+        // Mobile only: PC (Electron) builds never hold a screen wake lock.
         requestWakeLock: async function(force = false) {
+            const isDesktop = !!(window.electronAPI || (window.process && window.process.type) || document.documentElement.classList.contains('desktop-app'));
+            if (isDesktop) return;
             const isEnabled = localStorage.getItem('ost_wakelock_enabled') === '1';
             if (!isEnabled && !force) return;
             if ('wakeLock' in navigator && !wakeLock) {

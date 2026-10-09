@@ -25,6 +25,10 @@
             this.batchPlaylistName = '';
             this.batchTotalCount = 0;
             this.batchCurrentIndex = 0;
+            this.batchAckTimeout = null;
+
+            // Track file resync rate limiting to prevent duplicate concurrent transfers on join
+            this.recentClientSyncMap = new Map();
 
             // Callback listeners for UI controllers
             this.onRemoteStateUpdate = null;
@@ -112,8 +116,18 @@
                         if (this.api && typeof this.api.broadcastMembersList === 'function') {
                             this.api.broadcastMembersList();
                         }
-                        if (this.api && typeof this.api.resyncToNewClient === 'function') {
-                            this.api.resyncToNewClient(targetId);
+                        const lastSyncTime = this.recentClientSyncMap.get(targetId) || 0;
+                        const now = Date.now();
+                        if (now - lastSyncTime < 4000) {
+                            // If track file was already sent to this peer recently (e.g. from peer_joined), only resync playback state
+                            if (this.api && typeof this.api.resyncPlaybackStateOnly === 'function') {
+                                this.api.resyncPlaybackStateOnly(targetId);
+                            }
+                        } else {
+                            this.recentClientSyncMap.set(targetId, now);
+                            if (this.api && typeof this.api.resyncToNewClient === 'function') {
+                                this.api.resyncToNewClient(targetId);
+                            }
                         }
                         // Also provide immediate remote status
                         this.broadcastRemoteStatus(targetId);
@@ -511,10 +525,24 @@
 
             // Stream file chunked via P2P session
             await this.session.sendFile(arrayBuffer, metadata, this.batchTargetPeerId);
+
+            // Safety timeout: if listener ACK is dropped/delayed, auto-advance to prevent stall
+            if (this.batchAckTimeout) clearTimeout(this.batchAckTimeout);
+            this.batchAckTimeout = setTimeout(async () => {
+                if (this.isBatchTransferring) {
+                    console.warn('[SyncEngine] ACK timeout for item', this.batchCurrentIndex, '- advancing to next track');
+                    this.batchCurrentIndex++;
+                    await this.sendNextBatchItem();
+                }
+            }, 15000);
         }
 
         async handlePlaylistItemAck(ack) {
             if (!this.isBatchTransferring) return;
+            if (this.batchAckTimeout) {
+                clearTimeout(this.batchAckTimeout);
+                this.batchAckTimeout = null;
+            }
             this.batchCurrentIndex++;
 
             if (typeof this.onPlaylistBatchProgress === 'function') {
@@ -536,6 +564,10 @@
         finishPlaylistBatchTransfer() {
             if (!this.isBatchTransferring) return;
             this.isBatchTransferring = false;
+            if (this.batchAckTimeout) {
+                clearTimeout(this.batchAckTimeout);
+                this.batchAckTimeout = null;
+            }
 
             const endPacket = {
                 type: 'sync_playlist_batch_end',
@@ -565,6 +597,10 @@
 
         cancelPlaylistTransfer() {
             this.isBatchTransferring = false;
+            if (this.batchAckTimeout) {
+                clearTimeout(this.batchAckTimeout);
+                this.batchAckTimeout = null;
+            }
             this.batchQueue = [];
             this.batchTargetPeerId = null;
             if (typeof this.onPlaylistBatchProgress === 'function') {
@@ -581,6 +617,12 @@
         broadcastTrack(track, arrayBuffer, targetPeerId = null) {
             if (!this.session || this.session.role !== 'host') return;
             if (!track) return;
+
+            // If no target peer and no listeners are connected, update remote status and return early
+            if (!targetPeerId && (!this.session.connections || this.session.connections.size === 0)) {
+                this.broadcastRemoteStatus();
+                return;
+            }
 
             const meta = {
                 name: track.name,
