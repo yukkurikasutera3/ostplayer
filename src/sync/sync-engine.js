@@ -367,7 +367,9 @@
                     break;
                 case 'volume':
                     if (typeof this.api.setVolume === 'function' && Number.isFinite(Number(msg.volume))) {
-                        this.api.setVolume(Math.min(100, Math.max(0, Number(msg.volume))));
+                        let vol = Number(msg.volume);
+                        if (vol > 1.0) vol = vol / 100;
+                        this.api.setVolume(Math.min(1.0, Math.max(0, vol)));
                     }
                     break;
                 case 'toggle_mute':

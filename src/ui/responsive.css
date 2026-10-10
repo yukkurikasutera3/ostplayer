@@ -237,7 +237,18 @@ html.desktop-app #mobile-bottom-nav,
     pointer-events: none !important;
 }
 
-/* Mobile-only settings (Screen WakeLock etc.) are never shown in the Electron desktop app */
+/* Mobile-only settings (Screen WakeLock etc.) are never shown on Windows / Desktop PC */
+.mobile-only {
+    display: none !important;
+}
+
+html.is-mobile:not(.desktop-app) .mobile-only,
+body.is-mobile:not(.desktop-app) .mobile-only,
+html.is-android .mobile-only,
+body.is-android .mobile-only {
+    display: block !important;
+}
+
 html.desktop-app .mobile-only,
 body.desktop-app .mobile-only {
     display: none !important;
