@@ -4661,14 +4661,28 @@
             const waveCache = {};
             let nesNoiseBuffer15 = null;
             let nesNoiseBuffer9 = null;
+            let retroMasterGain = null;
 
-            // NES 2A03: Voice 0=Pulse 1, Voice 1=Pulse 2, Voice 2=Triangle, Voice 3=Noise
-            const voices = [
-                { type: 'pulse1', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
-                { type: 'pulse2', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
-                { type: 'triangle', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
-                { type: 'noise', active: false, note: -1, ch: -1, source: null, gain: null, filter: null, vuVal: 0 }
-            ];
+            // 12 dynamic voices (0..9 for tonal notes, 10..11 for percussion/noise)
+            const MAX_TONAL_VOICES = 10;
+            const voices = [];
+            for (let i = 0; i < 12; i++) {
+                voices.push({
+                    id: i,
+                    active: false,
+                    ch: -1,
+                    note: -1,
+                    startTime: 0,
+                    targetGain: 0,
+                    osc: null,
+                    mod: null,
+                    modGain: null,
+                    gain: null,
+                    isNoise: (i >= MAX_TONAL_VOICES)
+                });
+            }
+
+            const vuLevels = [0, 0, 0, 0]; // 0: Pulse1, 1: Pulse2, 2: Triangle/Wave, 3: Noise
 
             function midiNoteToFreq(note) {
                 return 440 * Math.pow(2, (note - 69) / 12);
@@ -4686,9 +4700,13 @@
                     real[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
                     imag[n] = (2 / (n * Math.PI)) * (1 - Math.cos(n * Math.PI * duty));
                 }
-                const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
-                waveCache[key] = wave;
-                return wave;
+                try {
+                    const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
+                    waveCache[key] = wave;
+                    return wave;
+                } catch(e) {
+                    return null;
+                }
             }
 
             function createNesTriangleWave() {
@@ -4702,14 +4720,18 @@
                     const sign = ((n - 1) / 2) % 2 === 0 ? 1 : -1;
                     imag[n] = sign * (8 / (Math.PI * Math.PI * n * n));
                 }
-                const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
-                waveCache['nes_tri'] = wave;
-                return wave;
+                try {
+                    const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
+                    waveCache['nes_tri'] = wave;
+                    return wave;
+                } catch(e) {
+                    return null;
+                }
             }
 
             function createLfsrNoiseBuffers() {
                 if (!audioCtx || nesNoiseBuffer15) return;
-                const sr = audioCtx.sampleRate;
+                const sr = audioCtx.sampleRate || 44100;
                 const length = sr * 2;
 
                 nesNoiseBuffer15 = audioCtx.createBuffer(1, length, sr);
@@ -4718,7 +4740,7 @@
                 for (let i = 0; i < length; i++) {
                     const bit = (reg15 ^ (reg15 >> 1)) & 1;
                     reg15 = (reg15 >> 1) | (bit << 14);
-                    data15[i] = (reg15 & 1) ? 1.0 : -1.0;
+                    data15[i] = (reg15 & 1) ? 0.75 : -0.75;
                 }
 
                 nesNoiseBuffer9 = audioCtx.createBuffer(1, length, sr);
@@ -4727,33 +4749,42 @@
                 for (let i = 0; i < length; i++) {
                     const bit = (reg9 ^ (reg9 >> 6)) & 1;
                     reg9 = (reg9 >> 1) | (bit << 8);
-                    data9[i] = (reg9 & 1) ? 1.0 : -1.0;
+                    data9[i] = (reg9 & 1) ? 0.75 : -0.75;
                 }
             }
 
             function init(ctx, dest) {
                 audioCtx = ctx || audioContext;
-                masterOut = dest || (singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode);
                 if (!audioCtx) return;
                 createLfsrNoiseBuffers();
+
+                const targetOut = dest || (singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : (window.masterGainNode || audioCtx.destination));
+                if (!retroMasterGain) {
+                    retroMasterGain = audioCtx.createGain();
+                    retroMasterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+                }
+                try { retroMasterGain.disconnect(); } catch(e){}
+                if (targetOut) {
+                    try { retroMasterGain.connect(targetOut); } catch(e){}
+                }
+                masterOut = retroMasterGain;
             }
 
             let vuLoopActive = false;
             function updateVuLoop() {
                 if (activeMidiEngine === 'sf' || activeMidiEngine === 'chimaera') {
                     vuLoopActive = false;
+                    for (let i = 0; i < 4; i++) {
+                        const vuEl = document.getElementById(`retro-vu-${i}`);
+                        if (vuEl) vuEl.style.width = '0%';
+                    }
                     return;
                 }
                 for (let i = 0; i < 4; i++) {
-                    const v = voices[i];
+                    vuLevels[i] = Math.max(0, vuLevels[i] * 0.88);
                     const vuEl = document.getElementById(`retro-vu-${i}`);
                     if (vuEl) {
-                        if (v.active) {
-                            v.vuVal = Math.min(100, Math.max(v.vuVal * 0.92, 75));
-                        } else {
-                            v.vuVal = Math.max(0, v.vuVal * 0.85);
-                        }
-                        vuEl.style.width = v.vuVal.toFixed(0) + '%';
+                        vuEl.style.width = vuLevels[i].toFixed(0) + '%';
                     }
                 }
                 if (vuLoopActive) {
@@ -4768,17 +4799,21 @@
                 }
             }
 
-            function noteOn(ch, note, vel) {
+            function triggerVu(idx) {
+                if (idx >= 0 && idx < 4) {
+                    vuLevels[idx] = 100;
+                    ensureVuLoop();
+                }
+            }
+
+            function noteOn(ch, note, vel, schedTime) {
                 if (!audioCtx) init();
                 if (!audioCtx || vel <= 0) return;
-                ensureVuLoop();
-
-                const freq = midiNoteToFreq(note);
-                const gainVal = (vel / 127) * 0.28;
-                const now = audioCtx.currentTime;
+                const now = (typeof schedTime === 'number' && schedTime > 0) ? Math.max(audioCtx.currentTime, schedTime) : audioCtx.currentTime;
 
                 if (ch === 9) {
                     playNoiseVoice(note, vel, now);
+                    triggerVu(3);
                     return;
                 }
 
@@ -4787,195 +4822,227 @@
                     return;
                 }
 
-                let targetVoiceIdx = -1;
-                if (note <= 50 && (!voices[2].active || voices[2].note === note)) {
-                    targetVoiceIdx = 2; // Triangle
-                } else if (!voices[0].active || voices[0].note === note) {
-                    targetVoiceIdx = 0; // Pulse 1
-                } else if (!voices[1].active || voices[1].note === note) {
-                    targetVoiceIdx = 1; // Pulse 2
-                } else {
-                    targetVoiceIdx = (voices[0].note < voices[1].note) ? 1 : 0;
-                    stopVoice(targetVoiceIdx, now);
-                }
+                // NES / GameBoy
+                const freq = midiNoteToFreq(note);
+                const gainVal = (vel / 127) * 0.28;
 
-                const v = voices[targetVoiceIdx];
-                if (v.osc) {
-                    try { v.osc.stop(now); v.osc.disconnect(); } catch(e){}
-                    v.osc = null;
+                // Allocate voice
+                let voice = null;
+                for (let i = 0; i < MAX_TONAL_VOICES; i++) {
+                    if (!voices[i].active) {
+                        voice = voices[i];
+                        break;
+                    }
                 }
-                if (v.gain) {
-                    try { v.gain.disconnect(); } catch(e){}
-                    v.gain = null;
+                if (!voice) {
+                    let oldestIdx = 0;
+                    let oldestTime = Infinity;
+                    for (let i = 0; i < MAX_TONAL_VOICES; i++) {
+                        if (voices[i].startTime < oldestTime) {
+                            oldestTime = voices[i].startTime;
+                            oldestIdx = i;
+                        }
+                    }
+                    voice = voices[oldestIdx];
+                    stopVoice(voice, now);
                 }
 
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
-                if (targetVoiceIdx === 0) {
-                    osc.setPeriodicWave(createPulseWave(0.50));
-                } else if (targetVoiceIdx === 1) {
-                    osc.setPeriodicWave(createPulseWave(currentEngine === 'gb' ? 0.125 : 0.25));
-                } else if (targetVoiceIdx === 2) {
-                    osc.setPeriodicWave(createNesTriangleWave());
-                }
-
-                osc.frequency.setValueAtTime(freq, now);
-
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(gainVal, now + 0.003);
-                if (targetVoiceIdx === 2) {
-                    gain.gain.setValueAtTime(gainVal * 1.1, now + 0.004);
+                let vuTarget = 0;
+                if (note < 48 || ch === 2) {
+                    // Triangle / Wavetable
+                    vuTarget = 2;
+                    const triWave = createNesTriangleWave();
+                    if (triWave) try { osc.setPeriodicWave(triWave); } catch(e){ osc.type = 'triangle'; }
+                    else osc.type = 'triangle';
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.linearRampToValueAtTime(gainVal * 1.25, now + 0.003);
+                    gain.gain.setValueAtTime(gainVal * 1.15, now + 0.05);
+                } else if (voice.id % 2 === 0) {
+                    // Pulse 1 (50% duty)
+                    vuTarget = 0;
+                    if (currentEngine === 'gb' && ch === 0) {
+                        osc.frequency.setValueAtTime(freq * 0.9, now);
+                        osc.frequency.exponentialRampToValueAtTime(freq, now + 0.035);
+                    }
+                    const pWave = createPulseWave(0.50);
+                    if (pWave) try { osc.setPeriodicWave(pWave); } catch(e){ osc.type = 'square'; }
+                    else osc.type = 'square';
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.linearRampToValueAtTime(gainVal, now + 0.003);
+                    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.7), now + 0.35);
                 } else {
+                    // Pulse 2 (25% duty on NES, 12.5% on GB)
+                    vuTarget = 1;
+                    const duty = (currentEngine === 'gb') ? 0.125 : 0.25;
+                    const pWave = createPulseWave(duty);
+                    if (pWave) try { osc.setPeriodicWave(pWave); } catch(e){ osc.type = 'square'; }
+                    else osc.type = 'square';
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.linearRampToValueAtTime(gainVal, now + 0.003);
                     gain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.65), now + 0.35);
                 }
 
+                osc.frequency.setValueAtTime(freq, now);
                 osc.connect(gain);
                 gain.connect(masterOut || audioCtx.destination);
                 osc.start(now);
 
-                v.active = true;
-                v.note = note;
-                v.ch = ch;
-                v.osc = osc;
-                v.gain = gain;
-                v.vuVal = 100;
-            }
+                voice.active = true;
+                voice.ch = ch;
+                voice.note = note;
+                voice.startTime = now;
+                voice.targetGain = gainVal;
+                voice.osc = osc;
+                voice.mod = null;
+                voice.gain = gain;
 
-            function playNoiseVoice(note, vel, now) {
-                if (!audioCtx || !nesNoiseBuffer15) return;
-                const v = voices[3];
-                if (v.source) {
-                    try { v.source.stop(now); v.source.disconnect(); } catch(e){}
-                    v.source = null;
-                }
-                if (v.gain) {
-                    try { v.gain.disconnect(); } catch(e){}
-                    v.gain = null;
-                }
-
-                const source = audioCtx.createBufferSource();
-                const gain = audioCtx.createGain();
-                const filter = audioCtx.createBiquadFilter();
-
-                let isShort = false;
-                let playbackRate = 1.0;
-                let isMetallic = (note === 42 || note === 44 || note === 46);
-
-                source.buffer = (isMetallic && nesNoiseBuffer9) ? nesNoiseBuffer9 : nesNoiseBuffer15;
-
-                if (note === 35 || note === 36) {
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(160, now);
-                    filter.frequency.exponentialRampToValueAtTime(40, now + 0.12);
-                    playbackRate = 0.45;
-                    isShort = false;
-                } else if (note === 42 || note === 44) {
-                    filter.type = 'highpass';
-                    filter.frequency.setValueAtTime(4000, now);
-                    playbackRate = 2.4;
-                    isShort = true;
-                } else if (note === 46 || note === 49) {
-                    filter.type = 'highpass';
-                    filter.frequency.setValueAtTime(2500, now);
-                    playbackRate = 1.8;
-                    isShort = false;
-                } else {
-                    filter.type = 'bandpass';
-                    filter.frequency.setValueAtTime(1200, now);
-                    filter.Q.setValueAtTime(2.0, now);
-                    playbackRate = 1.1;
-                    isShort = false;
-                }
-
-                source.playbackRate.setValueAtTime(playbackRate, now);
-
-                const gainVal = (vel / 127) * 0.32;
-                gain.gain.setValueAtTime(gainVal, now);
-                if (isShort) {
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-                    source.stop(now + 0.07);
-                } else {
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-                    source.stop(now + 0.24);
-                }
-
-                source.connect(filter);
-                filter.connect(gain);
-                gain.connect(masterOut || audioCtx.destination);
-                source.start(now);
-
-                v.active = true;
-                v.note = note;
-                v.source = source;
-                v.gain = gain;
-                v.vuVal = 100;
+                triggerVu(vuTarget);
             }
 
             function playFmVoice(ch, note, vel, now) {
                 const freq = midiNoteToFreq(note);
-                const gainVal = (vel / 127) * 0.24;
+                const gainVal = (vel / 127) * 0.26;
+
+                let voice = null;
+                for (let i = 0; i < MAX_TONAL_VOICES; i++) {
+                    if (!voices[i].active) { voice = voices[i]; break; }
+                }
+                if (!voice) {
+                    let oldestIdx = 0, oldestTime = Infinity;
+                    for (let i = 0; i < MAX_TONAL_VOICES; i++) {
+                        if (voices[i].startTime < oldestTime) { oldestTime = voices[i].startTime; oldestIdx = i; }
+                    }
+                    voice = voices[oldestIdx];
+                    stopVoice(voice, now);
+                }
 
                 const carrier = audioCtx.createOscillator();
                 const carrierGain = audioCtx.createGain();
-                const mod1 = audioCtx.createOscillator();
-                const mod1Gain = audioCtx.createGain();
+                const mod = audioCtx.createOscillator();
+                const modGain = audioCtx.createGain();
 
                 carrier.type = 'sine';
                 carrier.frequency.setValueAtTime(freq, now);
 
-                const ratio = (note < 48) ? 0.5 : 2.0;
-                mod1.type = 'sine';
-                mod1.frequency.setValueAtTime(freq * ratio, now);
+                let ratio = 1.0;
+                let vuTarget = 0;
+                if (note < 48) {
+                    ratio = 0.5; // FM Slap Bass
+                    vuTarget = 2;
+                } else if (ch % 2 === 0) {
+                    ratio = 2.0; // FM Brass / Lead
+                    vuTarget = 0;
+                } else {
+                    ratio = 3.0; // FM Synth / Bell
+                    vuTarget = 1;
+                }
 
-                const modIndex = 450 * (vel / 127);
-                mod1Gain.gain.setValueAtTime(modIndex, now);
-                mod1Gain.gain.exponentialRampToValueAtTime(modIndex * 0.2, now + 0.4);
+                mod.type = 'sine';
+                mod.frequency.setValueAtTime(freq * ratio, now);
 
-                mod1.connect(carrier.frequency);
+                const modDepth = 500 * (vel / 127);
+                modGain.gain.setValueAtTime(modDepth, now);
+                modGain.gain.exponentialRampToValueAtTime(Math.max(1, modDepth * 0.25), now + 0.25);
 
-                carrierGain.gain.setValueAtTime(0, now);
-                carrierGain.gain.linearRampToValueAtTime(gainVal, now + 0.005);
-                carrierGain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.5), now + 0.4);
+                mod.connect(carrier.frequency);
+
+                carrierGain.gain.setValueAtTime(0.0001, now);
+                carrierGain.gain.linearRampToValueAtTime(gainVal, now + 0.004);
+                carrierGain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.55), now + 0.45);
 
                 carrier.connect(carrierGain);
                 carrierGain.connect(masterOut || audioCtx.destination);
 
                 carrier.start(now);
-                mod1.start(now);
+                mod.start(now);
 
-                const v = voices[ch % 3];
-                if (v.osc) {
-                    try { v.osc.stop(now); v.osc.disconnect(); } catch(e){}
-                }
-                v.active = true;
-                v.note = note;
-                v.ch = ch;
-                v.osc = carrier;
-                v.gain = carrierGain;
-                v.mod = mod1;
-                v.vuVal = 100;
+                voice.active = true;
+                voice.ch = ch;
+                voice.note = note;
+                voice.startTime = now;
+                voice.targetGain = gainVal;
+                voice.osc = carrier;
+                voice.mod = mod;
+                voice.modGain = modGain;
+                voice.gain = carrierGain;
+
+                triggerVu(vuTarget);
             }
 
-            function noteOff(ch, note) {
-                if (!audioCtx) return;
-                const now = audioCtx.currentTime;
-                for (let i = 0; i < 4; i++) {
-                    const v = voices[i];
-                    if (v.active && v.note === note && (v.ch === ch || ch === 9)) {
-                        stopVoice(i, now);
-                    }
+            function playNoiseVoice(note, vel, now) {
+                if (!audioCtx || !nesNoiseBuffer15) return;
+                const voice = voices[10].active ? voices[11] : voices[10];
+                stopVoice(voice, now);
+
+                const source = audioCtx.createBufferSource();
+                const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+
+                let isMetallic = (note === 42 || note === 44 || note === 46 || note === 49 || note === 51);
+                source.buffer = (isMetallic && nesNoiseBuffer9) ? nesNoiseBuffer9 : nesNoiseBuffer15;
+
+                let playbackRate = 1.0;
+                let duration = 0.20;
+
+                if (note === 35 || note === 36) {
+                    // Kick
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(180, now);
+                    filter.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+                    playbackRate = 0.45;
+                    duration = 0.14;
+                } else if (note === 38 || note === 40) {
+                    // Snare
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1300, now);
+                    filter.Q.setValueAtTime(2.2, now);
+                    playbackRate = 1.1;
+                    duration = 0.18;
+                } else if (note === 42 || note === 44) {
+                    // Closed Hat
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(4500, now);
+                    playbackRate = 2.2;
+                    duration = 0.06;
+                } else {
+                    // Crash / Open Hat
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(2800, now);
+                    playbackRate = 1.6;
+                    duration = 0.35;
                 }
+
+                source.playbackRate.setValueAtTime(playbackRate, now);
+                const gainVal = (vel / 127) * 0.34;
+                gain.gain.setValueAtTime(gainVal, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterOut || audioCtx.destination);
+
+                source.start(now);
+                source.stop(now + duration + 0.02);
+
+                voice.active = true;
+                voice.ch = 9;
+                voice.note = note;
+                voice.startTime = now;
+                voice.targetGain = gainVal;
+                voice.osc = source;
+                voice.gain = gain;
             }
 
-            function stopVoice(i, time) {
-                const v = voices[i];
-                if (!v || !v.active) return;
-                const now = time || (audioCtx ? audioCtx.currentTime : 0);
+            function stopVoice(v, time) {
+                if (!v) return;
+                const now = (typeof time === 'number' && time > 0) ? Math.max(audioCtx ? audioCtx.currentTime : 0, time) : (audioCtx ? audioCtx.currentTime : 0);
                 if (v.gain) {
                     try {
                         v.gain.gain.cancelScheduledValues(now);
-                        v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+                        v.gain.gain.setValueAtTime(v.gain.gain.value || v.targetGain, now);
                         v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
                     } catch(e){}
                 }
@@ -4984,17 +5051,83 @@
                 }
                 if (v.mod) {
                     try { v.mod.stop(now + 0.04); } catch(e){}
-                    v.mod = null;
                 }
                 v.active = false;
                 v.note = -1;
+                v.osc = null;
+                v.mod = null;
+                v.gain = null;
             }
 
-            function allNotesOff() {
+            function noteOff(ch, note, schedTime) {
                 if (!audioCtx) return;
-                const now = audioCtx.currentTime;
+                const now = (typeof schedTime === 'number' && schedTime > 0) ? Math.max(audioCtx.currentTime, schedTime) : audioCtx.currentTime;
+                for (let i = 0; i < voices.length; i++) {
+                    const v = voices[i];
+                    if (v.active && v.note === note && (v.ch === ch || ch === 9)) {
+                        const offTime = Math.max(now, v.startTime + 0.025);
+                        if (v.gain) {
+                            try {
+                                v.gain.gain.cancelScheduledValues(offTime);
+                                v.gain.gain.setValueAtTime(v.targetGain * 0.8, offTime);
+                                v.gain.gain.exponentialRampToValueAtTime(0.0001, offTime + 0.035);
+                            } catch(e){}
+                        }
+                        if (v.osc) {
+                            try { v.osc.stop(offTime + 0.04); } catch(e){}
+                        }
+                        if (v.mod) {
+                            try { v.mod.stop(offTime + 0.04); } catch(e){}
+                        }
+                        const cleanupDelay = Math.max(25, (offTime - audioCtx.currentTime + 0.04) * 1000);
+                        setTimeout(() => {
+                            if (v.note === note) {
+                                v.active = false;
+                                v.note = -1;
+                                v.osc = null;
+                                v.mod = null;
+                                v.gain = null;
+                            }
+                        }, cleanupDelay);
+                    }
+                }
+            }
+
+            function allNotesOff(schedTime) {
+                if (!audioCtx) return;
+                const now = (typeof schedTime === 'number' && schedTime > 0) ? Math.max(audioCtx.currentTime, schedTime) : audioCtx.currentTime;
+                for (let i = 0; i < voices.length; i++) {
+                    stopVoice(voices[i], now);
+                }
+                vuLevels.fill(0);
                 for (let i = 0; i < 4; i++) {
-                    stopVoice(i, now);
+                    const el = document.getElementById(`retro-vu-${i}`);
+                    if (el) el.style.width = '0%';
+                }
+            }
+
+            function send(msg, time) {
+                if (!msg || msg.length < 1) return;
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+                const schedTime = (typeof time === 'number' && time > 0) ? time : 0;
+
+                if (cmd === 0x90) {
+                    const note = msg[1];
+                    const vel = msg[2];
+                    if (vel > 0) {
+                        noteOn(ch, note, vel, schedTime);
+                    } else {
+                        noteOff(ch, note, schedTime);
+                    }
+                } else if (cmd === 0x80) {
+                    noteOff(ch, msg[1], schedTime);
+                } else if (cmd === 0xb0) {
+                    const ctrl = msg[1];
+                    if (ctrl === 120 || ctrl === 123) {
+                        allNotesOff(schedTime);
+                    }
                 }
             }
 
@@ -5043,30 +5176,6 @@
                 }
             }
 
-            function send(msg, time) {
-                if (!msg || msg.length < 1) return;
-                const status = msg[0];
-                const cmd = status & 0xf0;
-                const ch = status & 0x0f;
-
-                if (cmd === 0x90) {
-                    const note = msg[1];
-                    const vel = msg[2];
-                    if (vel > 0) {
-                        noteOn(ch, note, vel);
-                    } else {
-                        noteOff(ch, note);
-                    }
-                } else if (cmd === 0x80) {
-                    noteOff(ch, msg[1]);
-                } else if (cmd === 0xb0) {
-                    const ctrl = msg[1];
-                    if (ctrl === 120 || ctrl === 123) {
-                        allNotesOff();
-                    }
-                }
-            }
-
             return {
                 init,
                 send,
@@ -5096,9 +5205,11 @@
                 if (!synthB) {
                     synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
                     try {
-                        if (singleGainNodes && singleGainNodes[0]) {
-                            synthB.setMasterVol(0.85);
+                        const targetOut = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || (audioContext ? audioContext.destination : null));
+                        if (targetOut && audioContext) {
+                            synthB.setAudioContext(audioContext, targetOut);
                         }
+                        synthB.setMasterVol(0.85);
                     } catch(e){}
                 }
             }
@@ -5155,14 +5266,21 @@
                     sfBBuffer = buffer;
                     sfBName = name;
 
-                    if (typeof SpessaSynthPlayerWrapper !== 'undefined' && typeof SpessaSynth !== 'undefined') {
+                    if (window.SpessaSynth && window.SpessaSynth.WorkletSynthesizer) {
                         try {
                             const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-                            const sfBInstance = new SpessaSynth(ctx, buffer);
-                            synthB = new SpessaSynthPlayerWrapper(sfBInstance);
+                            const workletSynth = new window.SpessaSynth.WorkletSynthesizer(ctx);
+                            await workletSynth.isReady;
+                            await workletSynth.soundBankManager.addSoundBank(buffer.slice(0), "sfB");
+                            synthB = new SpessaSynthPlayerWrapper(workletSynth);
+                            const targetOut = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || ctx.destination);
+                            synthB.setAudioContext(ctx, targetOut);
                         } catch(e) {
                             console.warn("SpessaSynth B fallback notice:", e);
+                            init();
                         }
+                    } else {
+                        init();
                     }
 
                     const nameEl = document.getElementById('chimaera-sf-b-name');
@@ -5187,6 +5305,11 @@
                 sfBBuffer = null;
                 sfBName = "NES_Chiptune_v1 (内蔵)";
                 synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                const targetOut = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || (audioContext ? audioContext.destination : null));
+                if (targetOut && audioContext) {
+                    synthB.setAudioContext(audioContext, targetOut);
+                }
+                synthB.setMasterVol(0.85);
                 const nameEl = document.getElementById('chimaera-sf-b-name');
                 if (nameEl) nameEl.textContent = sfBName;
                 const resetBtn = document.getElementById('reset-sf2-b-btn');
@@ -5200,13 +5323,12 @@
                 showNotification("SoundFont B を初期状態（内蔵音源）にリセットしました");
             }
 
-            function send(msg, time) {
+            function send(msg, time, rawSend) {
                 if (!msg || msg.length < 1) return;
                 const status = msg[0];
                 const cmd = status & 0xf0;
                 const ch = status & 0x0f;
 
-                const primarySynth = getMidiSynth('main');
                 if (!synthB) init();
 
                 const src = channelSources[ch] || 'A';
@@ -5220,23 +5342,36 @@
                     }
                 }
 
+                const sendA = (m, t) => {
+                    if (typeof rawSend === 'function') {
+                        rawSend(m, t);
+                    } else {
+                        const p = getMidiSynth('main', false);
+                        if (p && p.send && p !== synthB) p.send(m, t);
+                    }
+                };
+
+                const sendB = (m, t) => {
+                    if (synthB && synthB.send) synthB.send(m, t);
+                };
+
                 if (target === 'A') {
-                    if (primarySynth && primarySynth.send) primarySynth.send(msg, time);
+                    sendA(msg, time);
                 } else if (target === 'B') {
-                    if (synthB && synthB.send) synthB.send(msg, time);
+                    sendB(msg, time);
                 } else {
                     if (cmd === 0x90 && msg[2] > 0) {
                         const origVel = msg[2];
                         const velA = Math.max(1, Math.round(origVel * (1 - blendBalance) * 1.4));
                         const msgA = [msg[0], msg[1], Math.min(127, velA)];
-                        if (primarySynth && primarySynth.send) primarySynth.send(msgA, time);
+                        sendA(msgA, time);
 
                         const velB = Math.max(1, Math.round(origVel * blendBalance * 1.4));
                         const msgB = [msg[0], msg[1], Math.min(127, velB)];
-                        if (synthB && synthB.send) synthB.send(msgB, time);
+                        sendB(msgB, time);
                     } else {
-                        if (primarySynth && primarySynth.send) primarySynth.send(msg, time);
-                        if (synthB && synthB.send) synthB.send(msg, time);
+                        sendA(msg, time);
+                        sendB(msg, time);
                     }
                 }
             }
@@ -5278,15 +5413,33 @@
             const pRetro = document.getElementById('midi-panel-retro');
             const statusBadge = document.getElementById('midi-engine-status-badge');
 
+            const outDest = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || (audioContext ? audioContext.destination : null));
+
             if (engine === 'nes' || engine === 'gb' || engine === 'fm') {
-                RetroChipAudioEngine.init(audioContext);
+                RetroChipAudioEngine.init(audioContext, outDest);
                 RetroChipAudioEngine.setEngine(engine);
                 if (pChimaera) pChimaera.classList.add('hidden');
                 if (pRetro) pRetro.classList.remove('hidden');
 
-                const mainSynth = getMidiSynth('main', false);
-                if (mainSynth && mainSynth.send) {
-                    for (let c = 0; c < 16; c++) mainSynth.send([0xb0 | c, 123, 0]);
+                // SpessaSynth の音声をミュート (SoundFont の被りを防ぐ)
+                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].gainNode && audioContext) {
+                    try {
+                        spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    } catch(e){}
+                }
+
+                // WebAudioTinySynth の音量を 0 にして MIDI イベントディスパッチャとして同期稼働
+                const tinySynth = midiPlayers['main'];
+                if (tinySynth) {
+                    tinySynth.setMasterVol(0);
+                    if (isSinglePlaying && !tinySynth.play) {
+                        try {
+                            const curSec = (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].sequencer)
+                                ? (spessaSynthWrappers['main'].sequencer.currentTime || 0) : 0;
+                            tinySynth.locateMIDI(curSec);
+                            tinySynth.playMIDI();
+                        } catch(e){}
+                    }
                 }
 
                 if (statusBadge) {
@@ -5311,6 +5464,26 @@
                 ChimaeraSoundFontEngine.init();
                 if (pChimaera) pChimaera.classList.remove('hidden');
                 if (pRetro) pRetro.classList.add('hidden');
+
+                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].gainNode && audioContext) {
+                    try {
+                        spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    } catch(e){}
+                }
+
+                const tinySynth = midiPlayers['main'];
+                if (tinySynth) {
+                    tinySynth.setMasterVol(0.85);
+                    if (isSinglePlaying && !tinySynth.play) {
+                        try {
+                            const curSec = (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].sequencer)
+                                ? (spessaSynthWrappers['main'].sequencer.currentTime || 0) : 0;
+                            tinySynth.locateMIDI(curSec);
+                            tinySynth.playMIDI();
+                        } catch(e){}
+                    }
+                }
+
                 if (statusBadge) {
                     statusBadge.textContent = 'Engine: Chimaera Dual SoundFont (チャンネル個別音源割当対応)';
                     statusBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30';
@@ -5318,18 +5491,37 @@
                 for (let ch = 0; ch < 16; ch++) {
                     const grp = document.getElementById(`chimaera-src-group-${ch}`);
                     if (grp) grp.classList.remove('hidden');
-                    updateChannelSourceUI(ch);
+                    if (typeof updateChannelSourceUI === 'function') updateChannelSourceUI(ch);
                 }
-                updateChimaeraSummary();
+                if (typeof updateChimaeraSummary === 'function') updateChimaeraSummary();
                 if (shouldNotify) {
                     showNotification("音源エンジンを「キメラ (Dual SoundFont)」に切り替えました");
                 }
             } else {
+                // 'sf' (Standard SoundFont)
                 RetroChipAudioEngine.allNotesOff();
                 if (pChimaera) pChimaera.classList.add('hidden');
                 if (pRetro) pRetro.classList.add('hidden');
+
+                if (isSpessaSynthLoaded && spessaSynthWrappers['main']) {
+                    if (spessaSynthWrappers['main'].gainNode && audioContext) {
+                        try {
+                            spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+                        } catch(e){}
+                    }
+                    if (midiPlayers['main']) {
+                        midiPlayers['main'].setMasterVol(0);
+                    }
+                } else {
+                    if (midiPlayers['main']) {
+                        const vol = (typeof ui !== 'undefined' && ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.85;
+                        midiPlayers['main'].setMasterVol(vol || 0.85);
+                    }
+                }
+
                 if (statusBadge) {
-                    statusBadge.textContent = 'Engine: Standard SoundFont (WebAudioTinySynth / SGM-V2.01)';
+                    const sfLabel = (typeof activeSoundFontBuffer !== 'undefined' && activeSoundFontBuffer) ? 'Custom SoundFont (SpessaSynth)' : 'WebAudioTinySynth / SGM-V2.01';
+                    statusBadge.textContent = `Engine: Standard SoundFont (${sfLabel})`;
                     statusBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-500/30';
                 }
                 for (let ch = 0; ch < 16; ch++) {
@@ -5437,7 +5629,7 @@
                         RetroChipAudioEngine.send(msg, time);
                         return;
                     } else if (activeMidiEngine === 'chimaera') {
-                        ChimaeraSoundFontEngine.send(msg, time);
+                        ChimaeraSoundFontEngine.send(msg, time, originalSend);
                         return;
                     }
                     originalSend(msg, time);
@@ -5446,7 +5638,7 @@
                         RetroChipAudioEngine.send(msg, time);
                         return;
                     } else if (activeMidiEngine === 'chimaera') {
-                        ChimaeraSoundFontEngine.send(msg, time);
+                        ChimaeraSoundFontEngine.send(msg, time, originalSend);
                         return;
                     }
                     originalSend(msg, time);
@@ -5457,7 +5649,7 @@
                         msg[1] = prog;
                     }
                     if (activeMidiEngine === 'chimaera') {
-                        ChimaeraSoundFontEngine.send(msg, time);
+                        ChimaeraSoundFontEngine.send(msg, time, originalSend);
                     } else {
                         originalSend(msg, time);
                     }
@@ -5470,7 +5662,7 @@
                 } else if (cmd === 0xb0) {
                     const ctrl = msg[1];
                     if (ctrl === 120 || ctrl === 123) {
-                        RetroChipAudioEngine.allNotesOff();
+                        RetroChipAudioEngine.allNotesOff(time);
                     }
                     if (isChannelSilenced && (ctrl === 7 || ctrl === 11 || ctrl === 39 || ctrl === 43)) {
                         msg[2] = 0;
@@ -5482,7 +5674,7 @@
                             msg[2] = vol;
                         }
                         if (activeMidiEngine === 'chimaera') {
-                            ChimaeraSoundFontEngine.send(msg, time);
+                            ChimaeraSoundFontEngine.send(msg, time, originalSend);
                         } else {
                             originalSend(msg, time);
                         }
@@ -5492,14 +5684,14 @@
                         });
                     } else {
                         if (activeMidiEngine === 'chimaera') {
-                            ChimaeraSoundFontEngine.send(msg, time);
+                            ChimaeraSoundFontEngine.send(msg, time, originalSend);
                         } else {
                             originalSend(msg, time);
                         }
                     }
                 } else {
                     if (activeMidiEngine === 'chimaera') {
-                        ChimaeraSoundFontEngine.send(msg, time);
+                        ChimaeraSoundFontEngine.send(msg, time, originalSend);
                     } else {
                         originalSend(msg, time);
                     }
@@ -6711,6 +6903,27 @@
                 await audioContext.resume().catch(e=>console.warn(e));
             }
             synth.setAudioContext(audioContext, destNode || (masterGainNode || audioContext.destination));
+            
+            // WebAudioTinySynth (midiPlayers['main']) を並行準備してレトロチップ音源 / キメラ音源のイベント供給に備える
+            if (!midiPlayers['main']) {
+                midiPlayers['main'] = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                wrapMidiSynthSend(midiPlayers['main']);
+            }
+            if (audioContext && typeof midiPlayers['main'].setAudioContext === 'function') {
+                midiPlayers['main'].setAudioContext(audioContext, destNode || (singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode));
+            }
+            if (synth !== midiPlayers['main']) {
+                try {
+                    await midiPlayers['main'].loadMIDI(new Uint8Array(arrayBuffer));
+                    if (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm') {
+                        midiPlayers['main'].setMasterVol(0);
+                    } else if (isSpessaSynthLoaded) {
+                        midiPlayers['main'].setMasterVol(0);
+                    }
+                } catch(e) {
+                    console.warn("midiPlayers['main'] parallel load notice:", e);
+                }
+            }
             
             try {
                 if (arrayBuffer) {
@@ -13121,7 +13334,11 @@
                                 buf = await activeTrack.file.arrayBuffer();
                             }
                             if (buf) {
+                                const curTime = (synth.sequencer && synth.sequencer.currentTime) ? synth.sequencer.currentTime : 0;
                                 await loadMidiData(synth, buf, singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode);
+                                if (curTime > 0 && typeof synth.seekTo === 'function') {
+                                    synth.seekTo(curTime);
+                                }
                                 if (isSinglePlaying) {
                                     synth.playMIDI();
                                     triggerAchievement('soundfont_hotswap');
@@ -13202,6 +13419,7 @@
                 }
             }
             
+            switchActiveMidiEngine(activeMidiEngine, false);
             showNotification("SoundFontをリセットしました（デフォルト音源を使用します）");
         }
         window.resetSoundFont = resetSoundFont;
@@ -14210,6 +14428,19 @@
                         console.warn("playMIDI error:", e);
                     }
                 }
+                if (midiPlayers['main'] && midiPlayers['main'] !== this && midiPlayers['main'].song) {
+                    try {
+                        if (this.sequencer && this.sequencer.currentTime > 0) {
+                            midiPlayers['main'].locateMIDI(this.sequencer.currentTime);
+                        }
+                        midiPlayers['main'].playMIDI();
+                        if (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm') {
+                            midiPlayers['main'].setMasterVol(0);
+                        } else {
+                            midiPlayers['main'].setMasterVol(0);
+                        }
+                    } catch(e){}
+                }
             }
             
             pauseMIDI() {
@@ -14219,6 +14450,9 @@
                     try {
                         if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
                     } catch(e){}
+                }
+                if (midiPlayers['main'] && midiPlayers['main'] !== this) {
+                    try { midiPlayers['main'].stopMIDI(); } catch(e){}
                 }
             }
             
@@ -14234,6 +14468,12 @@
                 }
                 if (this.synth && typeof this.synth.stopAll === 'function') {
                     try { this.synth.stopAll(true); } catch(e){}
+                }
+                if (midiPlayers['main'] && midiPlayers['main'] !== this) {
+                    try {
+                        midiPlayers['main'].stopMIDI();
+                        midiPlayers['main'].locateMIDI(0);
+                    } catch(e){}
                 }
             }
             
@@ -14251,6 +14491,9 @@
                     setTimeout(() => {
                         applyMidiChannelStates(this);
                     }, 20);
+                }
+                if (midiPlayers['main'] && midiPlayers['main'] !== this) {
+                    try { midiPlayers['main'].locateMIDI(targetSeconds); } catch(e){}
                 }
             }
 
