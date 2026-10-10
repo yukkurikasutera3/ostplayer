@@ -340,6 +340,7 @@
             html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #lib-sidebar, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #single-view, html:is([data-layout="library"], [data-layout="cover"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="stage"], [data-layout="lcd"]).theme-clear #album-sidebar { background-color: transparent; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
         }
         html[data-midi-open="1"]:is([data-layout="library"], [data-layout="album"], [data-layout="shelf"], [data-layout="term"], [data-layout="lcd"]) #playlist, html[data-midi-open="1"][data-layout="cover"] #cover-wall { visibility: hidden; }
+        #chord-wheel-panel { position: fixed; bottom: 80px; left: 16px; z-index: 9000; }
 
         /* ===== Layout: Album browser / Shelf ===== */
         #album-sidebar, #shelf-strip { display: none; }
@@ -1614,7 +1615,7 @@
                             <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
                                 <li><strong>スマート音量均一化 (Smart Loudness Leveler & Limiter):</strong> NORM をインテリジェント AGC & ピークリミッターへアップグレード。静かなBGMと爆音の戦闘曲の音量を自動で揃え、音割れを防止。</li>
                                 <li><strong>デスクトップ・Windows 最適化:</strong> 画面点灯維持などのモバイル専用設定項目を Windows / PC 環境では完全非表示化。</li>
-                                <li><strong>総合セキュリティ・堅牢化:</strong> プレイリスト表示の XSS 防止、customPlaylists 破損時復旧、Game Loop 無限シークフリーズ解消、モード間削除インデックス同期、プレイリスト削除時の IndexedDB 同期、非同期待機による複製安定化、P2P/DB復元曲のWAV出力対応、Web Audio NaN 例外防止、リモコン音量スケール修正、SoundFont バッファ保護、無限長ストリーム表示対応、モーダル表示中ショートカット誤爆防止、ミュート状態同期など全14件の不具合を完全解消。</li>
+                                <li><strong>総合セキュリティ・堅牢化:</strong> 五度圏コードホイール (Chord Wheel) のレイアウト座標計算およびモード切替表示修正、プレイリスト表示の XSS 防止、customPlaylists 破損時復旧、Game Loop 無限シークフリーズ解消、モード間削除インデックス同期、プレイリスト削除時の IndexedDB 同期、非同期待機による複製安定化、P2P/DB復元曲のWAV出力対応、Web Audio NaN 例外防止、リモコン音量スケール修正、SoundFont バッファ保護、無限長ストリーム表示対応、モーダル表示中ショートカット誤爆防止、ミュート状態同期など全15件の不具合を完全解消。</li>
                             </ul>
                         </div>
                         <!-- v3.7.2 -->
@@ -8001,6 +8002,7 @@
                     if (btn) {
                         btn.classList.add('bg-purple-600', 'text-white');
                     }
+                    try { layoutMidiPanels(); } catch (e) {}
                     if (chordWheelAnimId) cancelAnimationFrame(chordWheelAnimId);
                     chordWheelAnimId = requestAnimationFrame(drawChordWheelCanvas);
                 } else {
@@ -8008,6 +8010,7 @@
                     if (btn) {
                         btn.classList.remove('bg-purple-600', 'text-white');
                     }
+                    try { layoutMidiPanels(); } catch (e) {}
                     if (chordWheelAnimId) {
                         cancelAnimationFrame(chordWheelAnimId);
                         chordWheelAnimId = null;
@@ -8763,6 +8766,15 @@
                 if (v) v.classList.add('hidden-mode');
             });
             ui.headerVisualizer.classList.remove('hidden-mode');
+
+            const wheelPanel = document.getElementById('chord-wheel-panel');
+            if (wheelPanel) {
+                if (currentMode === 'single' && isChordWheelOpen) {
+                    wheelPanel.classList.remove('hidden');
+                } else {
+                    wheelPanel.classList.add('hidden');
+                }
+            }
 
             if(currentMode === 'single') {
                 ui.singleView.classList.remove('hidden-mode');
@@ -9634,7 +9646,7 @@
             if (!sv || !['library', 'cover', 'album', 'shelf', 'term', 'stage', 'lcd'].includes(lay)) {
                 delete root.dataset.midiOpen;
                 panels.forEach(clear);
-                if (wheel) { wheel.style.left = ''; wheel.style.bottom = ''; }
+                if (wheel) { wheel.style.left = '16px'; wheel.style.bottom = '80px'; }
                 return;
             }
             const target = document.getElementById(lay === 'cover' ? 'cover-wall' : (lay === 'stage' ? 'stage-overlay' : 'playlist'));
@@ -9652,8 +9664,19 @@
                 el.style.height = each + 'px';
             });
             if (wheel) {
-                if (wheel.classList.contains('hidden')) { wheel.style.left = ''; wheel.style.bottom = ''; }
-                else { wheel.style.left = Math.round(r.left + 16) + 'px'; wheel.style.bottom = Math.round(window.innerHeight - sb.top + 12) + 'px'; }
+                if (wheel.classList.contains('hidden')) {
+                    wheel.style.left = '';
+                    wheel.style.bottom = '';
+                } else {
+                    const maxLeft = Math.max(16, window.innerWidth - 304);
+                    const leftPos = (r && r.width > 0) ? Math.min(maxLeft, Math.max(16, Math.round(r.left + 16))) : 16;
+                    wheel.style.left = leftPos + 'px';
+                    let bottomDist = 80;
+                    if (sb && sb.bottom > 0 && sb.bottom <= window.innerHeight + 200) {
+                        bottomDist = Math.max(16, Math.round(window.innerHeight - sb.bottom + 16));
+                    }
+                    wheel.style.bottom = bottomDist + 'px';
+                }
             }
         }
 
