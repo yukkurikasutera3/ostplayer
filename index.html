@@ -667,6 +667,128 @@
                             <button id="close-midi-mixer-btn" class="text-gray-500 hover:text-white text-xs ml-1 cursor-pointer">✕ 閉じる</button>
                         </div>
                     </div>
+
+                    <!-- 【新音源エンジン統合】MIDI音源エンジンセレクター (MIDI Mixer統合) -->
+                    <div class="my-2 p-2.5 bg-gray-950/80 rounded-xl border border-yellow-500/30 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+                        <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-yellow-400 flex items-center mr-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-1 text-yellow-500"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                Synth Engine:
+                            </span>
+                            <div class="flex items-center space-x-1 bg-gray-900 border border-gray-700/80 rounded-lg p-0.5">
+                                <button type="button" id="midi-engine-btn-sf" onclick="switchActiveMidiEngine('sf')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-600 text-white transition cursor-pointer">SoundFont</button>
+                                <button type="button" id="midi-engine-btn-nes" onclick="switchActiveMidiEngine('nes')" class="px-2 py-0.5 rounded text-[10px] font-bold text-gray-400 hover:text-white transition cursor-pointer">NES 2A03 (8-Bit)</button>
+                                <button type="button" id="midi-engine-btn-gb" onclick="switchActiveMidiEngine('gb')" class="px-2 py-0.5 rounded text-[10px] font-bold text-gray-400 hover:text-white transition cursor-pointer">GameBoy (DMG)</button>
+                                <button type="button" id="midi-engine-btn-fm" onclick="switchActiveMidiEngine('fm')" class="px-2 py-0.5 rounded text-[10px] font-bold text-gray-400 hover:text-white transition cursor-pointer">MegaDrive FM</button>
+                                <button type="button" id="midi-engine-btn-chimaera" onclick="switchActiveMidiEngine('chimaera')" class="px-2 py-0.5 rounded text-[10px] font-bold text-gray-400 hover:text-white transition cursor-pointer">キメラ (Dual SF)</button>
+                            </div>
+                        </div>
+                        <div id="midi-engine-status-badge" class="text-[9px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
+                            Engine: Standard SoundFont (WebAudioTinySynth / SGM-V2.01)
+                        </div>
+                    </div>
+
+                    <!-- キメラ (Dual SoundFont) レイヤー合成サブパネル -->
+                    <div id="midi-panel-chimaera" class="hidden mb-2.5 p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-purple-300 flex items-center space-x-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                <span>キメラ SoundFont レイヤー合成 (Dual SF Engine)</span>
+                            </span>
+                            <span class="text-[10px] text-purple-400">2系統の SoundFont を同時ブレンド・個別チャンネル出力</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-gray-700 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[9px] text-gray-400 font-bold block">SoundFont A (主音源)</span>
+                                    <span id="chimaera-sf-a-name" class="text-[11px] font-mono text-white">SGM-V2.01.sf2 (48MB)</span>
+                                </div>
+                                <button type="button" onclick="document.getElementById('sf2-input') && document.getElementById('sf2-input').click()" class="px-2 py-0.5 bg-gray-800 text-[9px] rounded text-gray-300 hover:text-white border border-gray-600 cursor-pointer">変更</button>
+                            </div>
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-purple-500/50 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[9px] text-purple-400 font-bold block">SoundFont B (副音源 / チップチューン)</span>
+                                    <span id="chimaera-sf-b-name" class="text-[11px] font-mono text-purple-200">NES_Chiptune_v1.sf2 (内蔵)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <input type="file" id="sf2-b-input" accept=".sf2,.sf3" class="hidden">
+                                    <button type="button" id="import-sf2-b-btn" onclick="document.getElementById('sf2-b-input') && document.getElementById('sf2-b-input').click()" class="px-2 py-0.5 bg-purple-900/80 text-[9px] rounded text-purple-200 hover:text-white border border-purple-500/40 cursor-pointer">変更</button>
+                                    <button type="button" id="reset-sf2-b-btn" onclick="resetSoundFontB()" class="hidden px-1.5 py-0.5 bg-red-950/80 text-[9px] rounded text-red-200 hover:text-white border border-red-500/40 cursor-pointer" title="内蔵チップチューン音源に戻す">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-900/60 p-2 rounded-lg border border-gray-800">
+                            <span id="chimaera-blend-label-a" class="text-[10px] font-mono text-gray-400 shrink-0">SF-A (50%)</span>
+                            <input type="range" id="chimaera-blend-slider" value="50" min="0" max="100" oninput="changeChimaeraBlend(this.value)" class="w-full h-1.5 bg-purple-900 rounded cursor-pointer accent-purple-500">
+                            <span id="chimaera-blend-label-b" class="text-[10px] font-mono text-purple-300 shrink-0">SF-B (50%)</span>
+                            <div class="flex items-center space-x-1 shrink-0 ml-2">
+                                <span class="text-[9px] text-gray-400">合成モード:</span>
+                                <select id="chimaera-mode-select" onchange="changeChimaeraMode(this.value)" class="bg-gray-800 text-[9px] text-gray-200 border border-gray-700 rounded px-1.5 py-0.5 cursor-pointer">
+                                    <option value="layer">同時発音 (デュアルレイヤー)</option>
+                                    <option value="velocity">ベロシティ分割 (弱音=SF-A / 強音=SF-B)</option>
+                                    <option value="split">音域分割 (Low=SF-A / High=SF-B)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- チャンネル音源個別割り当て設定バー -->
+                        <div class="flex flex-wrap items-center justify-between bg-gray-900/90 p-2 rounded-lg border border-purple-500/30 gap-2">
+                            <div class="flex items-center space-x-1.5 flex-wrap">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-purple-300">音源一括適用:</span>
+                                <button type="button" onclick="setAllChimaeraSource('A')" class="px-2 py-0.5 rounded text-[9px] font-bold bg-yellow-900/60 hover:bg-yellow-800 text-yellow-200 border border-yellow-500/40 cursor-pointer">全CH: SF-A</button>
+                                <button type="button" onclick="setAllChimaeraSource('B')" class="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/40 cursor-pointer">全CH: SF-B</button>
+                                <button type="button" onclick="setChimaeraPreset('drums_b')" class="px-2 py-0.5 rounded text-[9px] font-bold bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 cursor-pointer">メロディA / ドラムB</button>
+                                <button type="button" onclick="setAllChimaeraSource('both')" class="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-500/40 cursor-pointer">全CH: Layer (A+B)</button>
+                            </div>
+                            <span id="chimaera-summary-badge" class="text-[9px] font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-500/20">各CHの [A | B | A+B] ボタンで個別設定可能</span>
+                        </div>
+                    </div>
+
+                    <!-- レトロ音源 (8-Bit NES / GameBoy / MegaDrive FM) サブパネル -->
+                    <div id="midi-panel-retro" class="hidden mb-2.5 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-emerald-300 flex items-center space-x-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="8" cy="12" r="2"/><path d="M16 10v4M14 12h4"/></svg>
+                                <span id="retro-engine-name">NES 2A03 (Ricoh) 8-Bit ハードウェア・シンセサイザー</span>
+                            </span>
+                            <span class="text-[10px] text-emerald-400">Web Audio API リアルタイム波形合成</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-emerald-500/30">
+                                <div class="flex justify-between items-center text-[10px] font-bold text-emerald-300">
+                                    <span id="retro-voice-label-0">CH 1: 矩形波 1</span>
+                                    <span id="retro-voice-param-0" class="font-mono text-[9px] text-gray-400">50% Duty</span>
+                                </div>
+                                <div id="retro-voice-desc-0" class="text-[9px] text-gray-400 mt-1">主旋律 (Pulse 1)</div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded mt-1.5 overflow-hidden"><div id="retro-vu-0" class="bg-emerald-400 h-full w-0 transition-all duration-75"></div></div>
+                            </div>
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-emerald-500/30">
+                                <div class="flex justify-between items-center text-[10px] font-bold text-emerald-300">
+                                    <span id="retro-voice-label-1">CH 2: 矩形波 2</span>
+                                    <span id="retro-voice-param-1" class="font-mono text-[9px] text-gray-400">25% Duty</span>
+                                </div>
+                                <div id="retro-voice-desc-1" class="text-[9px] text-gray-400 mt-1">対旋律 (Pulse 2)</div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded mt-1.5 overflow-hidden"><div id="retro-vu-1" class="bg-emerald-400 h-full w-0 transition-all duration-75"></div></div>
+                            </div>
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-emerald-500/30">
+                                <div class="flex justify-between items-center text-[10px] font-bold text-emerald-300">
+                                    <span id="retro-voice-label-2">CH 3: 三角波</span>
+                                    <span id="retro-voice-param-2" class="font-mono text-[9px] text-gray-400">4-Bit Steps</span>
+                                </div>
+                                <div id="retro-voice-desc-2" class="text-[9px] text-gray-400 mt-1">ベースライン (Triangle)</div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded mt-1.5 overflow-hidden"><div id="retro-vu-2" class="bg-emerald-400 h-full w-0 transition-all duration-75"></div></div>
+                            </div>
+                            <div class="bg-gray-900/80 p-2 rounded-lg border border-emerald-500/30">
+                                <div class="flex justify-between items-center text-[10px] font-bold text-emerald-300">
+                                    <span id="retro-voice-label-3">CH 10: 擬似ノイズ</span>
+                                    <span id="retro-voice-param-3" class="font-mono text-[9px] text-gray-400">LFSR 15-Bit</span>
+                                </div>
+                                <div id="retro-voice-desc-3" class="text-[9px] text-gray-400 mt-1">ドラム・SE (Noise)</div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded mt-1.5 overflow-hidden"><div id="retro-vu-3" class="bg-emerald-400 h-full w-0 transition-all duration-75"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="midi-channels-container">
                         <!-- JSで16チャンネル分生成 -->
                     </div>
@@ -1519,7 +1641,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.8.0</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.9.0</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1603,9 +1725,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.8.0 Smart NORM & Hardening</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.9.0 Retro Chip Synth & Chimaera SF</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.9.0 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-purple-500/50">
+                            <div class="flex items-center justify-between text-purple-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.9.0] レトロチップ音源合成エンジン & キメラSoundFont</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-10</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>レトロチップ音源合成エンジン (MIDI専用):</strong> MIDI ミキサー内部に統合されたリアルタイム音源。NES 2A03 (8-bit 矩形波・三角波・ノイズ)、GameBoy DMG (波形メモリ・スイープ)、MegaDrive YM2612 (4-Op FM音源) を再現。</li>
+                                <li><strong>キメラSoundFont (Dual SF & チャンネル個別割当):</strong> 主音源と副音源を同時ブレンド。16チャンネル各列に [ A | B | Layer ] 切り替えスイッチを新設し、楽器ごとの音源ハイブリッド構成に対応。</li>
+                                <li><strong>曲別プロファイル自動復元:</strong> トラックごとに選択した音源エンジンとキメラ設定をローカルおよび IndexedDB に記憶・自動復元。</li>
+                            </ul>
+                        </div>
                         <!-- v3.8.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
                             <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -3836,6 +3970,15 @@
                     await loadSoundFontFile(selectedFiles[0]);
                 });
             }
+            const sf2BInput = document.getElementById('sf2-b-input');
+            if (sf2BInput) {
+                sf2BInput.addEventListener('change', async (e) => {
+                    const selectedFiles = Array.from(e.target.files || []);
+                    sf2BInput.value = '';
+                    if (!selectedFiles || selectedFiles.length < 1) return;
+                    await ChimaeraSoundFontEngine.loadSoundFontBFile(selectedFiles[0]);
+                });
+            }
             if (ui.clearBtn) ui.clearBtn.addEventListener('click', confirmClearAll);
             if (modal && modal.cancel) modal.cancel.addEventListener('click', closeModal);
             if (modal && modal.confirm) modal.confirm.addEventListener('click', executeDelete);
@@ -4506,6 +4649,765 @@
             }
         }
 
+        // =========================================================================
+        // [RetroChipAudioEngine] Web Audio API リアルタイム レトロチップ音源合成エンジン
+        // (NES 2A03 / GameBoy DMG / MegaDrive YM2612 FM)
+        // =========================================================================
+        const RetroChipAudioEngine = (function() {
+            let audioCtx = null;
+            let masterOut = null;
+            let currentEngine = 'nes'; // 'nes', 'gb', 'fm'
+
+            const waveCache = {};
+            let nesNoiseBuffer15 = null;
+            let nesNoiseBuffer9 = null;
+
+            // NES 2A03: Voice 0=Pulse 1, Voice 1=Pulse 2, Voice 2=Triangle, Voice 3=Noise
+            const voices = [
+                { type: 'pulse1', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
+                { type: 'pulse2', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
+                { type: 'triangle', active: false, note: -1, ch: -1, osc: null, gain: null, vuVal: 0 },
+                { type: 'noise', active: false, note: -1, ch: -1, source: null, gain: null, filter: null, vuVal: 0 }
+            ];
+
+            function midiNoteToFreq(note) {
+                return 440 * Math.pow(2, (note - 69) / 12);
+            }
+
+            function createPulseWave(duty) {
+                if (!audioCtx) return null;
+                const key = 'pulse_' + duty;
+                if (waveCache[key]) return waveCache[key];
+
+                const nHarmonics = 64;
+                const real = new Float32Array(nHarmonics);
+                const imag = new Float32Array(nHarmonics);
+                for (let n = 1; n < nHarmonics; n++) {
+                    real[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
+                    imag[n] = (2 / (n * Math.PI)) * (1 - Math.cos(n * Math.PI * duty));
+                }
+                const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
+                waveCache[key] = wave;
+                return wave;
+            }
+
+            function createNesTriangleWave() {
+                if (!audioCtx) return null;
+                if (waveCache['nes_tri']) return waveCache['nes_tri'];
+
+                const nHarmonics = 64;
+                const real = new Float32Array(nHarmonics);
+                const imag = new Float32Array(nHarmonics);
+                for (let n = 1; n < nHarmonics; n += 2) {
+                    const sign = ((n - 1) / 2) % 2 === 0 ? 1 : -1;
+                    imag[n] = sign * (8 / (Math.PI * Math.PI * n * n));
+                }
+                const wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false });
+                waveCache['nes_tri'] = wave;
+                return wave;
+            }
+
+            function createLfsrNoiseBuffers() {
+                if (!audioCtx || nesNoiseBuffer15) return;
+                const sr = audioCtx.sampleRate;
+                const length = sr * 2;
+
+                nesNoiseBuffer15 = audioCtx.createBuffer(1, length, sr);
+                const data15 = nesNoiseBuffer15.getChannelData(0);
+                let reg15 = 1;
+                for (let i = 0; i < length; i++) {
+                    const bit = (reg15 ^ (reg15 >> 1)) & 1;
+                    reg15 = (reg15 >> 1) | (bit << 14);
+                    data15[i] = (reg15 & 1) ? 1.0 : -1.0;
+                }
+
+                nesNoiseBuffer9 = audioCtx.createBuffer(1, length, sr);
+                const data9 = nesNoiseBuffer9.getChannelData(0);
+                let reg9 = 1;
+                for (let i = 0; i < length; i++) {
+                    const bit = (reg9 ^ (reg9 >> 6)) & 1;
+                    reg9 = (reg9 >> 1) | (bit << 8);
+                    data9[i] = (reg9 & 1) ? 1.0 : -1.0;
+                }
+            }
+
+            function init(ctx, dest) {
+                audioCtx = ctx || audioContext;
+                masterOut = dest || (singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode);
+                if (!audioCtx) return;
+                createLfsrNoiseBuffers();
+            }
+
+            let vuLoopActive = false;
+            function updateVuLoop() {
+                if (activeMidiEngine === 'sf' || activeMidiEngine === 'chimaera') {
+                    vuLoopActive = false;
+                    return;
+                }
+                for (let i = 0; i < 4; i++) {
+                    const v = voices[i];
+                    const vuEl = document.getElementById(`retro-vu-${i}`);
+                    if (vuEl) {
+                        if (v.active) {
+                            v.vuVal = Math.min(100, Math.max(v.vuVal * 0.92, 75));
+                        } else {
+                            v.vuVal = Math.max(0, v.vuVal * 0.85);
+                        }
+                        vuEl.style.width = v.vuVal.toFixed(0) + '%';
+                    }
+                }
+                if (vuLoopActive) {
+                    requestAnimationFrame(updateVuLoop);
+                }
+            }
+
+            function ensureVuLoop() {
+                if (!vuLoopActive) {
+                    vuLoopActive = true;
+                    requestAnimationFrame(updateVuLoop);
+                }
+            }
+
+            function noteOn(ch, note, vel) {
+                if (!audioCtx) init();
+                if (!audioCtx || vel <= 0) return;
+                ensureVuLoop();
+
+                const freq = midiNoteToFreq(note);
+                const gainVal = (vel / 127) * 0.28;
+                const now = audioCtx.currentTime;
+
+                if (ch === 9) {
+                    playNoiseVoice(note, vel, now);
+                    return;
+                }
+
+                if (currentEngine === 'fm') {
+                    playFmVoice(ch, note, vel, now);
+                    return;
+                }
+
+                let targetVoiceIdx = -1;
+                if (note <= 50 && (!voices[2].active || voices[2].note === note)) {
+                    targetVoiceIdx = 2; // Triangle
+                } else if (!voices[0].active || voices[0].note === note) {
+                    targetVoiceIdx = 0; // Pulse 1
+                } else if (!voices[1].active || voices[1].note === note) {
+                    targetVoiceIdx = 1; // Pulse 2
+                } else {
+                    targetVoiceIdx = (voices[0].note < voices[1].note) ? 1 : 0;
+                    stopVoice(targetVoiceIdx, now);
+                }
+
+                const v = voices[targetVoiceIdx];
+                if (v.osc) {
+                    try { v.osc.stop(now); v.osc.disconnect(); } catch(e){}
+                    v.osc = null;
+                }
+                if (v.gain) {
+                    try { v.gain.disconnect(); } catch(e){}
+                    v.gain = null;
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                if (targetVoiceIdx === 0) {
+                    osc.setPeriodicWave(createPulseWave(0.50));
+                } else if (targetVoiceIdx === 1) {
+                    osc.setPeriodicWave(createPulseWave(currentEngine === 'gb' ? 0.125 : 0.25));
+                } else if (targetVoiceIdx === 2) {
+                    osc.setPeriodicWave(createNesTriangleWave());
+                }
+
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(gainVal, now + 0.003);
+                if (targetVoiceIdx === 2) {
+                    gain.gain.setValueAtTime(gainVal * 1.1, now + 0.004);
+                } else {
+                    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.65), now + 0.35);
+                }
+
+                osc.connect(gain);
+                gain.connect(masterOut || audioCtx.destination);
+                osc.start(now);
+
+                v.active = true;
+                v.note = note;
+                v.ch = ch;
+                v.osc = osc;
+                v.gain = gain;
+                v.vuVal = 100;
+            }
+
+            function playNoiseVoice(note, vel, now) {
+                if (!audioCtx || !nesNoiseBuffer15) return;
+                const v = voices[3];
+                if (v.source) {
+                    try { v.source.stop(now); v.source.disconnect(); } catch(e){}
+                    v.source = null;
+                }
+                if (v.gain) {
+                    try { v.gain.disconnect(); } catch(e){}
+                    v.gain = null;
+                }
+
+                const source = audioCtx.createBufferSource();
+                const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+
+                let isShort = false;
+                let playbackRate = 1.0;
+                let isMetallic = (note === 42 || note === 44 || note === 46);
+
+                source.buffer = (isMetallic && nesNoiseBuffer9) ? nesNoiseBuffer9 : nesNoiseBuffer15;
+
+                if (note === 35 || note === 36) {
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(160, now);
+                    filter.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+                    playbackRate = 0.45;
+                    isShort = false;
+                } else if (note === 42 || note === 44) {
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(4000, now);
+                    playbackRate = 2.4;
+                    isShort = true;
+                } else if (note === 46 || note === 49) {
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(2500, now);
+                    playbackRate = 1.8;
+                    isShort = false;
+                } else {
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1200, now);
+                    filter.Q.setValueAtTime(2.0, now);
+                    playbackRate = 1.1;
+                    isShort = false;
+                }
+
+                source.playbackRate.setValueAtTime(playbackRate, now);
+
+                const gainVal = (vel / 127) * 0.32;
+                gain.gain.setValueAtTime(gainVal, now);
+                if (isShort) {
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                    source.stop(now + 0.07);
+                } else {
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                    source.stop(now + 0.24);
+                }
+
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterOut || audioCtx.destination);
+                source.start(now);
+
+                v.active = true;
+                v.note = note;
+                v.source = source;
+                v.gain = gain;
+                v.vuVal = 100;
+            }
+
+            function playFmVoice(ch, note, vel, now) {
+                const freq = midiNoteToFreq(note);
+                const gainVal = (vel / 127) * 0.24;
+
+                const carrier = audioCtx.createOscillator();
+                const carrierGain = audioCtx.createGain();
+                const mod1 = audioCtx.createOscillator();
+                const mod1Gain = audioCtx.createGain();
+
+                carrier.type = 'sine';
+                carrier.frequency.setValueAtTime(freq, now);
+
+                const ratio = (note < 48) ? 0.5 : 2.0;
+                mod1.type = 'sine';
+                mod1.frequency.setValueAtTime(freq * ratio, now);
+
+                const modIndex = 450 * (vel / 127);
+                mod1Gain.gain.setValueAtTime(modIndex, now);
+                mod1Gain.gain.exponentialRampToValueAtTime(modIndex * 0.2, now + 0.4);
+
+                mod1.connect(carrier.frequency);
+
+                carrierGain.gain.setValueAtTime(0, now);
+                carrierGain.gain.linearRampToValueAtTime(gainVal, now + 0.005);
+                carrierGain.gain.exponentialRampToValueAtTime(Math.max(0.001, gainVal * 0.5), now + 0.4);
+
+                carrier.connect(carrierGain);
+                carrierGain.connect(masterOut || audioCtx.destination);
+
+                carrier.start(now);
+                mod1.start(now);
+
+                const v = voices[ch % 3];
+                if (v.osc) {
+                    try { v.osc.stop(now); v.osc.disconnect(); } catch(e){}
+                }
+                v.active = true;
+                v.note = note;
+                v.ch = ch;
+                v.osc = carrier;
+                v.gain = carrierGain;
+                v.mod = mod1;
+                v.vuVal = 100;
+            }
+
+            function noteOff(ch, note) {
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                for (let i = 0; i < 4; i++) {
+                    const v = voices[i];
+                    if (v.active && v.note === note && (v.ch === ch || ch === 9)) {
+                        stopVoice(i, now);
+                    }
+                }
+            }
+
+            function stopVoice(i, time) {
+                const v = voices[i];
+                if (!v || !v.active) return;
+                const now = time || (audioCtx ? audioCtx.currentTime : 0);
+                if (v.gain) {
+                    try {
+                        v.gain.gain.cancelScheduledValues(now);
+                        v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+                        v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+                    } catch(e){}
+                }
+                if (v.osc) {
+                    try { v.osc.stop(now + 0.04); } catch(e){}
+                }
+                if (v.mod) {
+                    try { v.mod.stop(now + 0.04); } catch(e){}
+                    v.mod = null;
+                }
+                v.active = false;
+                v.note = -1;
+            }
+
+            function allNotesOff() {
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                for (let i = 0; i < 4; i++) {
+                    stopVoice(i, now);
+                }
+            }
+
+            function setEngine(type) {
+                currentEngine = type;
+                allNotesOff();
+                updateEngineLabels();
+            }
+
+            function updateEngineLabels() {
+                const titleEl = document.getElementById('retro-engine-name');
+                const l0 = document.getElementById('retro-voice-label-0');
+                const p0 = document.getElementById('retro-voice-param-0');
+                const d0 = document.getElementById('retro-voice-desc-0');
+
+                const l1 = document.getElementById('retro-voice-label-1');
+                const p1 = document.getElementById('retro-voice-param-1');
+                const d1 = document.getElementById('retro-voice-desc-1');
+
+                const l2 = document.getElementById('retro-voice-label-2');
+                const p2 = document.getElementById('retro-voice-param-2');
+                const d2 = document.getElementById('retro-voice-desc-2');
+
+                const l3 = document.getElementById('retro-voice-label-3');
+                const p3 = document.getElementById('retro-voice-param-3');
+                const d3 = document.getElementById('retro-voice-desc-3');
+
+                if (currentEngine === 'nes') {
+                    if (titleEl) titleEl.textContent = 'NES 2A03 (Ricoh) 8-Bit ハードウェア・シンセサイザー';
+                    if (l0) l0.textContent = 'CH 1: 矩形波 1'; if (p0) p0.textContent = '50% Duty'; if (d0) d0.textContent = '主旋律 (Pulse 1)';
+                    if (l1) l1.textContent = 'CH 2: 矩形波 2'; if (p1) p1.textContent = '25% Duty'; if (d1) d1.textContent = '対旋律 (Pulse 2)';
+                    if (l2) l2.textContent = 'CH 3: 三角波'; if (p2) p2.textContent = '4-Bit Steps'; if (d2) d2.textContent = 'ベースライン (Triangle)';
+                    if (l3) l3.textContent = 'CH 10: 擬似ノイズ'; if (p3) p3.textContent = 'LFSR 15-Bit'; if (d3) d3.textContent = 'ドラム・SE (Noise)';
+                } else if (currentEngine === 'gb') {
+                    if (titleEl) titleEl.textContent = 'GameBoy (DMG) 4-Bit 波形メモリ・シンセサイザー';
+                    if (l0) l0.textContent = 'CH 1: 矩形波 + Sweep'; if (p0) p0.textContent = '50% Duty'; if (d0) d0.textContent = '主旋律 (Frequency Sweep)';
+                    if (l1) l1.textContent = 'CH 2: 矩形波'; if (p1) p1.textContent = '12.5% Duty'; if (d1) d1.textContent = '対旋律 (Pulse)';
+                    if (l2) l2.textContent = 'CH 3: 波形メモリ'; if (p2) p2.textContent = '4-Bit 32-Sample'; if (d2) d2.textContent = 'カスタム波形 (Wavetable)';
+                    if (l3) l3.textContent = 'CH 10: 7/15-bit ノイズ'; if (p3) p3.textContent = 'Periodic/White'; if (d3) d3.textContent = 'チップノイズ (Noise)';
+                } else if (currentEngine === 'fm') {
+                    if (titleEl) titleEl.textContent = 'Sega MegaDrive (YM2612) 4-Op FM音源シンセサイザー';
+                    if (l0) l0.textContent = 'Voice 1: FM Slap'; if (p0) p0.textContent = '4-Operator'; if (d0) d0.textContent = 'FM Bass / Lead (Carrier+Mod)';
+                    if (l1) l1.textContent = 'Voice 2: FM Brass'; if (p1) p1.textContent = '3:1 Ratio'; if (d1) d1.textContent = 'FM メロディ・ハーモニー';
+                    if (l2) l2.textContent = 'Voice 3: FM Synth'; if (p2) p2.textContent = '2:1 Ratio'; if (d2) d2.textContent = 'FM コード・パッド';
+                    if (l3) l3.textContent = 'CH 10: FM Percussion'; if (p3) p3.textContent = 'DAC + LFSR'; if (d3) d3.textContent = 'メガドラ風パーカッション';
+                }
+            }
+
+            function send(msg, time) {
+                if (!msg || msg.length < 1) return;
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+
+                if (cmd === 0x90) {
+                    const note = msg[1];
+                    const vel = msg[2];
+                    if (vel > 0) {
+                        noteOn(ch, note, vel);
+                    } else {
+                        noteOff(ch, note);
+                    }
+                } else if (cmd === 0x80) {
+                    noteOff(ch, msg[1]);
+                } else if (cmd === 0xb0) {
+                    const ctrl = msg[1];
+                    if (ctrl === 120 || ctrl === 123) {
+                        allNotesOff();
+                    }
+                }
+            }
+
+            return {
+                init,
+                send,
+                noteOn,
+                noteOff,
+                allNotesOff,
+                setEngine,
+                getCurrentEngine: () => currentEngine
+            };
+        })();
+        window.RetroChipAudioEngine = RetroChipAudioEngine;
+
+        // =========================================================================
+        // [ChimaeraSoundFontEngine] デュアル SoundFont レイヤー合成 & チャンネル個別音源ルーティング
+        // =========================================================================
+        const ChimaeraSoundFontEngine = (function() {
+            let synthB = null;
+            let sfBBuffer = null;
+            let sfBName = "NES_Chiptune_v1 (内蔵)";
+            let blendBalance = 0.50;
+            let synthesisMode = 'layer';
+
+            const channelSources = new Array(16).fill('A');
+            channelSources[9] = 'B'; // ドラムはデフォルトで副音源B
+
+            function init() {
+                if (!synthB) {
+                    synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                    try {
+                        if (singleGainNodes && singleGainNodes[0]) {
+                            synthB.setMasterVol(0.85);
+                        }
+                    } catch(e){}
+                }
+            }
+
+            function setChannelSource(ch, src) {
+                if (ch >= 0 && ch < 16) {
+                    channelSources[ch] = src;
+                    updateChannelSourceUI(ch);
+                    updateChimaeraSummary();
+                    saveCurrentTrackMidiMixerSettings(false);
+                }
+            }
+
+            function setAllSources(src) {
+                for (let ch = 0; ch < 16; ch++) {
+                    channelSources[ch] = src;
+                    updateChannelSourceUI(ch);
+                }
+                updateChimaeraSummary();
+                saveCurrentTrackMidiMixerSettings(false);
+            }
+
+            function setPreset(preset) {
+                if (preset === 'drums_b') {
+                    for (let ch = 0; ch < 16; ch++) {
+                        channelSources[ch] = (ch === 9) ? 'B' : 'A';
+                        updateChannelSourceUI(ch);
+                    }
+                }
+                updateChimaeraSummary();
+                saveCurrentTrackMidiMixerSettings(false);
+            }
+
+            function setBlendBalance(val) {
+                blendBalance = Math.max(0, Math.min(1, val / 100));
+                const lblA = document.getElementById('chimaera-blend-label-a');
+                const lblB = document.getElementById('chimaera-blend-label-b');
+                if (lblA) lblA.textContent = `SF-A (${Math.round((1 - blendBalance) * 100)}%)`;
+                if (lblB) lblB.textContent = `SF-B (${Math.round(blendBalance * 100)}%)`;
+                saveCurrentTrackMidiMixerSettings(false);
+            }
+
+            function setMode(mode) {
+                synthesisMode = mode;
+                saveCurrentTrackMidiMixerSettings(false);
+            }
+
+            async function loadSoundFontBFile(file) {
+                if (!file) return;
+                const name = file.name || '';
+                showNotification(`SoundFont B (${name}) を読み込み中...`);
+                try {
+                    const buffer = await file.arrayBuffer();
+                    sfBBuffer = buffer;
+                    sfBName = name;
+
+                    if (typeof SpessaSynthPlayerWrapper !== 'undefined' && typeof SpessaSynth !== 'undefined') {
+                        try {
+                            const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+                            const sfBInstance = new SpessaSynth(ctx, buffer);
+                            synthB = new SpessaSynthPlayerWrapper(sfBInstance);
+                        } catch(e) {
+                            console.warn("SpessaSynth B fallback notice:", e);
+                        }
+                    }
+
+                    const nameEl = document.getElementById('chimaera-sf-b-name');
+                    if (nameEl) nameEl.textContent = name;
+                    const resetBtn = document.getElementById('reset-sf2-b-btn');
+                    if (resetBtn) resetBtn.classList.remove('hidden');
+
+                    showNotification(`SoundFont B (${name}) を適用しました`);
+                    if (db) {
+                        try {
+                            const t = db.transaction(['soundfonts'], 'readwrite');
+                            t.objectStore('soundfonts').put({ id: 'active-sf2-b', name: file.name, blob: file });
+                        } catch(e){}
+                    }
+                } catch(err) {
+                    console.error("SoundFont B load error:", err);
+                    showNotification(`SoundFont B の読み込みに失敗しました: ${err.message || err}`);
+                }
+            }
+
+            function resetSoundFontB() {
+                sfBBuffer = null;
+                sfBName = "NES_Chiptune_v1 (内蔵)";
+                synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                const nameEl = document.getElementById('chimaera-sf-b-name');
+                if (nameEl) nameEl.textContent = sfBName;
+                const resetBtn = document.getElementById('reset-sf2-b-btn');
+                if (resetBtn) resetBtn.classList.add('hidden');
+                if (db) {
+                    try {
+                        const t = db.transaction(['soundfonts'], 'readwrite');
+                        t.objectStore('soundfonts').delete('active-sf2-b');
+                    } catch(e){}
+                }
+                showNotification("SoundFont B を初期状態（内蔵音源）にリセットしました");
+            }
+
+            function send(msg, time) {
+                if (!msg || msg.length < 1) return;
+                const status = msg[0];
+                const cmd = status & 0xf0;
+                const ch = status & 0x0f;
+
+                const primarySynth = getMidiSynth('main');
+                if (!synthB) init();
+
+                const src = channelSources[ch] || 'A';
+
+                let target = src;
+                if (src === 'both') {
+                    if (synthesisMode === 'velocity' && cmd === 0x90 && msg[2] > 0) {
+                        target = (msg[2] <= 64) ? 'A' : 'B';
+                    } else if (synthesisMode === 'split' && (cmd === 0x90 || cmd === 0x80)) {
+                        target = (msg[1] < 60) ? 'A' : 'B';
+                    }
+                }
+
+                if (target === 'A') {
+                    if (primarySynth && primarySynth.send) primarySynth.send(msg, time);
+                } else if (target === 'B') {
+                    if (synthB && synthB.send) synthB.send(msg, time);
+                } else {
+                    if (cmd === 0x90 && msg[2] > 0) {
+                        const origVel = msg[2];
+                        const velA = Math.max(1, Math.round(origVel * (1 - blendBalance) * 1.4));
+                        const msgA = [msg[0], msg[1], Math.min(127, velA)];
+                        if (primarySynth && primarySynth.send) primarySynth.send(msgA, time);
+
+                        const velB = Math.max(1, Math.round(origVel * blendBalance * 1.4));
+                        const msgB = [msg[0], msg[1], Math.min(127, velB)];
+                        if (synthB && synthB.send) synthB.send(msgB, time);
+                    } else {
+                        if (primarySynth && primarySynth.send) primarySynth.send(msg, time);
+                        if (synthB && synthB.send) synthB.send(msg, time);
+                    }
+                }
+            }
+
+            return {
+                init,
+                send,
+                setChannelSource,
+                setAllSources,
+                setPreset,
+                setBlendBalance,
+                setMode,
+                loadSoundFontBFile,
+                resetSoundFontB,
+                getChannelSources: () => channelSources,
+                getBlendBalance: () => blendBalance,
+                getMode: () => synthesisMode
+            };
+        })();
+        window.ChimaeraSoundFontEngine = ChimaeraSoundFontEngine;
+
+        // --- 音源エンジン切り替え & 状態制御 ---
+        let activeMidiEngine = 'sf'; // 'sf', 'nes', 'gb', 'fm', 'chimaera'
+
+        function switchActiveMidiEngine(engine, shouldNotify = true) {
+            activeMidiEngine = engine;
+            const engines = ['sf', 'nes', 'gb', 'fm', 'chimaera'];
+            engines.forEach(e => {
+                const btn = document.getElementById('midi-engine-btn-' + e);
+                if (!btn) return;
+                if (e === engine) {
+                    btn.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-600 text-white transition cursor-pointer';
+                } else {
+                    btn.className = 'px-2 py-0.5 rounded text-[10px] font-bold text-gray-400 hover:text-white transition cursor-pointer';
+                }
+            });
+
+            const pChimaera = document.getElementById('midi-panel-chimaera');
+            const pRetro = document.getElementById('midi-panel-retro');
+            const statusBadge = document.getElementById('midi-engine-status-badge');
+
+            if (engine === 'nes' || engine === 'gb' || engine === 'fm') {
+                RetroChipAudioEngine.init(audioContext);
+                RetroChipAudioEngine.setEngine(engine);
+                if (pChimaera) pChimaera.classList.add('hidden');
+                if (pRetro) pRetro.classList.remove('hidden');
+
+                const mainSynth = getMidiSynth('main', false);
+                if (mainSynth && mainSynth.send) {
+                    for (let c = 0; c < 16; c++) mainSynth.send([0xb0 | c, 123, 0]);
+                }
+
+                if (statusBadge) {
+                    const titles = {
+                        nes: 'Engine: NES 2A03 (8-Bit Hardware Synth)',
+                        gb: 'Engine: GameBoy DMG (Wavetable Synth)',
+                        fm: 'Engine: MegaDrive YM2612 (4-Op FM Synth)'
+                    };
+                    statusBadge.textContent = titles[engine];
+                    statusBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+                }
+                for (let ch = 0; ch < 16; ch++) {
+                    const grp = document.getElementById(`chimaera-src-group-${ch}`);
+                    if (grp) grp.classList.add('hidden');
+                }
+                if (shouldNotify) {
+                    const labels = { nes: 'NES 2A03 (8-Bit)', gb: 'GameBoy (DMG)', fm: 'MegaDrive (YM2612 FM)' };
+                    showNotification(`音源エンジンを「${labels[engine]}」に切り替えました`);
+                }
+            } else if (engine === 'chimaera') {
+                RetroChipAudioEngine.allNotesOff();
+                ChimaeraSoundFontEngine.init();
+                if (pChimaera) pChimaera.classList.remove('hidden');
+                if (pRetro) pRetro.classList.add('hidden');
+                if (statusBadge) {
+                    statusBadge.textContent = 'Engine: Chimaera Dual SoundFont (チャンネル個別音源割当対応)';
+                    statusBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30';
+                }
+                for (let ch = 0; ch < 16; ch++) {
+                    const grp = document.getElementById(`chimaera-src-group-${ch}`);
+                    if (grp) grp.classList.remove('hidden');
+                    updateChannelSourceUI(ch);
+                }
+                updateChimaeraSummary();
+                if (shouldNotify) {
+                    showNotification("音源エンジンを「キメラ (Dual SoundFont)」に切り替えました");
+                }
+            } else {
+                RetroChipAudioEngine.allNotesOff();
+                if (pChimaera) pChimaera.classList.add('hidden');
+                if (pRetro) pRetro.classList.add('hidden');
+                if (statusBadge) {
+                    statusBadge.textContent = 'Engine: Standard SoundFont (WebAudioTinySynth / SGM-V2.01)';
+                    statusBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-500/30';
+                }
+                for (let ch = 0; ch < 16; ch++) {
+                    const grp = document.getElementById(`chimaera-src-group-${ch}`);
+                    if (grp) grp.classList.add('hidden');
+                }
+                if (shouldNotify) {
+                    showNotification("音源エンジンを「Standard SoundFont」に戻しました");
+                }
+            }
+            saveCurrentTrackMidiMixerSettings(false);
+        }
+        window.switchActiveMidiEngine = switchActiveMidiEngine;
+
+        function setChannelChimaeraSource(ch, src) {
+            ChimaeraSoundFontEngine.setChannelSource(ch, src);
+        }
+        window.setChannelChimaeraSource = setChannelChimaeraSource;
+
+        function setAllChimaeraSource(src) {
+            ChimaeraSoundFontEngine.setAllSources(src);
+            const label = (src === 'A') ? 'SoundFont A (主音源)' : ((src === 'B') ? 'SoundFont B (副音源)' : 'Layer (両方レイヤー)');
+            showNotification(`全チャンネルの音源を「${label}」に一括適用しました`);
+        }
+        window.setAllChimaeraSource = setAllChimaeraSource;
+
+        function setChimaeraPreset(preset) {
+            ChimaeraSoundFontEngine.setPreset(preset);
+            if (preset === 'drums_b') {
+                showNotification("プリセット「メロディ=SF-A / ドラム=SF-B」を適用しました");
+            }
+        }
+        window.setChimaeraPreset = setChimaeraPreset;
+
+        function changeChimaeraBlend(val) {
+            ChimaeraSoundFontEngine.setBlendBalance(val);
+        }
+        window.changeChimaeraBlend = changeChimaeraBlend;
+
+        function changeChimaeraMode(mode) {
+            ChimaeraSoundFontEngine.setMode(mode);
+        }
+        window.changeChimaeraMode = changeChimaeraMode;
+
+        function updateChannelSourceUI(ch) {
+            const sources = ChimaeraSoundFontEngine.getChannelSources();
+            const src = sources[ch] || 'A';
+            const btnA = document.getElementById(`btn-src-a-${ch}`);
+            const btnB = document.getElementById(`btn-src-b-${ch}`);
+            const btnBoth = document.getElementById(`btn-src-both-${ch}`);
+            if (!btnA || !btnB || !btnBoth) return;
+
+            btnA.className = (src === 'A') ? "text-[8px] font-bold px-1 rounded bg-yellow-600 text-white cursor-pointer shadow-sm" : "text-[8px] font-bold px-1 rounded text-gray-400 hover:text-white cursor-pointer";
+            btnB.className = (src === 'B') ? "text-[8px] font-bold px-1 rounded bg-purple-600 text-white cursor-pointer shadow-sm" : "text-[8px] font-bold px-1 rounded text-gray-400 hover:text-white cursor-pointer";
+            btnBoth.className = (src === 'both') ? "text-[8px] font-bold px-1 rounded bg-cyan-600 text-white cursor-pointer shadow-sm" : "text-[8px] font-bold px-1 rounded text-gray-400 hover:text-white cursor-pointer";
+        }
+        window.updateChannelSourceUI = updateChannelSourceUI;
+
+        function updateChimaeraSummary() {
+            const sources = ChimaeraSoundFontEngine.getChannelSources();
+            let countA = 0, countB = 0, countBoth = 0;
+            for (let i = 0; i < 16; i++) {
+                const s = sources[i];
+                if (s === 'A') countA++;
+                else if (s === 'B') countB++;
+                else countBoth++;
+            }
+            const badge = document.getElementById('chimaera-summary-badge');
+            if (badge) {
+                badge.textContent = `現在: SF-A(${countA}CH) / SF-B(${countB}CH) / Layer(${countBoth}CH)`;
+            }
+        }
+        window.updateChimaeraSummary = updateChimaeraSummary;
+
+        window.resetSoundFontB = function() {
+            ChimaeraSoundFontEngine.resetSoundFontB();
+        };
+
         function wrapMidiSynthSend(synth) {
             if (synth._wrapped) return;
             synth._wrapped = true;
@@ -4524,23 +5426,41 @@
                 
                 if (cmd === 0x90 && msg[2] > 0) {
                     if (isChannelSilenced) {
-                        // [MuteGuard] 完全消音ガード: ミュート/非ソロ時はノート発音イベント自体を破棄して貫通を完全阻止
                         return;
                     }
                     triggerMidiChannelLed(ch);
                     if (ch !== 9 && typeof triggerChordWheelNoteOn === 'function') {
                         triggerChordWheelNoteOn(msg[1], msg[2], ch);
                     }
+
+                    if (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm') {
+                        RetroChipAudioEngine.send(msg, time);
+                        return;
+                    } else if (activeMidiEngine === 'chimaera') {
+                        ChimaeraSoundFontEngine.send(msg, time);
+                        return;
+                    }
+                    originalSend(msg, time);
+                } else if (cmd === 0x80 || (cmd === 0x90 && msg[2] === 0)) {
+                    if (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm') {
+                        RetroChipAudioEngine.send(msg, time);
+                        return;
+                    } else if (activeMidiEngine === 'chimaera') {
+                        ChimaeraSoundFontEngine.send(msg, time);
+                        return;
+                    }
                     originalSend(msg, time);
                 } else if (cmd === 0xc0) {
-                    // Program change (Instrument)
                     let prog = msg[1];
                     if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
-                        // User has customized instrument on this channel: enforce user selection!
                         prog = midiUserPrograms[ch];
                         msg[1] = prog;
                     }
-                    originalSend(msg, time);
+                    if (activeMidiEngine === 'chimaera') {
+                        ChimaeraSoundFontEngine.send(msg, time);
+                    } else {
+                        originalSend(msg, time);
+                    }
                     requestAnimationFrame(() => {
                         const select = document.getElementById(`midi-inst-${ch}`);
                         if (select && parseInt(select.value) !== prog) {
@@ -4549,9 +5469,10 @@
                     });
                 } else if (cmd === 0xb0) {
                     const ctrl = msg[1];
-                    // Volume (CC7), Expression (CC11), Volume LSB (CC39), Expression LSB (CC43)
+                    if (ctrl === 120 || ctrl === 123) {
+                        RetroChipAudioEngine.allNotesOff();
+                    }
                     if (isChannelSilenced && (ctrl === 7 || ctrl === 11 || ctrl === 39 || ctrl === 43)) {
-                        // [MuteGuard] 音量/エクスプレッション指定を 0 に固定して貫通を防止
                         msg[2] = 0;
                         originalSend(msg, time);
                     } else if (ctrl === 7) {
@@ -4560,16 +5481,28 @@
                             vol = midiVolumes[ch];
                             msg[2] = vol;
                         }
-                        originalSend(msg, time);
+                        if (activeMidiEngine === 'chimaera') {
+                            ChimaeraSoundFontEngine.send(msg, time);
+                        } else {
+                            originalSend(msg, time);
+                        }
                         requestAnimationFrame(() => {
                             const slider = document.getElementById(`midi-vol-${ch}`);
                             if (slider && !isChannelSilenced) slider.value = vol;
                         });
                     } else {
-                        originalSend(msg, time);
+                        if (activeMidiEngine === 'chimaera') {
+                            ChimaeraSoundFontEngine.send(msg, time);
+                        } else {
+                            originalSend(msg, time);
+                        }
                     }
                 } else {
-                    originalSend(msg, time);
+                    if (activeMidiEngine === 'chimaera') {
+                        ChimaeraSoundFontEngine.send(msg, time);
+                    } else {
+                        originalSend(msg, time);
+                    }
                 }
             };
         }
@@ -4629,6 +5562,10 @@
                 muted: [...midiMuted],
                 soloed: [...midiSoloed],
                 userPrograms: [...midiUserPrograms],
+                engine: activeMidiEngine,
+                chimaeraSources: [...ChimaeraSoundFontEngine.getChannelSources()],
+                chimaeraBlend: Math.round(ChimaeraSoundFontEngine.getBlendBalance() * 100),
+                chimaeraMode: ChimaeraSoundFontEngine.getMode(),
                 savedAt: Date.now()
             };
             
@@ -4677,6 +5614,30 @@
                     midiMuted[ch] = !!profile.muted?.[ch];
                     midiSoloed[ch] = !!profile.soloed?.[ch];
                     midiUserPrograms[ch] = (profile.userPrograms?.[ch] !== undefined) ? profile.userPrograms[ch] : null;
+                }
+
+                // 音源エンジン & キメラ割り当て設定の復元
+                if (profile.engine) {
+                    switchActiveMidiEngine(profile.engine, false);
+                    if (profile.chimaeraSources && Array.isArray(profile.chimaeraSources)) {
+                        for (let ch = 0; ch < 16; ch++) {
+                            if (profile.chimaeraSources[ch]) {
+                                ChimaeraSoundFontEngine.setChannelSource(ch, profile.chimaeraSources[ch]);
+                            }
+                        }
+                    }
+                    if (profile.chimaeraBlend !== undefined) {
+                        const slider = document.getElementById('chimaera-blend-slider');
+                        if (slider) slider.value = profile.chimaeraBlend;
+                        ChimaeraSoundFontEngine.setBlendBalance(profile.chimaeraBlend);
+                    }
+                    if (profile.chimaeraMode) {
+                        const sel = document.getElementById('chimaera-mode-select');
+                        if (sel) sel.value = profile.chimaeraMode;
+                        ChimaeraSoundFontEngine.setMode(profile.chimaeraMode);
+                    }
+                } else {
+                    switchActiveMidiEngine('sf', false);
                 }
                 
                 updateMidiMixerUIControls();
@@ -4854,9 +5815,15 @@
                 
                 let html = `
                     <div class="flex justify-between items-center">
-                        <div class="flex items-center space-x-1.5">
+                        <div class="flex items-center space-x-1">
                             <div id="midi-led-${ch}" class="w-2 h-2 rounded-full bg-gray-700 transition-all duration-300"></div>
                             <span class="text-[9px] font-bold text-gray-400">CH ${ch+1}</span>
+                            <!-- キメラ音源ソースセレクター (ユーザー要望: チャンネルごとに音源を選択) -->
+                            <div id="chimaera-src-group-${ch}" class="${activeMidiEngine === 'chimaera' ? 'flex' : 'hidden'} items-center bg-gray-900 border border-purple-500/40 rounded px-1 py-0.5 space-x-0.5 ml-1 select-none">
+                                <button type="button" onclick="setChannelChimaeraSource(${ch}, 'A')" id="btn-src-a-${ch}" class="text-[8px] font-bold px-1 rounded bg-yellow-600 text-white cursor-pointer" title="SoundFont A (主音源)">A</button>
+                                <button type="button" onclick="setChannelChimaeraSource(${ch}, 'B')" id="btn-src-b-${ch}" class="text-[8px] font-bold px-1 rounded text-gray-400 hover:text-white cursor-pointer" title="SoundFont B (副音源)">B</button>
+                                <button type="button" onclick="setChannelChimaeraSource(${ch}, 'both')" id="btn-src-both-${ch}" class="text-[8px] font-bold px-1 rounded text-gray-400 hover:text-white cursor-pointer" title="両方レイヤー (A+B)">A+B</button>
+                            </div>
                         </div>
                         <div class="flex space-x-1">
                             <button id="midi-mute-${ch}" onclick="toggleMidiChannelMute(${ch})" class="text-[9px] w-4 h-4 rounded bg-gray-700 hover:bg-red-900 text-gray-300 font-bold flex items-center justify-center transition-colors">M</button>
@@ -4888,6 +5855,14 @@
                 grid.appendChild(col);
             }
             container.appendChild(grid);
+
+            // キメラモード時の個別音源セレクター状態を初期更新
+            if (activeMidiEngine === 'chimaera') {
+                for (let ch = 0; ch < 16; ch++) {
+                    updateChannelSourceUI(ch);
+                }
+                updateChimaeraSummary();
+            }
 
             // Load saved settings or default
             const track = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
@@ -5401,6 +6376,13 @@
                 }
             }
             
+            if (typeof switchActiveMidiEngine === 'function') {
+                switchActiveMidiEngine('sf', false);
+            }
+            if (typeof ChimaeraSoundFontEngine !== 'undefined') {
+                ChimaeraSoundFontEngine.setAllSources('A');
+            }
+
             updateMidiMixerUIControls();
             applyMidiChannelStates();
         }
@@ -5818,6 +6800,7 @@
                     isSinglePlaying = false;
                     const synth = getMidiSynth('main', false);
                     if (synth) synth.stopMIDI();
+                    if (typeof RetroChipAudioEngine !== 'undefined') RetroChipAudioEngine.allNotesOff();
                     updateSingleUIState();
                 }
             }
@@ -6510,6 +7493,9 @@
                  } 
              });
             
+            if (typeof RetroChipAudioEngine !== 'undefined') {
+                RetroChipAudioEngine.allNotesOff();
+            }
             players.forEach(p => { 
                 p.pause(); p.currentTime = 0; 
                 p.playbackRate = 1.0; 
@@ -10603,7 +11589,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        let APP_VERSION = '3.8.0';
+        let APP_VERSION = '3.9.0';
         if (window.electronAPI && typeof window.electronAPI.getAppVersion === 'function') {
             try {
                 const _v = window.electronAPI.getAppVersion();
@@ -12106,9 +13092,10 @@
                 // 2. Initialize synthesizer in memory immediately
                 await initSpessaSynth(candidateBuffer);
                 activeSoundFontBuffer = candidateBuffer;
-                
                 if (badgeText) badgeText.textContent = `SF: ${name}`;
                 if (resetBtn) resetBtn.classList.remove('hidden');
+                const chimaeraA = document.getElementById('chimaera-sf-a-name');
+                if (chimaeraA) chimaeraA.textContent = `${name} (${sizeMB}MB)`;
                 
                 showNotification(`Custom SoundFont (${name} - ${sizeMB} MB) を適用しました`);
                 triggerAchievement('soundfont_custom');
@@ -12186,6 +13173,8 @@
             
             if (badgeText) badgeText.textContent = `SF: デフォルト (Built-in)`;
             if (resetBtn) resetBtn.classList.add('hidden');
+            const chimaeraA = document.getElementById('chimaera-sf-a-name');
+            if (chimaeraA) chimaeraA.textContent = 'SGM-V2.01 (内蔵)';
             
             // Re-route active track to default synth (WebAudioTinySynth)
             const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
@@ -12875,6 +13864,8 @@
                                 
                                 if (badgeText) badgeText.textContent = `SF: ${sfName}`;
                                 if (resetBtn) resetBtn.classList.remove('hidden');
+                                const chimaeraA = document.getElementById('chimaera-sf-a-name');
+                                if (chimaeraA) chimaeraA.textContent = sfName;
                                 
                                 showNotification(`カスタムSoundFont (${sfName}) を適用しました`);
                             } catch(err) {
@@ -12884,7 +13875,25 @@
                                 showNotification("保存済みSoundFontの読み込みに失敗しました（デフォルト音源で起動します）");
                             }
                         }
-                        resolve();
+
+                        // SoundFont B の復元
+                        try {
+                            const reqB = t.objectStore('soundfonts').get('active-sf2-b');
+                            reqB.onsuccess = async (eB) => {
+                                const resB = eB.target.result;
+                                if (resB && resB.blob) {
+                                    try {
+                                        await ChimaeraSoundFontEngine.loadSoundFontBFile(resB.blob);
+                                    } catch(errB) {
+                                        console.warn("SoundFont B restore notice:", errB);
+                                    }
+                                }
+                                resolve();
+                            };
+                            reqB.onerror = () => resolve();
+                        } catch(e) {
+                            resolve();
+                        }
                     };
                     req.onerror = () => resolve();
                 } catch(err) {

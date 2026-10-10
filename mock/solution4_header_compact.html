@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OST Player Mock - 解決策4: ヘッダーユーティリティ集約</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #090d16; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- メインプレイヤーモックコンテナ -->
+    <div class="w-full max-w-5xl bg-gray-900/90 border border-gray-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col backdrop-blur-md">
+
+        <!-- ヘッダーバー (右側のボタン群を洗練されたアイコンバーへ集約) -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-950/70">
+            
+            <!-- 左側: MODEピル (右側がスッキリしたため、6〜7ボタンに拡張しても余裕で入る) -->
+            <div class="flex items-center space-x-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Mode</span>
+                
+                <!-- 6段階または7段階ピルに拡張しても画面幅に余裕十分 -->
+                <div class="w-[350px] bg-gray-900 rounded-full p-1 flex items-center border border-gray-700">
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold rounded-full bg-blue-600 text-white shadow">Single</button>
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Dual</button>
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Multi</button>
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">FX</button>
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Sync</button>
+                    <!-- 新モードを横並びに追加しても全く押しにくくならない -->
+                    <button class="w-1/6 h-6 text-center text-[10px] font-bold text-emerald-400 hover:text-white bg-emerald-950/60 rounded-full border border-emerald-500/30">Retro</button>
+                </div>
+            </div>
+
+            <!-- 【革新ポイント】右側ユーティリティの洗練・集約バー -->
+            <div class="flex items-center space-x-2 text-xs">
+                
+                <!-- コンパクトSoundFontバッジ -->
+                <div class="flex items-center space-x-1 px-2.5 py-1 rounded-full border border-yellow-500/40 bg-gray-900/90">
+                    <span class="text-[10px] font-bold text-yellow-300">SF: SGM-V2.01</span>
+                    <button class="px-1.5 py-0.5 rounded text-[9px] font-bold text-yellow-200 bg-yellow-950/80 border border-yellow-500/50">変更</button>
+                </div>
+
+                <button class="px-2.5 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900 hover:text-white">NORM</button>
+
+                <!-- アイコンツールバー (Theme / Trophy / Help / Mini をクリーンに集約) -->
+                <div class="flex items-center bg-gray-900 border border-gray-700 rounded-full px-1.5 py-0.5 space-x-1">
+                    
+                    <!-- Theme アイコンボタン -->
+                    <button class="p-1 text-purple-400 hover:text-white transition rounded-full hover:bg-gray-800" title="テーマ・背景設定">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+                    </button>
+
+                    <!-- Trophy 実績バッジボタン -->
+                    <button class="flex items-center space-x-1 px-1.5 py-0.5 text-amber-400 hover:text-white transition rounded-full hover:bg-gray-800" title="実績トロフィールーム">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2z"/></svg>
+                        <span class="text-[9px] font-bold">48/50</span>
+                    </button>
+
+                    <!-- Help アイコンボタン -->
+                    <button class="p-1 text-gray-400 hover:text-white transition rounded-full hover:bg-gray-800" title="ヘルプ & 更新確認">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </button>
+
+                    <!-- Mini プレイヤーボタン -->
+                    <button class="px-1.5 py-0.5 text-[9px] font-bold text-cyan-300 hover:text-white transition rounded hover:bg-cyan-900/50" title="ミニプレイヤー切替">
+                        Mini
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- プレイヤー中央エリア -->
+        <div class="p-8 flex flex-col items-center justify-center space-y-4 min-h-[360px] text-center">
+            <h3 class="text-lg font-bold text-white">ヘッダー右側ボタン群の集約スタイル</h3>
+            <p class="text-xs text-gray-400 max-w-lg">
+                「Theme」「48/50」「Help」「Mini」の文字ボタンが個別に広がっていたのを、高精細SVGアイコンバーに統一することで、右側の横幅を約120px圧縮。その結果、MODEピルを横に伸ばしてもボタン同士が窮屈にならず快適に押せます。
+            </p>
+
+            <div class="bg-gray-950/60 p-4 rounded-xl border border-gray-800 text-xs text-left max-w-xl text-gray-300 space-y-1.5 mt-4">
+                <div class="font-bold text-emerald-400">【解決策4の利点】</div>
+                <div>・ヘッダー全体のプロフェッショナルな統一感（DAWライクな洗練）が向上。</div>
+                <div>・もし「Retro」「Chimaera」をトップレベルのMODEピルとして並べたい場合でも、横幅を安全に確保可能。</div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

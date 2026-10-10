@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OST Player Mock - 解決策2: ドロップダウン・モードセレクター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #090d16; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- メインプレイヤーモックコンテナ -->
+    <div class="w-full max-w-5xl bg-gray-900/90 border border-gray-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col backdrop-blur-md relative">
+
+        <!-- ヘッダーバー (MODEをコンパクトなドロップダウンピルに進化させたバージョン) -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-950/70 relative z-30">
+            
+            <div class="flex items-center space-x-3">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Mode</span>
+                
+                <!-- 【革新ポイント】超省スペースのピル型ドロップダウンボタン (約95px) -->
+                <div class="relative">
+                    <button id="mode-dropdown-btn" onclick="toggleDropdown()" class="px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-md border border-blue-400/30 transition-all active:scale-95 cursor-pointer">
+                        <span id="current-mode-label">Single</span>
+                        <svg id="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="transition-transform duration-200"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+
+                    <!-- ポップオーバーメニュー (すりガラス＆ネオングロー) -->
+                    <div id="mode-dropdown-menu" class="hidden absolute top-9 left-0 w-64 bg-gray-900/95 border border-blue-500/40 rounded-xl shadow-2xl p-2 space-y-1 backdrop-blur-xl z-50">
+                        <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-2 py-1 border-b border-gray-800">再生モードを選択</div>
+                        
+                        <button onclick="selectMode('Single', '標準高音質再生・ビジュアライザー')" class="w-full text-left p-2 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent transition flex items-start space-x-2">
+                            <div class="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0"></div>
+                            <div>
+                                <span class="text-xs font-bold text-white block">Single Player</span>
+                                <span class="text-[10px] text-gray-400 block">標準高音質再生・ビジュアライザー</span>
+                            </div>
+                        </button>
+
+                        <button onclick="selectMode('Dual', '2デッキ・クロスフェードDJ再生')" class="w-full text-left p-2 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent transition flex items-start space-x-2">
+                            <div class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 shrink-0"></div>
+                            <div>
+                                <span class="text-xs font-bold text-gray-300 block">Dual Deck</span>
+                                <span class="text-[10px] text-gray-400 block">2デッキ・クロスフェードDJ再生</span>
+                            </div>
+                        </button>
+
+                        <button onclick="selectMode('Multi', '最大4デッキ同時マルチ再生')" class="w-full text-left p-2 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent transition flex items-start space-x-2">
+                            <div class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 shrink-0"></div>
+                            <div>
+                                <span class="text-xs font-bold text-gray-300 block">Multi Deck</span>
+                                <span class="text-[10px] text-gray-400 block">最大4デッキ同時マルチ再生</span>
+                            </div>
+                        </button>
+
+                        <button onclick="selectMode('FX', '10バンドEQ・空間音響・ボーカルカット')" class="w-full text-left p-2 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent transition flex items-start space-x-2">
+                            <div class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 shrink-0"></div>
+                            <div>
+                                <span class="text-xs font-bold text-gray-300 block">FX Studio</span>
+                                <span class="text-[10px] text-gray-400 block">10バンドEQ・空間音響・ボーカルカット</span>
+                            </div>
+                        </button>
+
+                        <button onclick="selectMode('Sync', 'P2P DJ Room・スマホワイヤレスリモコン')" class="w-full text-left p-2 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent transition flex items-start space-x-2">
+                            <div class="w-2 h-2 rounded-full bg-gray-600 mt-1.5 shrink-0"></div>
+                            <div>
+                                <span class="text-xs font-bold text-gray-300 block">P2P Sync</span>
+                                <span class="text-[10px] text-gray-400 block">P2P DJ Room・スマホワイヤレスリモコン</span>
+                            </div>
+                        </button>
+
+                        <!-- 新モードを増やす場合もここに追加するだけでヘッダーは一切崩れない -->
+                        <div class="border-t border-gray-800 pt-1 mt-1">
+                            <button onclick="selectMode('Retro Arcade', '8-Bit NES / GameBoy / FM音源専用')" class="w-full text-left p-2 rounded-lg bg-emerald-950/30 hover:bg-emerald-600/20 border border-emerald-500/30 transition flex items-start space-x-2">
+                                <div class="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+                                <div>
+                                    <span class="text-xs font-bold text-emerald-300 block">Retro Arcade (NEW)</span>
+                                    <span class="text-[10px] text-emerald-400/80 block">8-Bit NES / GameBoy / FM音源専用</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ヘッダー中央に生まれた広大なスペースの可視化バッジ -->
+                <span class="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-mono hidden md:inline">
+                    横幅削減: +170px のフリースペース獲得
+                </span>
+            </div>
+
+            <!-- ヘッダー右側ツール群 (押しやすい広大な余裕が誕生) -->
+            <div class="flex items-center space-x-2 text-xs">
+                <div class="flex items-center space-x-1 px-2.5 py-1 rounded-full border border-yellow-500/40 bg-gray-900/90 shadow-sm">
+                    <span class="text-[10px] font-bold text-yellow-300">SF: SGM-V2.01.sf2</span>
+                    <button class="px-1.5 py-0.5 rounded text-[9px] font-bold text-yellow-200 bg-yellow-950/80 border border-yellow-500/50">変更</button>
+                </div>
+                <button class="px-2.5 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900 hover:text-white transition">NORM</button>
+                <button class="px-2.5 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white transition">Theme</button>
+                <button class="px-2.5 py-1 rounded-full border border-amber-500/50 text-[10px] font-bold text-amber-300 bg-gray-900 flex items-center space-x-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2z"/></svg>
+                    <span>48/50</span>
+                </button>
+                <button class="px-2.5 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900 hover:text-white transition">Help</button>
+                <button class="px-2.5 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white transition">Mini</button>
+            </div>
+        </div>
+
+        <!-- プレイヤー本体エリア -->
+        <div class="p-8 flex flex-col items-center justify-center space-y-4 min-h-[360px] text-center">
+            <div class="w-24 h-24 rounded-full bg-blue-600/20 border-2 border-blue-500/50 flex items-center justify-center shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            </div>
+            <div>
+                <h3 id="mode-display-title" class="text-xl font-bold text-white">Single Player モード表示中</h3>
+                <p id="mode-display-desc" class="text-xs text-gray-400 mt-1">左上の「Mode [ Single ▼ ]」ボタンをクリックして切り替えてみてください。</p>
+            </div>
+
+            <!-- 解説注釈 -->
+            <div class="bg-gray-950/60 p-4 rounded-xl border border-gray-800 text-xs text-left max-w-xl text-gray-300 space-y-1.5 mt-4">
+                <div class="font-bold text-blue-400">【解決策2の利点】</div>
+                <div>・MODEボタンの横幅が 260px から 95px に激減し、ヘッダーに圧倒的なゆとりが生まれます。</div>
+                <div>・今後新しい専用モード（レトロチップ専用、キメラ専用など）を何個追加しても、ヘッダーの横幅が崩れる心配が永久にゼロになります。</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let isOpen = false;
+        function toggleDropdown() {
+            isOpen = !isOpen;
+            const menu = document.getElementById('mode-dropdown-menu');
+            const chevron = document.getElementById('dropdown-chevron');
+            if (isOpen) {
+                menu.classList.remove('hidden');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                menu.classList.add('hidden');
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function selectMode(name, desc) {
+            document.getElementById('current-mode-label').textContent = name;
+            document.getElementById('mode-display-title').textContent = name + ' モード表示中';
+            document.getElementById('mode-display-desc').textContent = desc;
+            toggleDropdown();
+        }
+
+        // 外側クリックで閉じる
+        document.addEventListener('click', (e) => {
+            const btn = document.getElementById('mode-dropdown-btn');
+            const menu = document.getElementById('mode-dropdown-menu');
+            if (isOpen && !btn.contains(e.target) && !menu.contains(e.target)) {
+                toggleDropdown();
+            }
+        });
+    </script>
+</body>
+</html>

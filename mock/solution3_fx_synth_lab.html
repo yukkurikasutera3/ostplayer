@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OST Player Mock - 解決策3: FX モード内 Synth Lab サブタブ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #090d16; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- メインプレイヤーモックコンテナ -->
+    <div class="w-full max-w-5xl bg-gray-900/90 border border-gray-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col backdrop-blur-md">
+
+        <!-- ヘッダーバー (MODEはFXが選択された状態、5段階ピルのまま) -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-950/70">
+            <div class="flex items-center space-x-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Mode</span>
+                <div class="w-[260px] bg-gray-900 rounded-full p-1 flex items-center border border-gray-700">
+                    <button class="w-1/5 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Single</button>
+                    <button class="w-1/5 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Dual</button>
+                    <button class="w-1/5 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Multi</button>
+                    <button class="w-1/5 h-6 text-center text-[10px] font-bold rounded-full bg-blue-600 text-white shadow">FX</button>
+                    <button class="w-1/5 h-6 text-center text-[10px] font-bold text-gray-400 hover:text-white">Sync</button>
+                </div>
+            </div>
+
+            <!-- ヘッダー右側 -->
+            <div class="flex items-center space-x-1.5 text-xs">
+                <div class="flex items-center space-x-1 px-2 py-0.5 rounded-full border border-yellow-500/40 bg-gray-900/90">
+                    <span class="text-[10px] font-bold text-yellow-300">SF: SGM-V2.01.sf2</span>
+                    <button class="px-1.5 py-0.5 rounded text-[9px] font-bold text-yellow-200 bg-yellow-950/80 border border-yellow-500/50">変更</button>
+                </div>
+                <button class="px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900 hover:text-white">NORM</button>
+                <button class="px-2 py-1 rounded-full border border-purple-500/50 text-[10px] font-bold text-purple-300 bg-gray-900 hover:text-white">Theme</button>
+                <button class="px-2 py-1 rounded-full border border-amber-500/50 text-[10px] font-bold text-amber-300 bg-gray-900 flex items-center space-x-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2z"/></svg>
+                    <span>48/50</span>
+                </button>
+                <button class="px-2 py-1 rounded-full border border-gray-600 text-[10px] font-bold text-gray-400 bg-gray-900 hover:text-white">Help</button>
+                <button class="px-2 py-1 rounded-full border border-cyan-500/50 text-[10px] font-bold text-cyan-300 bg-gray-900 hover:text-white">Mini</button>
+            </div>
+        </div>
+
+        <!-- FX 画面内部コンテンツ -->
+        <div class="p-5 flex flex-col space-y-4">
+            
+            <!-- 【革新ポイント】Sync モードと同様のサブタブ構造 -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <div class="flex items-center space-x-2">
+                    <button id="tab-audio-fx" onclick="switchFxSubTab('audio')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition">
+                        Audio DSP (10バンドEQ / 3D空間 / ボーカル)
+                    </button>
+                    <button id="tab-synth-lab" onclick="switchFxSubTab('synth')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white shadow-md transition flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-cyan-300 animate-pulse"></span>
+                        <span>Synth Lab (レトロチップ / キメラSF)</span>
+                    </button>
+                </div>
+                <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-2 py-0.5 rounded-full">
+                    MIDI リアルタイム音源合成
+                </span>
+            </div>
+
+            <!-- サブタブ 1: Synth Lab (音源実験室の広大なコントロール領域) -->
+            <div id="subview-synth-lab" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <!-- 左ブロック: レトロチップ音源エミュレーター -->
+                <div class="bg-gray-950/80 border border-emerald-500/40 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                        <h4 class="text-xs font-bold text-emerald-400 flex items-center space-x-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01"></path></svg>
+                            <span>レトロチップ・シンセサイザー (7)</span>
+                        </h4>
+                        <select onchange="changeChipModel(this.value)" class="bg-gray-900 border border-emerald-500/40 rounded px-2 py-0.5 text-[11px] text-emerald-300 font-mono">
+                            <option value="nes">NES 2A03 (Famicom)</option>
+                            <option value="gb">GameBoy (DMG 4-Bit)</option>
+                            <option value="fm">MegaDrive (YM2612 FM)</option>
+                        </select>
+                    </div>
+
+                    <!-- オシロスコープ波形モニター -->
+                    <div class="h-24 bg-black/90 rounded-lg border border-emerald-500/20 relative overflow-hidden flex items-center justify-center">
+                        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:8px_8px]"></div>
+                        <!-- 擬似パルス波アニメーション -->
+                        <svg class="w-full h-16 text-emerald-400" viewBox="0 0 300 60" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M0,30 L40,30 L40,10 L80,10 L80,50 L120,50 L120,30 L160,30 L160,10 L200,10 L200,50 L240,50 L240,30 L300,30"/>
+                        </svg>
+                        <span id="chip-status-text" class="absolute bottom-1 right-2 text-[9px] font-mono text-emerald-400/80">Pulse 1: 50% Duty | Voice 4/4</span>
+                    </div>
+
+                    <!-- パラメータコントロール -->
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between items-center text-gray-300">
+                            <span>同時発音数リミッター:</span>
+                            <span class="font-mono text-emerald-300 font-bold">4 Voice (実機準拠)</span>
+                        </div>
+                        <div class="flex justify-between items-center text-gray-300">
+                            <span>ボイスドロップ優先度:</span>
+                            <span class="font-mono text-emerald-300">メロディ優先 (CH1>CH2>CH10)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右ブロック: キメラ SoundFont 音色レイヤー合成 -->
+                <div class="bg-gray-950/80 border border-purple-500/40 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                        <h4 class="text-xs font-bold text-purple-400 flex items-center space-x-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8m-4-4v8"></path></svg>
+                            <span>キメラ SoundFont レイヤー合成 (6)</span>
+                        </h4>
+                        <span class="text-[10px] font-mono text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded border border-purple-500/30">Dual SoundBank</span>
+                    </div>
+
+                    <div class="space-y-2.5 text-xs">
+                        <div class="bg-gray-900 p-2.5 rounded-lg border border-purple-500/20 flex justify-between items-center">
+                            <div>
+                                <span class="text-[10px] text-gray-400 block font-bold">SoundFont A (主音源):</span>
+                                <span class="font-mono text-cyan-300 font-bold text-xs">SGM-V2.01.sf2 (生楽器)</span>
+                            </div>
+                            <button class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] border border-gray-600">変更</button>
+                        </div>
+
+                        <div class="bg-gray-900 p-2.5 rounded-lg border border-purple-500/20 flex justify-between items-center">
+                            <div>
+                                <span class="text-[10px] text-gray-400 block font-bold">SoundFont B (副音源):</span>
+                                <span class="font-mono text-purple-300 font-bold text-xs">Chiptune_8bit.sf2 (レトロ)</span>
+                            </div>
+                            <button class="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] border border-gray-600">変更</button>
+                        </div>
+
+                        <div class="pt-1">
+                            <div class="flex justify-between text-[11px] text-gray-300 mb-1">
+                                <span>グローバル・ブレンド比率:</span>
+                                <span class="font-mono text-purple-300 font-bold">50% : 50%</span>
+                            </div>
+                            <input type="range" min="0" max="100" value="50" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- サブタブ 2: 通常の Audio DSP (切り替えプレビュー用) -->
+            <div id="subview-audio-fx" class="hidden p-8 text-center text-gray-400 bg-gray-950/40 rounded-xl border border-gray-800">
+                10バンド・グラフィックEQ / 3D Spatial Audio / ボーカルキャンセラー / ビットクラッシャー画面
+            </div>
+
+            <!-- 解説注釈 -->
+            <div class="bg-gray-950/50 p-3 rounded-lg border border-gray-800 text-xs text-gray-400">
+                <span class="font-bold text-cyan-400">【解決策3の利点】</span>
+                Sync モードと同様に、FX モードの内部に「Synth Lab」サブタブを置くため、最上部の MODE ピル（5個）は一切増えません。波形オシロスコープやデュアルSoundFontの音量スライダーなど、リッチなグラフィックを広大なスペースで贅沢に操作できます。
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function switchFxSubTab(tab) {
+            const btnAudio = document.getElementById('tab-audio-fx');
+            const btnSynth = document.getElementById('tab-synth-lab');
+            const viewAudio = document.getElementById('subview-audio-fx');
+            const viewSynth = document.getElementById('subview-synth-lab');
+
+            if (tab === 'synth') {
+                btnSynth.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white shadow-md transition flex items-center space-x-1.5';
+                btnAudio.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition';
+                viewSynth.classList.remove('hidden');
+                viewAudio.classList.add('hidden');
+            } else {
+                btnAudio.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-md transition';
+                btnSynth.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-white transition flex items-center space-x-1.5';
+                viewAudio.classList.remove('hidden');
+                viewSynth.classList.add('hidden');
+            }
+        }
+
+        function changeChipModel(model) {
+            const txt = document.getElementById('chip-status-text');
+            if (model === 'nes') txt.textContent = 'Pulse 1: 50% Duty | Voice 4/4';
+            if (model === 'gb') txt.textContent = 'Wave: 4-Bit Programmable | Voice 4/4';
+            if (model === 'fm') txt.textContent = 'FM 4-Op Operator 1-4 | Voice 6/6';
+        }
+    </script>
+</body>
+</html>
