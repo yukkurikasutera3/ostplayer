@@ -1641,7 +1641,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.9.0</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.9.1</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -2889,7 +2889,7 @@
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-base sm:text-lg font-bold text-cyan-300">
+                        <h3 class="text-base sm:text-lg font-bold text-cyan-300" id="update-modal-header-title">
                             新しいバージョンが利用可能です
                         </h3>
                         <p class="text-[10px] text-gray-400" id="update-modal-subtitle">OST Player の最新リリースが見つかりました</p>
@@ -2902,7 +2902,7 @@
             <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-cyan-950/60 p-3 rounded-xl border border-cyan-500/40 shrink-0 flex items-center justify-between text-xs">
                 <div>
                     <span class="text-gray-400 text-[10px] block">現在のバージョン</span>
-                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.4.1</span>
+                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.9.1</span>
                 </div>
                 <div class="text-cyan-400 font-bold text-sm">→</div>
                 <div>
@@ -12186,12 +12186,10 @@
                     if (inlineStatus) {
                         inlineStatus.className = 'text-[11px] text-emerald-400 pt-1 flex items-center justify-between';
                         inlineStatus.innerHTML = `<span>お使いのバージョン (v${APP_VERSION}) は最新です。</span>` +
-                            `<button type="button" onclick="openUpdateModal(latestReleaseData || { tag_name: 'v${APP_VERSION}', name: 'OST Player v${APP_VERSION}' })" class="text-[10px] text-cyan-300 hover:text-white underline ml-2 cursor-pointer">更新・再適用ダイアログを開く</button>`;
+                            `<button type="button" onclick="openUpdateModal(latestReleaseData || { tag_name: 'v${APP_VERSION}', name: 'OST Player v${APP_VERSION}' })" class="text-[10px] text-cyan-300 hover:text-white underline ml-2 cursor-pointer">詳細 / 再適用ダイアログ</button>`;
                     }
                     if (isManual) {
                         showNotification(`お使いのバージョン (v${APP_VERSION}) は最新です`);
-                        // 手動確認時は、最新版でも確認・再適用できるようにモーダルを開く
-                        openUpdateModal(data);
                     }
                 }
             } catch (err) {
@@ -12227,6 +12225,7 @@
             const progressContainer = document.getElementById('update-modal-progress-container');
             const footerActions = document.getElementById('update-modal-footer');
             const subtitleEl = document.getElementById('update-modal-subtitle');
+            const headerTitleEl = document.getElementById('update-modal-header-title');
             const applyBtnSpan = document.querySelector('#update-modal-apply-btn span');
 
             isAutoUpdating = false;
@@ -12236,9 +12235,18 @@
             const tagOrName = (release && (release.tag_name || release.name)) || `v${APP_VERSION}`;
             const isUpToDate = compareVersions(tagOrName, APP_VERSION) <= 0;
 
+            if (headerTitleEl) {
+                headerTitleEl.textContent = isUpToDate
+                    ? `最新バージョン適用済み (v${APP_VERSION})`
+                    : "新しいバージョンが利用可能です";
+                headerTitleEl.className = isUpToDate
+                    ? "text-base sm:text-lg font-bold text-emerald-400"
+                    : "text-base sm:text-lg font-bold text-cyan-300";
+            }
+
             if (subtitleEl) {
                 subtitleEl.textContent = isUpToDate
-                    ? `OST Player は最新版 (v${APP_VERSION}) です（1クリック再適用・整合性修復が可能です）`
+                    ? `OST Player は最新版 (v${APP_VERSION}) です（ワンクリック再適用・整合性修復も可能です）`
                     : `OST Player の最新リリースが見つかりました`;
             }
             if (applyBtnSpan) {
