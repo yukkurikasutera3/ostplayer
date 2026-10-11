@@ -689,8 +689,12 @@ function WebAudioTinySynthCore(target) {
             /*@@guiEND*/
           }
           if(this.playing && this.song && this.song.ev && this.song.ev.length>0 && this.playIndex < this.song.ev.length){
+            if(this.playTime < this.actx.currentTime - 0.5){
+              this.playTime = this.actx.currentTime;
+            }
+            let maxSteps = 500;
             let e=this.song.ev[this.playIndex];
-            while(this.actx.currentTime+this.preroll>this.playTime){
+            while(this.actx.currentTime+this.preroll>this.playTime && --maxSteps > 0){
               if(e.m[0]==0xff51){
                 this.song.tempo=e.m[1];
                 this.tick2Time=4*60/this.song.tempo/this.song.timebase;
@@ -702,6 +706,8 @@ function WebAudioTinySynthCore(target) {
                 if(this.loop){
                   e=this.song.ev[this.playIndex=0];
                   this.playTick=e.t;
+                  this.playTime=this.actx.currentTime;
+                  break;
                 }
                 else{
                   this.playTick=this.maxTick;

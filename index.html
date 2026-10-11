@@ -7593,6 +7593,13 @@
 
         let _lastMidiEndedTime = 0;
         function handleMidiEnded() {
+            if (currentMode === 'single' || currentMode === 'sync' || currentMode === 'visual') {
+                const currentTrack = (playlist && singleTrackIndex >= 0) ? playlist[singleTrackIndex] : null;
+                if (!currentTrack || !currentTrack.isMidi) return;
+            } else if (currentMode === 'fx') {
+                const currentTrack = (playlist && fxTrackIndex >= 0) ? playlist[fxTrackIndex] : null;
+                if (!currentTrack || !currentTrack.isMidi) return;
+            }
             const now = Date.now();
             if (now - _lastMidiEndedTime < 800) return;
             _lastMidiEndedTime = now;
@@ -7644,22 +7651,32 @@
             try {
                 if (currentMode === 'single' || currentMode === 'sync' || currentMode === 'visual') {
                     const currentTrack = (playlist && singleTrackIndex >= 0) ? playlist[singleTrackIndex] : null;
-                    if (currentTrack && currentTrack.isMidi && isSinglePlaying) return true;
+                    if (currentTrack && currentTrack.isMidi) {
+                        if (isSinglePlaying) return true;
+                        if (typeof getMidiSynth === 'function') {
+                            const s = getMidiSynth('main', false);
+                            if (s && s.getPlayStatus && s.getPlayStatus().play) return true;
+                        }
+                    }
+                    return false;
                 }
                 if (currentMode === 'fx') {
                     const currentTrack = (playlist && fxTrackIndex >= 0) ? playlist[fxTrackIndex] : null;
-                    if (currentTrack && currentTrack.isMidi && isFxPlaying) return true;
+                    if (currentTrack && currentTrack.isMidi) {
+                        if (isFxPlaying) return true;
+                        if (typeof getMidiSynth === 'function') {
+                            const s = getMidiSynth('main', false);
+                            if (s && s.getPlayStatus && s.getPlayStatus().play) return true;
+                        }
+                    }
+                    return false;
                 }
-                if (typeof getMidiSynth === 'function') {
-                    if (currentMode === 'single' || currentMode === 'sync' || currentMode === 'visual' || currentMode === 'fx') {
-                        const s = getMidiSynth('main', false);
-                        if (s && s.getPlayStatus && s.getPlayStatus().play) return true;
-                    }
-                    if (currentMode === 'dual') {
-                        const sA = getMidiSynth('dualA', false);
-                        const sB = getMidiSynth('dualB', false);
-                        if ((sA && sA.getPlayStatus && sA.getPlayStatus().play) || (sB && sB.getPlayStatus && sB.getPlayStatus().play)) return true;
-                    }
+                if (currentMode === 'dual' && typeof getMidiSynth === 'function') {
+                    const trackA = dualTracks[0];
+                    const trackB = dualTracks[1];
+                    const sA = (trackA && trackA.isMidi) ? getMidiSynth('dualA', false) : null;
+                    const sB = (trackB && trackB.isMidi) ? getMidiSynth('dualB', false) : null;
+                    if ((sA && sA.getPlayStatus && sA.getPlayStatus().play) || (sB && sB.getPlayStatus && sB.getPlayStatus().play)) return true;
                 }
                 if (typeof decks !== 'undefined' && Array.isArray(decks) && decks.some(d => d.track && d.track.isMidi && ((d.midiSynth && d.midiSynth.getPlayStatus && d.midiSynth.getPlayStatus().play) || (d.spessaSynth && d.spessaSynth.getPlayStatus && d.spessaSynth.getPlayStatus().play)))) {
                     return true;
@@ -7712,38 +7729,41 @@
 
                 // Single/Sync UI Update
                 if (currentMode === 'single' || currentMode === 'sync') {
-                    const synth = getMidiSynth('main', false);
-                    if (synth) {
-                        const status = synth.getPlayStatus();
-                        if (status) {
-                             const totalDur = (status.maxTime > 0) ? status.maxTime : (synth._smfMap ? synth._smfMap.totalDuration : 0);
-                             const formattedCur = formatTime(status.currentTime || 0);
-                             const formattedMax = formatTime(totalDur || 0);
-                             ui.single.time.textContent = formattedCur;
-                             if (totalDur > 0) {
-                                 ui.single.dur.textContent = formattedMax;
-                             }
-                             if (ui.mini) {
-                                 ui.mini.time.textContent = formattedCur;
-                                 if (totalDur > 0) ui.mini.dur.textContent = formattedMax;
-                             }
-                             const pct = totalDur > 0 ? ((status.currentTime || 0) / totalDur) * 100 : 0;
-                             if(document.activeElement !== ui.single.seek && totalDur > 0) {
-                                 ui.single.seek.value = pct;
-                             }
-                             if(ui.mini && document.activeElement !== ui.mini.seek && totalDur > 0) {
-                                 ui.mini.seek.value = pct;
-                             }
+                    const currentTrack = (playlist && singleTrackIndex >= 0) ? playlist[singleTrackIndex] : null;
+                    if (currentTrack && currentTrack.isMidi) {
+                        const synth = getMidiSynth('main', false);
+                        if (synth) {
+                            const status = synth.getPlayStatus();
+                            if (status && status.play) {
+                                const totalDur = (status.maxTime > 0) ? status.maxTime : (synth._smfMap ? synth._smfMap.totalDuration : 0);
+                                const formattedCur = formatTime(status.currentTime || 0);
+                                const formattedMax = formatTime(totalDur || 0);
+                                ui.single.time.textContent = formattedCur;
+                                if (totalDur > 0) {
+                                    ui.single.dur.textContent = formattedMax;
+                                }
+                                if (ui.mini) {
+                                    ui.mini.time.textContent = formattedCur;
+                                    if (totalDur > 0) ui.mini.dur.textContent = formattedMax;
+                                }
+                                const pct = totalDur > 0 ? ((status.currentTime || 0) / totalDur) * 100 : 0;
+                                if(document.activeElement !== ui.single.seek && totalDur > 0) {
+                                    ui.single.seek.value = pct;
+                                }
+                                if(ui.mini && document.activeElement !== ui.mini.seek && totalDur > 0) {
+                                    ui.mini.seek.value = pct;
+                                }
 
-                             // Draw Piano Roll if open
-                             if (isPianoRollOpen && ui.pianoRoll.canvas && synth._smfMap && synth._smfMap.notes) {
-                                 drawPianoRoll(ui.pianoRoll.canvas, synth._smfMap.notes, status.currentTime || 0, totalDur || 0);
-                             }
+                                // Draw Piano Roll if open
+                                if (isPianoRollOpen && ui.pianoRoll.canvas && synth._smfMap && synth._smfMap.notes) {
+                                    drawPianoRoll(ui.pianoRoll.canvas, synth._smfMap.notes, status.currentTime || 0, totalDur || 0);
+                                }
 
-                             // End check
-                             if (status.play && totalDur > 0 && (status.currentTime || 0) >= (totalDur - 0.05)) {
-                                 handleMidiEnded();
-                             }
+                                // End check
+                                if (status.play && totalDur > 0 && (status.currentTime || 0) >= (totalDur - 0.05)) {
+                                    handleMidiEnded();
+                                }
+                            }
                         }
                     }
                 }

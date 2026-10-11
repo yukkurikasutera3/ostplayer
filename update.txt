@@ -28,9 +28,14 @@ OST Player - 開発・アップデート履歴 (Update Log)
   - WebAudioTinySynth のイベントタイマーループから、再生タイミングを破壊していた休符誤判定クリップおよびステップ数制限を撤去。本来の精緻な Web Audio 先行スケジューリングに戻し、正常なテンポ・発音での確実な再生を保証。
   - safeLocateTinySynth においてシーク後の時刻書き換えを排除し、再生中・停止中のステータスを正しく維持。
   - parseSMF のテンポ・秒数換算（calcTickToSec / secToTick）は二分探索 (Binary Search) & 直前キャッシュで高速化を維持し、ピアノロール用ノート遅延評価（Lazy Getter）によりスムーズな動作を両立。
-・SoundFont (.sf2 / .sf3) ホットスワップおよびリセット時の再生継続性強化:
-  - SoundFont の追加・変更およびデフォルト音源へのリセット時、直前の再生秒数（curSec）および再生状態（wasPlaying）を安全に退避・復元。
-  - リセット直後の All Sound Off / All Notes Off による再生音打ち消し競合を解消し、曲の演奏が途切れることなく即座にデフォルト音源で演奏を継続するよう最適化。
+・MP3 / オーディオおよび MIDI 再生時の無音・シーク停止・画面フリーズの根本解消:
+  - isAnyMidiPlaying() において、Single / Sync / Visual / FX モードで現在アクティブなトラックが非 MIDI (MP3/WAV/AAC/FLAC 等) の場合に過去のシンセ再生状態を誤検知して常時 true を返していた不具合を解消。非 MIDI 再生時は確実に false を返すようガードを徹底。
+  - updateMidiGlobalLoop において、非 MIDI トラック再生時に WebAudioTinySynth のステータス値 (0:00) で UI の時間表示やシークバーが毎フレーム上書きされ、再生が進まないように見える問題を根絶。現在トラックが MIDI の場合のみ UI 上書きを行うよう分離。
+  - handleMidiEnded において現在トラックが MIDI でない場合は即座にリターンするガードを追加。非 MIDI トラック再生中に曲終了判定が連射されて曲が勝手にスキップされたり、無限ループでメインスレッドが凍結してボタン操作を受け付けなくなる現象を完全根絶。
+  - WebAudioTinySynth のタイマーループにおいて、バックグラウンド待機や高負荷による時刻乖離時の自動再同期機構および安全ステップ上限を設置。スレッド占有によるブラウザ・アプリのハングアップを確実に防護。
+・Windows デスクトップ版パッケージ (dist/OST Player-win32-x64) および配布物 (ZIP/APK) への完全反映:
+  - electron-packager によるビルドを実行し、dist/OST Player-win32-x64 配下の全リソース（index.html, webaudio-tinysynth.js 等）を最新の修正コードで上書き更新。
+  - Windows 向けポータブル ZIP 配布物 (dist/OST-Player-v3.9.2-win32-x64.zip) および Android 向け APK 配布物 (dist/OST-Player-v3.9.2-debug.apk) を最新ビルドで再生成・同期完了。
 
 --------------------------------------------------------------------------------
 [v3.9.1] - 2026-10-11
