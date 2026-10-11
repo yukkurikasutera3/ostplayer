@@ -1641,7 +1641,7 @@
                     <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
                         <div class="flex items-center space-x-2">
                             <span class="text-sm font-bold text-cyan-300">ソフトウェア更新 (Software Updates)</span>
-                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.9.1</span>
+                            <span id="update-current-version-badge" class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-700 px-2 py-0.5 rounded-full font-mono">v3.9.2</span>
                         </div>
                         <span id="update-status-badge" class="text-[10px] text-gray-400 bg-gray-950 border border-gray-700 px-2 py-0.5 rounded-full font-mono">未確認</span>
                     </div>
@@ -1731,9 +1731,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.9.1 Retro Synth & 1-Click Update Fix</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.9.2 MIDI Engine & SoundFont HotSwap Fix</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.9.2 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-cyan-500/50">
+                            <div class="flex items-center justify-between text-cyan-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.9.2] MIDI音源エンジン切り替え & SoundFont変更時の無音化根本修正</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-11</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>MIDI Synth Engine 切り替え時の無音化解消:</strong> SoundFont / NES / GameBoy / MegaDrive FM / キメラの切り替え時、再生位置（秒）を正確に tick 換算してシーケンサーに渡し、曲データの自動ロードと再生状態の復元を行うことで、切り替え後に音が止まる不具合を根本解決。</li>
+                                <li><strong>メインシーケンサー調停の最適化:</strong> レトロ音源およびキメラ音源稼働時は WebAudioTinySynth をマスターシーケンサーとして動的に委任し、UIシークバーおよびビジュアライザー描画ループが止まる問題を根絶。</li>
+                                <li><strong>SoundFont 読み込み・リセットの安定化:</strong> SoundFont (.sf2) の追加・変更およびリセット時に再生位置を保持し、再ルーティング直後の消音競合を解消してシームレスに再生を継続するよう改善。</li>
+                            </ul>
+                        </div>
                         <!-- v3.9.1 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
                             <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -2902,7 +2914,7 @@
             <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-cyan-950/60 p-3 rounded-xl border border-cyan-500/40 shrink-0 flex items-center justify-between text-xs">
                 <div>
                     <span class="text-gray-400 text-[10px] block">現在のバージョン</span>
-                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.9.1</span>
+                    <span id="update-modal-current-ver" class="font-mono text-gray-300 font-bold">v3.9.2</span>
                 </div>
                 <div class="text-cyan-400 font-bold text-sm">→</div>
                 <div>
@@ -4543,10 +4555,58 @@
         // --- MIDI Functions (Unified) ---
         let spessaSynthWrappers = {};
         
+        function attachTinySynthPlayStatusWrapper(synth) {
+            if (!synth || synth._wrappedGetPlayStatus) return;
+            synth._wrappedGetPlayStatus = true;
+            const originalGetPlayStatus = synth.getPlayStatus.bind(synth);
+            synth.getPlayStatus = function() {
+                const status = originalGetPlayStatus();
+                let currentTime = 0;
+                let maxTime = 0;
+                if (synth._smfMap && synth._smfMap.totalDuration > 0) {
+                    maxTime = synth._smfMap.totalDuration;
+                    currentTime = synth._smfMap.tickToSec(status.curTick || 0);
+                } else if (synth.song) {
+                    const maxTick = status.maxTick || synth.song.maxTick || 0;
+                    const curTick = status.curTick || 0;
+                    
+                    if (!synth._fixedMaxTime || synth._fixedMaxTime === 0) {
+                        synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
+                    }
+                    
+                    maxTime = synth._fixedMaxTime || ((maxTick * 4 * 60) / (synth.song.timebase * (synth.song.tempo || 120)));
+                    const progress = maxTick > 0 ? Math.max(0, Math.min(1, curTick / maxTick)) : 0;
+                    currentTime = progress * maxTime;
+                }
+                return {
+                    play: status.play,
+                    currentTime: currentTime,
+                    maxTime: maxTime,
+                    curTick: status.curTick,
+                    maxTick: status.maxTick
+                };
+            };
+        }
+
         function getMidiSynth(key, forceCreate = true) {
             // key: 'main', 'dualA', 'dualB', or deck objects for multi
             if (!audioContext) initAudio();
             
+            // レトロ音源 (NES, GB, FM) または キメラ音源 (Chimaera) がアクティブな場合、
+            // 'main' デッキのマスターシーケンサーは常に WebAudioTinySynth (midiPlayers['main']) が担う
+            const isRetroOrChimaera = (typeof activeMidiEngine !== 'undefined') && 
+                (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm' || activeMidiEngine === 'chimaera');
+
+            if (key === 'main' && isRetroOrChimaera) {
+                if (!midiPlayers['main'] && forceCreate) {
+                    midiPlayers['main'] = new WebAudioTinySynth({useReverb:0, quality:1});
+                    wrapMidiSynthSend(midiPlayers['main']);
+                }
+                const synth = midiPlayers['main'];
+                if (synth) attachTinySynthPlayStatusWrapper(synth);
+                return synth;
+            }
+
             if (isSpessaSynthLoaded && spessaSynthInstance) {
                 if (typeof key === 'object') {
                     if (!key.spessaSynth && forceCreate) {
@@ -4578,38 +4638,7 @@
                 synth = midiPlayers[key];
             }
             
-            if (synth && !synth._wrappedGetPlayStatus) {
-                synth._wrappedGetPlayStatus = true;
-                const originalGetPlayStatus = synth.getPlayStatus.bind(synth);
-                synth.getPlayStatus = function() {
-                    const status = originalGetPlayStatus();
-                    let currentTime = 0;
-                    let maxTime = 0;
-                    if (synth._smfMap && synth._smfMap.totalDuration > 0) {
-                        maxTime = synth._smfMap.totalDuration;
-                        currentTime = synth._smfMap.tickToSec(status.curTick || 0);
-                    } else if (synth.song) {
-                        const maxTick = status.maxTick || synth.song.maxTick || 0;
-                        const curTick = status.curTick || 0;
-                        
-                        if (!synth._fixedMaxTime || synth._fixedMaxTime === 0) {
-                            synth._fixedMaxTime = calculateFixedMidiDurationFromSong(synth.song);
-                        }
-                        
-                        maxTime = synth._fixedMaxTime || ((maxTick * 4 * 60) / (synth.song.timebase * (synth.song.tempo || 120)));
-                        const progress = maxTick > 0 ? Math.max(0, Math.min(1, curTick / maxTick)) : 0;
-                        currentTime = progress * maxTime;
-                    }
-                    return {
-                        play: status.play,
-                        currentTime: currentTime,
-                        maxTime: maxTime,
-                        curTick: status.curTick,
-                        maxTick: status.maxTick
-                    };
-                };
-            }
-            
+            if (synth) attachTinySynthPlayStatusWrapper(synth);
             return synth;
         }
 
@@ -5538,10 +5567,12 @@
                 if (!synthB) init();
 
                 const sendA = (m, t) => {
-                    if (typeof rawSend === 'function') {
+                    if (isSpessaSynthLoaded && spessaSynthWrappers['main'] && typeof spessaSynthWrappers['main'].send === 'function') {
+                        spessaSynthWrappers['main'].send(m, t);
+                    } else if (typeof rawSend === 'function') {
                         rawSend(m, t);
                     } else {
-                        const p = getMidiSynth('main', false);
+                        const p = midiPlayers['main'];
                         if (p && p.send && p !== synthB) p.send(m, t);
                     }
                 };
@@ -5611,8 +5642,21 @@
         // --- 音源エンジン切り替え & 状態制御 ---
         let activeMidiEngine = 'sf'; // 'sf', 'nes', 'gb', 'fm', 'chimaera'
 
-        function switchActiveMidiEngine(engine, shouldNotify = true) {
-            // 全音源エンジンに対して消音 (All Notes Off) を実行し、ノートの残留・ドローン音を根絶
+        async function switchActiveMidiEngine(engine, shouldNotify = true) {
+            // 現在の再生状況と位置（秒）を正確に退避
+            const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
+            const isMidiTrack = activeTrack && activeTrack.isMidi;
+            let curSec = 0;
+            let wasPlaying = !!isSinglePlaying;
+            
+            const prevSynth = getMidiSynth('main', false);
+            if (prevSynth && typeof prevSynth.getPlayStatus === 'function') {
+                const st = prevSynth.getPlayStatus();
+                curSec = st.currentTime || 0;
+                if (st.play) wasPlaying = true;
+            }
+
+            // 全音源エンジンに対して消音 (All Notes Off) を実行し、残留音を遮断
             RetroChipAudioEngine.allNotesOff();
             ChimaeraSoundFontEngine.allNotesOff();
             if (midiPlayers['main']) {
@@ -5641,8 +5685,33 @@
             const pChimaera = document.getElementById('midi-panel-chimaera');
             const pRetro = document.getElementById('midi-panel-retro');
             const statusBadge = document.getElementById('midi-engine-status-badge');
-
             const outDest = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || (audioContext ? audioContext.destination : null));
+
+            // WebAudioTinySynth の準備
+            if (!midiPlayers['main']) {
+                midiPlayers['main'] = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                wrapMidiSynthSend(midiPlayers['main']);
+            }
+            if (audioContext && typeof midiPlayers['main'].setAudioContext === 'function') {
+                midiPlayers['main'].setAudioContext(audioContext, outDest);
+            }
+
+            // 曲データが TinySynth にロードされていることを保証
+            if (isMidiTrack && (!midiPlayers['main'].song || !midiPlayers['main'].song.ev || midiPlayers['main'].song.ev.length === 0)) {
+                try {
+                    let buf = activeTrack.arrayBuffer;
+                    if (!buf && typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getMidiBuffer) {
+                        buf = await AudioCacheManager.getMidiBuffer(activeTrack);
+                    }
+                    if (buf) {
+                        await midiPlayers['main'].loadMIDI(new Uint8Array(buf));
+                    }
+                } catch(e) {
+                    console.warn("switchActiveMidiEngine track load notice:", e);
+                }
+            }
+
+            const userVol = (typeof ui !== 'undefined' && ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.85;
 
             if (engine === 'nes' || engine === 'gb' || engine === 'fm') {
                 RetroChipAudioEngine.init(audioContext, outDest);
@@ -5650,24 +5719,34 @@
                 if (pChimaera) pChimaera.classList.add('hidden');
                 if (pRetro) pRetro.classList.remove('hidden');
 
-                // SpessaSynth の音声をミュート (SoundFont の被りを防ぐ)
-                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].gainNode && audioContext) {
-                    try {
-                        spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                    } catch(e){}
+                // SpessaSynth の音声をミュート & 一時停止
+                if (spessaSynthWrappers['main']) {
+                    if (spessaSynthWrappers['main'].gainNode && audioContext) {
+                        try {
+                            spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                        } catch(e){}
+                    }
+                    if (spessaSynthWrappers['main'].sequencer && typeof spessaSynthWrappers['main'].sequencer.pause === 'function') {
+                        try { spessaSynthWrappers['main'].sequencer.pause(); } catch(e){}
+                    }
                 }
 
                 // WebAudioTinySynth の音量を 0 にして MIDI イベントディスパッチャとして同期稼働
                 const tinySynth = midiPlayers['main'];
                 if (tinySynth) {
                     tinySynth.setMasterVol(0);
-                    if (isSinglePlaying && !tinySynth.play) {
-                        try {
-                            const curSec = (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].sequencer)
-                                ? (spessaSynthWrappers['main'].sequencer.currentTime || 0) : 0;
-                            tinySynth.locateMIDI(curSec);
-                            tinySynth.playMIDI();
-                        } catch(e){}
+                    if (tinySynth.song && isMidiTrack) {
+                        let targetTick = 0;
+                        if (tinySynth._smfMap && typeof tinySynth._smfMap.secToTick === 'function') {
+                            targetTick = tinySynth._smfMap.secToTick(curSec);
+                        } else if (tinySynth.maxTick > 0) {
+                            const totalSec = tinySynth._fixedMaxTime || 100;
+                            targetTick = Math.floor((curSec / totalSec) * tinySynth.maxTick);
+                        }
+                        try { tinySynth.locateMIDI(targetTick); } catch(e){}
+                        if (wasPlaying) {
+                            try { tinySynth.playMIDI(); } catch(e){}
+                        }
                     }
                 }
 
@@ -5694,23 +5773,33 @@
                 if (pChimaera) pChimaera.classList.remove('hidden');
                 if (pRetro) pRetro.classList.add('hidden');
 
-                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].gainNode && audioContext) {
-                    try {
-                        spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                    } catch(e){}
+                // SpessaSynth の音声をキメラ SoundFont A のために維持（ミュートしない）
+                if (spessaSynthWrappers['main']) {
+                    if (spessaSynthWrappers['main'].gainNode && audioContext) {
+                        try {
+                            spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+                        } catch(e){}
+                    }
+                    if (spessaSynthWrappers['main'].sequencer && typeof spessaSynthWrappers['main'].sequencer.pause === 'function') {
+                        try { spessaSynthWrappers['main'].sequencer.pause(); } catch(e){}
+                    }
                 }
 
                 const tinySynth = midiPlayers['main'];
                 if (tinySynth) {
-                    const vol = (typeof ui !== 'undefined' && ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.85;
-                    tinySynth.setMasterVol(vol || 0.85);
-                    if (isSinglePlaying && !tinySynth.play) {
-                        try {
-                            const curSec = (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].sequencer)
-                                ? (spessaSynthWrappers['main'].sequencer.currentTime || 0) : 0;
-                            tinySynth.locateMIDI(curSec);
-                            tinySynth.playMIDI();
-                        } catch(e){}
+                    tinySynth.setMasterVol(userVol || 0.85);
+                    if (tinySynth.song && isMidiTrack) {
+                        let targetTick = 0;
+                        if (tinySynth._smfMap && typeof tinySynth._smfMap.secToTick === 'function') {
+                            targetTick = tinySynth._smfMap.secToTick(curSec);
+                        } else if (tinySynth.maxTick > 0) {
+                            const totalSec = tinySynth._fixedMaxTime || 100;
+                            targetTick = Math.floor((curSec / totalSec) * tinySynth.maxTick);
+                        }
+                        try { tinySynth.locateMIDI(targetTick); } catch(e){}
+                        if (wasPlaying) {
+                            try { tinySynth.playMIDI(); } catch(e){}
+                        }
                     }
                 }
 
@@ -5734,18 +5823,39 @@
                 if (pRetro) pRetro.classList.add('hidden');
 
                 if (isSpessaSynthLoaded && spessaSynthWrappers['main']) {
+                    if (midiPlayers['main']) {
+                        try { midiPlayers['main'].stopMIDI(); } catch(e){}
+                        midiPlayers['main'].setMasterVol(0);
+                    }
                     if (spessaSynthWrappers['main'].gainNode && audioContext) {
                         try {
                             spessaSynthWrappers['main'].gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
                         } catch(e){}
                     }
-                    if (midiPlayers['main']) {
-                        midiPlayers['main'].setMasterVol(0);
+                    if (isMidiTrack) {
+                        if (curSec > 0 && typeof spessaSynthWrappers['main'].seekTo === 'function') {
+                            try { spessaSynthWrappers['main'].seekTo(curSec); } catch(e){}
+                        }
+                        if (wasPlaying) {
+                            try { spessaSynthWrappers['main'].playMIDI(); } catch(e){}
+                        }
                     }
                 } else {
                     if (midiPlayers['main']) {
-                        const vol = (typeof ui !== 'undefined' && ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.85;
-                        midiPlayers['main'].setMasterVol(vol || 0.85);
+                        midiPlayers['main'].setMasterVol(userVol || 0.85);
+                        if (isMidiTrack && midiPlayers['main'].song) {
+                            let targetTick = 0;
+                            if (midiPlayers['main']._smfMap && typeof midiPlayers['main']._smfMap.secToTick === 'function') {
+                                targetTick = midiPlayers['main']._smfMap.secToTick(curSec);
+                            } else if (midiPlayers['main'].maxTick > 0) {
+                                const totalSec = midiPlayers['main']._fixedMaxTime || 100;
+                                targetTick = Math.floor((curSec / totalSec) * midiPlayers['main'].maxTick);
+                            }
+                            try { midiPlayers['main'].locateMIDI(targetTick); } catch(e){}
+                            if (wasPlaying) {
+                                try { midiPlayers['main'].playMIDI(); } catch(e){}
+                            }
+                        }
                     }
                 }
 
@@ -5761,6 +5871,9 @@
                 if (shouldNotify) {
                     showNotification("音源エンジンを「Standard SoundFont」に戻しました");
                 }
+            }
+            if (wasPlaying) {
+                resumePlaybackVisualizers();
             }
             saveCurrentTrackMidiMixerSettings(false);
         }
@@ -12044,7 +12157,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        let APP_VERSION = '3.9.1';
+        let APP_VERSION = '3.9.2';
         if (window.electronAPI && typeof window.electronAPI.getAppVersion === 'function') {
             try {
                 const _v = window.electronAPI.getAppVersion();
@@ -14035,6 +14148,25 @@
             if (badgeText) badgeText.textContent = `SF: 読込中 (${sizeMB}MB)`;
 
             try {
+                // 現在のトラックと再生状態・時間を退避
+                const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
+                const isMidiTrack = activeTrack && activeTrack.isMidi;
+                let curSec = 0;
+                let wasPlaying = !!isSinglePlaying;
+                if (isMidiTrack) {
+                    const oldSynth = getMidiSynth('main', false);
+                    if (oldSynth && typeof oldSynth.getPlayStatus === 'function') {
+                        const st = oldSynth.getPlayStatus();
+                        curSec = st.currentTime || 0;
+                        if (st.play) wasPlaying = true;
+                    }
+                }
+
+                // 旧 TinySynth の演奏を停止
+                if (midiPlayers['main']) {
+                    try { midiPlayers['main'].stopMIDI(); } catch(e){}
+                }
+
                 // 1. Read candidate array buffer into memory
                 const candidateBuffer = await file.arrayBuffer();
                 showNotification(`SoundFont (${name}) を合成エンジンに適用中...`);
@@ -14057,28 +14189,28 @@
                 saveAchievements(false);
 
                 // 3. If a MIDI track is active in Single Mode, reload/resume its audio seamlessly
-                const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
-                if (activeTrack && activeTrack.isMidi) {
+                if (isMidiTrack) {
                     const synth = getMidiSynth('main');
                     if (synth) {
                         try {
                             let buf = null;
                             if (activeTrack.arrayBuffer) {
                                 buf = activeTrack.arrayBuffer;
-                            } else if (typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getTrackBuffer) {
-                                buf = await AudioCacheManager.getTrackBuffer(activeTrack);
+                            } else if (typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getMidiBuffer) {
+                                buf = await AudioCacheManager.getMidiBuffer(activeTrack);
                             } else if (activeTrack.file && typeof activeTrack.file.arrayBuffer === 'function') {
                                 buf = await activeTrack.file.arrayBuffer();
                             }
                             if (buf) {
-                                const curTime = (synth.sequencer && synth.sequencer.currentTime) ? synth.sequencer.currentTime : 0;
                                 await loadMidiData(synth, buf, singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode);
-                                if (curTime > 0 && typeof synth.seekTo === 'function') {
-                                    synth.seekTo(curTime);
+                                if (curSec > 0 && typeof synth.seekTo === 'function') {
+                                    synth.seekTo(curSec);
                                 }
-                                if (isSinglePlaying) {
+                                if (wasPlaying) {
+                                    isSinglePlaying = true;
                                     synth.playMIDI();
                                     triggerAchievement('soundfont_hotswap');
+                                    resumePlaybackVisualizers();
                                 }
                             }
                         } catch(e) {
@@ -14086,6 +14218,9 @@
                         }
                     }
                 }
+
+                // アクティブな Synth Engine の設定を正しく適用
+                await switchActiveMidiEngine(activeMidiEngine, false);
 
                 // 4. Save to IndexedDB asynchronously in background so DB locks/quotas never block playback
                 if (db) {
@@ -14106,6 +14241,20 @@
         window.loadSoundFontFile = loadSoundFontFile;
 
         async function resetSoundFont() {
+            // 現在のトラックと再生状態・時間を退避
+            const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
+            const isMidiTrack = activeTrack && activeTrack.isMidi;
+            let curSec = 0;
+            let wasPlaying = !!isSinglePlaying;
+            if (isMidiTrack) {
+                const oldSynth = getMidiSynth('main', false);
+                if (oldSynth && typeof oldSynth.getPlayStatus === 'function') {
+                    const st = oldSynth.getPlayStatus();
+                    curSec = st.currentTime || 0;
+                    if (st.play) wasPlaying = true;
+                }
+            }
+
             if (db) {
                 try {
                     const t = db.transaction(['soundfonts'], 'readwrite');
@@ -14131,23 +14280,27 @@
             if (chimaeraA) chimaeraA.textContent = 'SGM-V2.01 (内蔵)';
             
             // Re-route active track to default synth (WebAudioTinySynth)
-            const activeTrack = (singleTrackIndex >= 0 && singleTrackIndex < playlist.length) ? playlist[singleTrackIndex] : null;
-            if (activeTrack && activeTrack.isMidi) {
+            if (isMidiTrack) {
                 const synth = getMidiSynth('main');
                 if (synth) {
                     try {
                         let buf = null;
                         if (activeTrack.arrayBuffer) {
                             buf = activeTrack.arrayBuffer;
-                        } else if (typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getTrackBuffer) {
-                            buf = await AudioCacheManager.getTrackBuffer(activeTrack);
+                        } else if (typeof AudioCacheManager !== 'undefined' && AudioCacheManager.getMidiBuffer) {
+                            buf = await AudioCacheManager.getMidiBuffer(activeTrack);
                         } else if (activeTrack.file && typeof activeTrack.file.arrayBuffer === 'function') {
                             buf = await activeTrack.file.arrayBuffer();
                         }
                         if (buf) {
                             await loadMidiData(synth, buf, singleGainNodes && singleGainNodes[0] ? singleGainNodes[0] : masterGainNode);
-                            if (isSinglePlaying) {
+                            if (curSec > 0) {
+                                seekMidi(synth, (curSec / (synth._fixedMaxTime || 100)) * 100);
+                            }
+                            if (wasPlaying) {
+                                isSinglePlaying = true;
                                 synth.playMIDI();
+                                resumePlaybackVisualizers();
                             }
                         }
                     } catch(e){
@@ -14156,7 +14309,7 @@
                 }
             }
             
-            switchActiveMidiEngine(activeMidiEngine, false);
+            await switchActiveMidiEngine(activeMidiEngine, false);
             showNotification("SoundFontをリセットしました（デフォルト音源を使用します）");
         }
         window.resetSoundFont = resetSoundFont;
