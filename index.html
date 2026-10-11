@@ -12529,23 +12529,7 @@
             window._evalTelemetrySignature = _evalTelemetrySignature;
 
             function _playActivationBeep() {
-                try {
-                    const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-                    if (!ctx) return;
-                    if (ctx.state === 'suspended') ctx.resume();
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    const now = ctx.currentTime;
-                    osc.frequency.setValueAtTime(587.33, now);
-                    osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.12);
-                    gain.gain.setValueAtTime(0.08, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(now);
-                    osc.stop(now + 0.15);
-                } catch (e) {}
+                // Muted (silent)
             }
 
             function _toggleTelemetryHUD(forceState) {
