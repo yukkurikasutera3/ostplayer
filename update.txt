@@ -11,6 +11,11 @@ OST Player - 開発・アップデート履歴 (Update Log)
   - レトロ音源およびキメラ音源稼働時は WebAudioTinySynth をメインシーケンサーとして動的に割り当て、UI シークバーおよびビジュアライザー描画ループが止まる問題を解消。
   - 切り替え時に曲データ（ArrayBuffer）が未ロードの場合の自動再取得・並行ロード保証機構を実装し、どのタイミングで音源エンジンを切り替えてもシームレスに発音が継続するよう修正。
   - キメラ音源 (ChimaeraSoundFontEngine) においてカスタム SoundFont 適用時に SpessaSynth の SoundFont A へ MIDI イベントが正確に伝達され、高音質主音源と副音源が正常にレイヤー発振されるよう改善。
+・MIDI 音源エンジンおよび SoundFont 切り替え時の時間跳躍・勝手な再生進行の根絶:
+  - テンポマップ (_smfMap) を全シンセ（SpessaSynth, WebAudioTinySynth, activeTrack）間で完全に同期共有。固定テンポ 120 換算フォールバックによる再生秒数のズレ・時間ジャンプを完全に解消。
+  - safeLocateTinySynth 機構を新設。WebAudioTinySynth の locateMIDI 内部で発生する自動再生トリガー (if (p) this.playMIDI()) を確実に遮断し、一時停止中に音源や SoundFont を切り替えても勝手に再生が走り出して時間が進行しないよう徹底防護。
+  - SpessaSynthPlayerWrapper の seekTo / playMIDI において TinySynth へ秒数をそのまま渡していたバグを修正し、高精度 secToTick 換算 tick を安全に供給。
+  - 音源切り替え直後に UI の再生時間・シークバーをミリ秒単位で同期更新し、切り替え時の時間ブレ・表示飛びを根絶。
 ・SoundFont (.sf2 / .sf3) ホットスワップおよびリセット時の再生継続性強化:
   - SoundFont の追加・変更およびデフォルト音源へのリセット時、直前の再生秒数（curSec）および再生状態（wasPlaying）を安全に退避・復元。
   - リセット直後の All Sound Off / All Notes Off による再生音打ち消し競合を解消し、曲の演奏が途切れることなく即座にデフォルト音源で演奏を継続するよう最適化。
