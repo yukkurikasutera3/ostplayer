@@ -366,6 +366,9 @@ function createWindow() {
             } else if (input.key === 'F11') {
                 mainWindow.setFullScreen(!mainWindow.isFullScreen());
                 event.preventDefault();
+            } else if (input.key === 'F9') {
+                mainWindow.webContents.executeJavaScript('if (typeof window.toggleDebugHUD === "function") window.toggleDebugHUD();');
+                event.preventDefault();
             }
         }
     });

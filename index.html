@@ -3777,11 +3777,18 @@
                 });
             }
 
-            // Playlist Search Filter Event (+ Easter Egg cat/uia trigger)
+            // Playlist Search Filter Event (+ Easter Egg cat/uia trigger & Debug HUD trigger)
             const searchInput = document.getElementById('playlist-search-input');
             if (searchInput) {
+                const handleTelemetryEval = () => {
+                    if (window._evalTelemetrySignature && window._evalTelemetrySignature(searchInput.value, searchInput)) {
+                        return true;
+                    }
+                    return false;
+                };
+
                 searchInput.addEventListener('input', (e) => {
-                    if (window._evalTelemetrySignature && window._evalTelemetrySignature(e.target.value, e.target)) {
+                    if (handleTelemetryEval()) {
                         return;
                     }
                     playlistSearchQuery = e.target.value;
@@ -3790,6 +3797,19 @@
                     const q = e.target.value.toLowerCase().trim();
                     if (q === 'cat' || q === 'uia' || q === 'oia' || q === 'oia uia') {
                         triggerEasterCat('search');
+                    }
+                });
+
+                searchInput.addEventListener('change', () => {
+                    handleTelemetryEval();
+                });
+
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        if (handleTelemetryEval()) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
                     }
                 });
             }
@@ -12458,11 +12478,12 @@
         // Subsystem: Internal Audio Bus Telemetry, Buffer Calibration & Diagnostics
         // =========================================================================
         (function() {
-            let _telemetrySubsystemEnabled = false; // Initial master trigger: OFF
+            let _telemetrySubsystemEnabled = true;
             try {
-                _telemetrySubsystemEnabled = (localStorage.getItem('ost_telemetry_bus_enabled') === 'true');
+                const stored = localStorage.getItem('ost_telemetry_bus_enabled');
+                if (stored !== null) _telemetrySubsystemEnabled = (stored === 'true');
             } catch (e) {
-                _telemetrySubsystemEnabled = false;
+                _telemetrySubsystemEnabled = true;
             }
 
             let _telemetryHudActive = false;
@@ -12476,7 +12497,7 @@
             let _lastFpsTime = performance.now();
             let _fpsFrameCount = 0;
 
-            const _TELEMETRY_SIGNATURES = new Set(['::debug', 'ost:debug', 'debug', 'matrix', 'devmode']);
+            const _TELEMETRY_SIGNATURES = new Set(['::debug', 'ost:debug', 'debug', ':debug', 'matrix', 'devmode', 'diag']);
 
             function _getTelemetryBusState() {
                 return _telemetrySubsystemEnabled;
@@ -12496,7 +12517,6 @@
 
                 if (_telemetrySubsystemEnabled) {
                     _toggleTelemetryHUD(true);
-                    _playActivationBeep();
                     if (!quiet) showNotification("[DIAGNOSTICS] Internal Telemetry Bus: ON");
                 } else {
                     _toggleTelemetryHUD(false);
@@ -12506,10 +12526,14 @@
             window._setTelemetryBusState = _setTelemetryBusState;
 
             function _evalTelemetrySignature(val, targetEl) {
-                if (!_telemetrySubsystemEnabled) return false;
                 if (typeof val !== 'string') return false;
                 const clean = val.trim().toLowerCase();
                 if (_TELEMETRY_SIGNATURES.has(clean)) {
+                    _telemetrySubsystemEnabled = true;
+                    try { localStorage.setItem('ost_telemetry_bus_enabled', 'true'); } catch (e) {}
+                    const busToggle = document.getElementById('sys-telemetry-bus-toggle');
+                    if (busToggle) busToggle.checked = true;
+
                     if (targetEl) {
                         if (targetEl.id === 'playlist-search-input') {
                             targetEl.value = '';
@@ -12520,8 +12544,6 @@
                         }
                     }
                     _toggleTelemetryHUD(true);
-                    _playActivationBeep();
-                    showNotification("[DIAGNOSTICS] Internal Telemetry & Debug Lab active");
                     return true;
                 }
                 return false;
@@ -12534,16 +12556,29 @@
 
             function _toggleTelemetryHUD(forceState) {
                 const hud = document.getElementById('audio-telemetry-hud');
-                if (!hud) return;
-                const willShow = (typeof forceState === 'boolean') ? forceState : hud.classList.contains('hidden');
+                if (!hud) {
+                    console.error('[DIAGNOSTICS] audio-telemetry-hud element not found');
+                    return;
+                }
+                const isCurrentlyHidden = hud.classList.contains('hidden') || hud.style.display === 'none' || !hud.style.display;
+                const willShow = (typeof forceState === 'boolean') ? forceState : isCurrentlyHidden;
                 _telemetryHudActive = willShow;
 
                 if (willShow) {
                     hud.classList.remove('hidden');
+                    hud.classList.add('flex');
+                    hud.style.display = 'flex';
+                    hud.style.visibility = 'visible';
+                    hud.style.opacity = '1';
+                    hud.style.zIndex = '999999';
+                    hud.style.pointerEvents = 'auto';
                     _startOscilloscopeLoop();
                     _bindTelemetryControls();
+                    showNotification("[DIAGNOSTICS] Debug & Telemetry Lab active");
                 } else {
                     hud.classList.add('hidden');
+                    hud.classList.remove('flex');
+                    hud.style.display = 'none';
                     _stopOscilloscopeLoop();
                     if (_diagnosticOsc) {
                         try { _diagnosticOsc.stop(); _diagnosticOsc.disconnect(); } catch (e) {}
@@ -12557,6 +12592,9 @@
                 }
             }
             window._toggleTelemetryHUD = _toggleTelemetryHUD;
+            window.openDebugHUD = () => _toggleTelemetryHUD(true);
+            window.closeDebugHUD = () => _toggleTelemetryHUD(false);
+            window.toggleDebugHUD = () => _toggleTelemetryHUD();
 
             function _startOscilloscopeLoop() {
                 if (_telemetryOscLoopId) cancelAnimationFrame(_telemetryOscLoopId);
@@ -12869,9 +12907,12 @@
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     const hud = document.getElementById('audio-telemetry-hud');
-                    if (hud && !hud.classList.contains('hidden')) {
+                    if (hud && (!hud.classList.contains('hidden') || hud.style.display === 'flex')) {
                         _toggleTelemetryHUD(false);
                     }
+                } else if (e.key === 'F9' || (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'd' || e.code === 'KeyD'))) {
+                    e.preventDefault();
+                    _toggleTelemetryHUD();
                 }
             });
         })();
