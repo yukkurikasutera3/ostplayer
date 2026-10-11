@@ -5414,6 +5414,7 @@
             function init() {
                 if (!synthB) {
                     synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
+                    if (synthB.rhythm) synthB.rhythm[9] = 1;
                     try {
                         const targetOut = (singleGainNodes && singleGainNodes[0]) ? singleGainNodes[0] : (window.masterGainNode || (audioContext ? audioContext.destination : null));
                         if (targetOut && audioContext) {
@@ -5599,6 +5600,14 @@
 
                 // Note Off は常に両方に送信して残留音・ドローン音を完全に防ぐ
                 if (cmd === 0x80 || (cmd === 0x90 && msg[2] === 0)) {
+                    sendA(msg, time);
+                    sendB(msg, time);
+                    return;
+                }
+
+                // Program Change (0xc0), Control Change (0xb0), Pitch Bend (0xe0) 等の音色・表現制御は
+                // チャンネル振り分けに関わらず「両方」に送信し、音色乖離やピアノ化を防止
+                if (cmd === 0xc0 || cmd === 0xb0 || cmd === 0xe0) {
                     sendA(msg, time);
                     sendB(msg, time);
                     return;
@@ -5844,6 +5853,7 @@
                     if (typeof updateChannelSourceUI === 'function') updateChannelSourceUI(ch);
                 }
                 if (typeof updateChimaeraSummary === 'function') updateChimaeraSummary();
+                if (typeof syncProgramsToChimaeraSynths === 'function') syncProgramsToChimaeraSynths();
                 if (shouldNotify) {
                     showNotification("音源エンジンを「キメラ (Dual SoundFont)」に切り替えました");
                 }
@@ -5925,20 +5935,73 @@
         window.switchActiveMidiEngine = switchActiveMidiEngine;
         window.getActiveMidiEngine = () => activeMidiEngine;
 
+        function syncProgramsToChimaeraSynths() {
+            const activeTrack = (typeof playlist !== 'undefined' && singleTrackIndex >= 0 && playlist[singleTrackIndex]) ? playlist[singleTrackIndex] : null;
+            const smfMap = (activeTrack && activeTrack._smfMap) || (midiPlayers['main'] && midiPlayers['main']._smfMap);
+            const progMap = smfMap ? smfMap.programs : null;
+            const synthB = ChimaeraSoundFontEngine.getSynthB();
+            const synthA = (isSpessaSynthLoaded && spessaSynthWrappers['main']) ? spessaSynthWrappers['main'] : midiPlayers['main'];
+
+            for (let ch = 0; ch < 16; ch++) {
+                if (ch === 9) {
+                    if (synthB && synthB.rhythm) synthB.rhythm[9] = 1;
+                    continue;
+                }
+                let prog = 0;
+                if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined) {
+                    prog = midiUserPrograms[ch];
+                } else if (progMap && progMap[ch] !== undefined) {
+                    prog = progMap[ch];
+                } else {
+                    const select = document.getElementById(`midi-inst-${ch}`);
+                    if (select && select.value !== undefined) {
+                        prog = parseInt(select.value) || 0;
+                    }
+                }
+
+                // Synth A に適用
+                if (synthA && typeof synthA.send === 'function') {
+                    try { synthA.send([0xc0 | ch, prog], 0); } catch(e){}
+                }
+                if (isSpessaSynthLoaded && spessaSynthWrappers['main'] && spessaSynthWrappers['main'].synth) {
+                    try {
+                        const core = spessaSynthWrappers['main'].synth;
+                        if (typeof core.programChange === 'function') {
+                            core.programChange(ch, prog);
+                        }
+                    } catch(e){}
+                }
+
+                // Synth B (副音源) に適用
+                if (synthB && typeof synthB.send === 'function') {
+                    try { synthB.send([0xc0 | ch, prog], 0); } catch(e){}
+                }
+                if (synthB && synthB.synth && typeof synthB.synth.programChange === 'function') {
+                    try { synthB.synth.programChange(ch, prog); } catch(e){}
+                }
+            }
+        }
+        window.syncProgramsToChimaeraSynths = syncProgramsToChimaeraSynths;
+
         function setChannelChimaeraSource(ch, src) {
             ChimaeraSoundFontEngine.setChannelSource(ch, src);
+            syncProgramsToChimaeraSynths();
         }
         window.setChannelChimaeraSource = setChannelChimaeraSource;
 
         function setAllChimaeraSource(src) {
+            ChimaeraSoundFontEngine.allNotesOff();
             ChimaeraSoundFontEngine.setAllSources(src);
+            syncProgramsToChimaeraSynths();
             const label = (src === 'A') ? 'SoundFont A (主音源)' : ((src === 'B') ? 'SoundFont B (副音源)' : 'Layer (両方レイヤー)');
             showNotification(`全チャンネルの音源を「${label}」に一括適用しました`);
         }
         window.setAllChimaeraSource = setAllChimaeraSource;
 
         function setChimaeraPreset(preset) {
+            ChimaeraSoundFontEngine.allNotesOff();
             ChimaeraSoundFontEngine.setPreset(preset);
+            syncProgramsToChimaeraSynths();
             if (preset === 'drums_b') {
                 showNotification("プリセット「メロディ=SF-A / ドラム=SF-B」を適用しました");
             }
@@ -5994,6 +6057,23 @@
             synth._wrapped = true;
             
             const originalSend = synth.send.bind(synth);
+            const originalStopMIDI = (typeof synth.stopMIDI === 'function') ? synth.stopMIDI.bind(synth) : null;
+
+            synth.stopMIDI = function() {
+                if (originalStopMIDI) {
+                    try { originalStopMIDI(); } catch(e){}
+                }
+                RetroChipAudioEngine.allNotesOff();
+                ChimaeraSoundFontEngine.allNotesOff();
+                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].synth && typeof spessaSynthWrappers['main'].synth.stopAll === 'function') {
+                    try { spessaSynthWrappers['main'].synth.stopAll(true); } catch(e){}
+                }
+            };
+
+            synth.pauseMIDI = function() {
+                synth.stopMIDI();
+            };
+
             synth.send = function(msg, time) {
                 if (!msg || msg.length < 1) {
                     return originalSend(msg, time);
@@ -7379,6 +7459,10 @@
                             if (selectEl) selectEl.value = prog;
                         }
                     }
+                }
+                // キメラ音源 (主音源 SF-A / 副音源 SF-B) の各チャンネルに曲の初期音色を即時同期
+                if (typeof syncProgramsToChimaeraSynths === 'function') {
+                    syncProgramsToChimaeraSynths();
                 }
                 
                 // 音量初期設定 (スライダー値と同期)
@@ -9093,6 +9177,8 @@
                 if(status.play) {
                     if (typeof synth.pauseMIDI === 'function') synth.pauseMIDI();
                     else synth.stopMIDI();
+                    RetroChipAudioEngine.allNotesOff();
+                    ChimaeraSoundFontEngine.allNotesOff();
                     isSinglePlaying = false;
                 } else {
                     synth.playMIDI();
@@ -15404,6 +15490,8 @@
                         if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
                     } catch(e){}
                 }
+                RetroChipAudioEngine.allNotesOff();
+                ChimaeraSoundFontEngine.allNotesOff();
                 if (midiPlayers['main'] && midiPlayers['main'] !== this) {
                     try { midiPlayers['main'].stopMIDI(); } catch(e){}
                 }
@@ -15422,6 +15510,8 @@
                 if (this.synth && typeof this.synth.stopAll === 'function') {
                     try { this.synth.stopAll(true); } catch(e){}
                 }
+                RetroChipAudioEngine.allNotesOff();
+                ChimaeraSoundFontEngine.allNotesOff();
                 if (midiPlayers['main'] && midiPlayers['main'] !== this) {
                     try {
                         safeLocateTinySynth(midiPlayers['main'], 0);
