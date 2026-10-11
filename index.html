@@ -1679,6 +1679,12 @@
                             </div>
                         </div>
                         <div id="update-inline-status" class="text-[11px] text-gray-400 hidden pt-1"></div>
+                        <div class="pt-2 border-t border-gray-800/60 flex items-center justify-between">
+                            <label class="flex items-center space-x-1.5 cursor-pointer select-none opacity-40 hover:opacity-80 transition" title="低レベルオーディオバッファ診断サブシステム">
+                                <input type="checkbox" id="sys-telemetry-bus-toggle" class="cursor-pointer accent-cyan-600 rounded scale-90">
+                                <span class="text-[10px] text-gray-500 font-mono">内部バッファ診断・テレメトリ監視 (Diagnostic Telemetry Bus)</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -12429,6 +12435,17 @@
                     showNotification(autoToggle.checked ? "起動時の自動更新確認を有効化しました" : "起動時の自動更新確認を無効化しました");
                 };
             }
+
+            const busToggle = document.getElementById('sys-telemetry-bus-toggle');
+            if (busToggle) {
+                const isEnabled = (typeof window._getTelemetryBusState === 'function') ? window._getTelemetryBusState() : false;
+                busToggle.checked = isEnabled;
+                busToggle.onchange = () => {
+                    if (typeof window._setTelemetryBusState === 'function') {
+                        window._setTelemetryBusState(busToggle.checked);
+                    }
+                };
+            }
         }
         window.initUpdateCheckerUI = initUpdateCheckerUI;
 
@@ -12441,6 +12458,13 @@
         // Subsystem: Internal Audio Bus Telemetry, Buffer Calibration & Diagnostics
         // =========================================================================
         (function() {
+            let _telemetrySubsystemEnabled = false; // Initial master trigger: OFF
+            try {
+                _telemetrySubsystemEnabled = (localStorage.getItem('ost_telemetry_bus_enabled') === 'true');
+            } catch (e) {
+                _telemetrySubsystemEnabled = false;
+            }
+
             let _telemetryHudActive = false;
             let _telemetryOscLoopId = null;
             let _matrixRainLoopId = null;
@@ -12454,7 +12478,35 @@
 
             const _TELEMETRY_SIGNATURES = new Set(['::debug', 'ost:debug', 'debug', 'matrix', 'devmode']);
 
+            function _getTelemetryBusState() {
+                return _telemetrySubsystemEnabled;
+            }
+            window._getTelemetryBusState = _getTelemetryBusState;
+
+            function _setTelemetryBusState(enabled, quiet) {
+                _telemetrySubsystemEnabled = !!enabled;
+                try {
+                    localStorage.setItem('ost_telemetry_bus_enabled', _telemetrySubsystemEnabled ? 'true' : 'false');
+                } catch (e) {}
+
+                const busToggle = document.getElementById('sys-telemetry-bus-toggle');
+                if (busToggle && busToggle.checked !== _telemetrySubsystemEnabled) {
+                    busToggle.checked = _telemetrySubsystemEnabled;
+                }
+
+                if (_telemetrySubsystemEnabled) {
+                    _toggleTelemetryHUD(true);
+                    _playActivationBeep();
+                    if (!quiet) showNotification("[DIAGNOSTICS] Internal Telemetry Bus: ON");
+                } else {
+                    _toggleTelemetryHUD(false);
+                    if (!quiet) showNotification("[DIAGNOSTICS] Internal Telemetry Bus: OFF");
+                }
+            }
+            window._setTelemetryBusState = _setTelemetryBusState;
+
             function _evalTelemetrySignature(val, targetEl) {
+                if (!_telemetrySubsystemEnabled) return false;
                 if (typeof val !== 'string') return false;
                 const clean = val.trim().toLowerCase();
                 if (_TELEMETRY_SIGNATURES.has(clean)) {
