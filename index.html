@@ -3281,6 +3281,12 @@
                 initAchievements();
                 await loadTracksFromDB();
                 await loadActiveSoundFont();  // SoundFont 読み込み完了
+                try {
+                    const savedMidiEngine = localStorage.getItem('ost_active_midi_engine');
+                    if (savedMidiEngine && typeof switchActiveMidiEngine === 'function') {
+                        switchActiveMidiEngine(savedMidiEngine, false);
+                    }
+                } catch(e){}
                 await loadCustomBgFromDB();   // 背景画像 読み込み完了
                 initMultiDecks();
                 initBgVisualizer();
@@ -5038,24 +5044,48 @@
 
             function stopVoice(v, time) {
                 if (!v) return;
-                const now = (typeof time === 'number' && time > 0) ? Math.max(audioCtx ? audioCtx.currentTime : 0, time) : (audioCtx ? audioCtx.currentTime : 0);
-                if (v.gain) {
+                const cur = audioCtx ? audioCtx.currentTime : 0;
+                const reqTime = (typeof time === 'number' && time > 0) ? time : cur;
+                const stopAt = Math.max(cur, reqTime, (v.startTime || 0) + 0.005);
+
+                const g = v.gain;
+                const o = v.osc;
+                const m = v.mod;
+                const mg = v.modGain;
+
+                if (g && audioCtx) {
                     try {
-                        v.gain.gain.cancelScheduledValues(now);
-                        v.gain.gain.setValueAtTime(v.gain.gain.value || v.targetGain, now);
-                        v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
-                    } catch(e){}
+                        g.gain.cancelScheduledValues(stopAt);
+                        g.gain.setValueAtTime(g.gain.value || v.targetGain || 0.1, stopAt);
+                        g.gain.linearRampToValueAtTime(0, stopAt + 0.02);
+                    } catch(e) {
+                        try { g.gain.setValueAtTime(0, stopAt); } catch(e2){}
+                    }
                 }
-                if (v.osc) {
-                    try { v.osc.stop(now + 0.04); } catch(e){}
+                if (o) {
+                    try { o.stop(stopAt + 0.025); } catch(e){
+                        try { o.stop(); } catch(e2){}
+                    }
                 }
-                if (v.mod) {
-                    try { v.mod.stop(now + 0.04); } catch(e){}
+                if (m) {
+                    try { m.stop(stopAt + 0.025); } catch(e){
+                        try { m.stop(); } catch(e2){}
+                    }
                 }
+
+                const delayMs = Math.max(25, (stopAt - cur + 0.04) * 1000);
+                setTimeout(() => {
+                    if (g) try { g.disconnect(); } catch(e){}
+                    if (o) try { o.disconnect(); } catch(e){}
+                    if (m) try { m.disconnect(); } catch(e){}
+                    if (mg) try { mg.disconnect(); } catch(e){}
+                }, delayMs);
+
                 v.active = false;
                 v.note = -1;
                 v.osc = null;
                 v.mod = null;
+                v.modGain = null;
                 v.gain = null;
             }
 
@@ -5065,30 +5095,7 @@
                 for (let i = 0; i < voices.length; i++) {
                     const v = voices[i];
                     if (v.active && v.note === note && (v.ch === ch || ch === 9)) {
-                        const offTime = Math.max(now, v.startTime + 0.025);
-                        if (v.gain) {
-                            try {
-                                v.gain.gain.cancelScheduledValues(offTime);
-                                v.gain.gain.setValueAtTime(v.targetGain * 0.8, offTime);
-                                v.gain.gain.exponentialRampToValueAtTime(0.0001, offTime + 0.035);
-                            } catch(e){}
-                        }
-                        if (v.osc) {
-                            try { v.osc.stop(offTime + 0.04); } catch(e){}
-                        }
-                        if (v.mod) {
-                            try { v.mod.stop(offTime + 0.04); } catch(e){}
-                        }
-                        const cleanupDelay = Math.max(25, (offTime - audioCtx.currentTime + 0.04) * 1000);
-                        setTimeout(() => {
-                            if (v.note === note) {
-                                v.active = false;
-                                v.note = -1;
-                                v.osc = null;
-                                v.mod = null;
-                                v.gain = null;
-                            }
-                        }, cleanupDelay);
+                        stopVoice(v, now);
                     }
                 }
             }
@@ -5099,11 +5106,25 @@
                 for (let i = 0; i < voices.length; i++) {
                     stopVoice(voices[i], now);
                 }
+                if (retroMasterGain && audioCtx) {
+                    try {
+                        retroMasterGain.gain.cancelScheduledValues(now);
+                        retroMasterGain.gain.setValueAtTime(0, now);
+                        retroMasterGain.gain.setValueAtTime(0.85, now + 0.03);
+                    } catch(e){}
+                }
                 vuLevels.fill(0);
                 for (let i = 0; i < 4; i++) {
                     const el = document.getElementById(`retro-vu-${i}`);
                     if (el) el.style.width = '0%';
                 }
+            }
+
+            function hasActiveNotes() {
+                for (let i = 0; i < voices.length; i++) {
+                    if (voices[i].active) return true;
+                }
+                return false;
             }
 
             function send(msg, time) {
@@ -5182,6 +5203,7 @@
                 noteOn,
                 noteOff,
                 allNotesOff,
+                hasActiveNotes,
                 setEngine,
                 getCurrentEngine: () => currentEngine
             };
@@ -5257,18 +5279,56 @@
                 saveCurrentTrackMidiMixerSettings(false);
             }
 
-            async function loadSoundFontBFile(file) {
+            function allNotesOff() {
+                if (synthB) {
+                    if (typeof synthB.stopMIDI === 'function') {
+                        try { synthB.stopMIDI(); } catch(e){}
+                    }
+                    if (synthB.synth && typeof synthB.synth.stopAll === 'function') {
+                        try { synthB.synth.stopAll(true); } catch(e){}
+                    }
+                    if (typeof synthB.send === 'function') {
+                        for (let ch = 0; ch < 16; ch++) {
+                            try { synthB.send([0xb0 | ch, 120, 0], 0); } catch(e){}
+                            try { synthB.send([0xb0 | ch, 123, 0], 0); } catch(e){}
+                        }
+                    }
+                }
+            }
+
+            async function loadSoundFontBFile(file, customName) {
                 if (!file) return;
-                const name = file.name || '';
+                const name = customName || file.name || 'SoundFont_B.sf2';
+                const sizeMB = file.size ? (file.size / (1024 * 1024)).toFixed(1) : '0';
                 showNotification(`SoundFont B (${name}) を読み込み中...`);
                 try {
                     const buffer = await file.arrayBuffer();
                     sfBBuffer = buffer;
                     sfBName = name;
 
+                    allNotesOff();
+
+                    if (!window.SpessaSynth) {
+                        try {
+                            const Spessa = await import("./spessasynth_lib.js");
+                            window.SpessaSynth = Spessa;
+                        } catch(e){}
+                    }
+                    if (!isAudioWorkletModuleAdded && audioContext) {
+                        try {
+                            const res = await fetch("./spessasynth_processor.js");
+                            const code = await res.text();
+                            const blob = new Blob([code], { type: "application/javascript" });
+                            const url = URL.createObjectURL(blob);
+                            await audioContext.audioWorklet.addModule(url);
+                            isAudioWorkletModuleAdded = true;
+                        } catch(e){}
+                    }
+
                     if (window.SpessaSynth && window.SpessaSynth.WorkletSynthesizer) {
                         try {
                             const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+                            if (ctx.state === 'suspended') await ctx.resume().catch(()=>{});
                             const workletSynth = new window.SpessaSynth.WorkletSynthesizer(ctx);
                             await workletSynth.isReady;
                             await workletSynth.soundBankManager.addSoundBank(buffer.slice(0), "sfB");
@@ -5284,7 +5344,7 @@
                     }
 
                     const nameEl = document.getElementById('chimaera-sf-b-name');
-                    if (nameEl) nameEl.textContent = name;
+                    if (nameEl) nameEl.textContent = `${name} (${sizeMB}MB)`;
                     const resetBtn = document.getElementById('reset-sf2-b-btn');
                     if (resetBtn) resetBtn.classList.remove('hidden');
 
@@ -5292,8 +5352,10 @@
                     if (db) {
                         try {
                             const t = db.transaction(['soundfonts'], 'readwrite');
-                            t.objectStore('soundfonts').put({ id: 'active-sf2-b', name: file.name, blob: file });
-                        } catch(e){}
+                            t.objectStore('soundfonts').put({ id: 'active-sf2-b', name: name, blob: file });
+                        } catch(e){
+                            console.warn("Save SoundFont B error:", e);
+                        }
                     }
                 } catch(err) {
                     console.error("SoundFont B load error:", err);
@@ -5302,6 +5364,7 @@
             }
 
             function resetSoundFontB() {
+                allNotesOff();
                 sfBBuffer = null;
                 sfBName = "NES_Chiptune_v1 (内蔵)";
                 synthB = new WebAudioTinySynth({ useReverb: 0, quality: 1 });
@@ -5331,17 +5394,6 @@
 
                 if (!synthB) init();
 
-                const src = channelSources[ch] || 'A';
-
-                let target = src;
-                if (src === 'both') {
-                    if (synthesisMode === 'velocity' && cmd === 0x90 && msg[2] > 0) {
-                        target = (msg[2] <= 64) ? 'A' : 'B';
-                    } else if (synthesisMode === 'split' && (cmd === 0x90 || cmd === 0x80)) {
-                        target = (msg[1] < 60) ? 'A' : 'B';
-                    }
-                }
-
                 const sendA = (m, t) => {
                     if (typeof rawSend === 'function') {
                         rawSend(m, t);
@@ -5354,6 +5406,24 @@
                 const sendB = (m, t) => {
                     if (synthB && synthB.send) synthB.send(m, t);
                 };
+
+                // Note Off は常に両方に送信して残留音・ドローン音を完全に防ぐ
+                if (cmd === 0x80 || (cmd === 0x90 && msg[2] === 0)) {
+                    sendA(msg, time);
+                    sendB(msg, time);
+                    return;
+                }
+
+                const src = channelSources[ch] || 'A';
+
+                let target = src;
+                if (src === 'both') {
+                    if (synthesisMode === 'velocity' && cmd === 0x90 && msg[2] > 0) {
+                        target = (msg[2] <= 64) ? 'A' : 'B';
+                    } else if (synthesisMode === 'split' && cmd === 0x90) {
+                        target = (msg[1] < 60) ? 'A' : 'B';
+                    }
+                }
 
                 if (target === 'A') {
                     sendA(msg, time);
@@ -5379,6 +5449,8 @@
             return {
                 init,
                 send,
+                allNotesOff,
+                getSynthB: () => synthB,
                 setChannelSource,
                 setAllSources,
                 setPreset,
@@ -5397,7 +5469,21 @@
         let activeMidiEngine = 'sf'; // 'sf', 'nes', 'gb', 'fm', 'chimaera'
 
         function switchActiveMidiEngine(engine, shouldNotify = true) {
+            // 全音源エンジンに対して消音 (All Notes Off) を実行し、ノートの残留・ドローン音を根絶
+            RetroChipAudioEngine.allNotesOff();
+            ChimaeraSoundFontEngine.allNotesOff();
+            if (midiPlayers['main']) {
+                for (let ch = 0; ch < 16; ch++) {
+                    try { midiPlayers['main'].send([0xb0 | ch, 120, 0], 0); } catch(e){}
+                    try { midiPlayers['main'].send([0xb0 | ch, 123, 0], 0); } catch(e){}
+                }
+            }
+            if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].synth && typeof spessaSynthWrappers['main'].synth.stopAll === 'function') {
+                try { spessaSynthWrappers['main'].synth.stopAll(true); } catch(e){}
+            }
+
             activeMidiEngine = engine;
+            try { localStorage.setItem('ost_active_midi_engine', engine); } catch(e){}
             const engines = ['sf', 'nes', 'gb', 'fm', 'chimaera'];
             engines.forEach(e => {
                 const btn = document.getElementById('midi-engine-btn-' + e);
@@ -5473,7 +5559,8 @@
 
                 const tinySynth = midiPlayers['main'];
                 if (tinySynth) {
-                    tinySynth.setMasterVol(0.85);
+                    const vol = (typeof ui !== 'undefined' && ui.single && ui.single.vol) ? parseFloat(ui.single.vol.value) : 0.85;
+                    tinySynth.setMasterVol(vol || 0.85);
                     if (isSinglePlaying && !tinySynth.play) {
                         try {
                             const curSec = (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].sequencer)
@@ -5535,6 +5622,7 @@
             saveCurrentTrackMidiMixerSettings(false);
         }
         window.switchActiveMidiEngine = switchActiveMidiEngine;
+        window.getActiveMidiEngine = () => activeMidiEngine;
 
         function setChannelChimaeraSource(ch, src) {
             ChimaeraSoundFontEngine.setChannelSource(ch, src);
@@ -5634,14 +5722,24 @@
                     }
                     originalSend(msg, time);
                 } else if (cmd === 0x80 || (cmd === 0x90 && msg[2] === 0)) {
+                    // Note Off は常に全関連エンジンに通知し、切り替え時のノート残留を完全に防ぐ
                     if (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm') {
                         RetroChipAudioEngine.send(msg, time);
-                        return;
                     } else if (activeMidiEngine === 'chimaera') {
                         ChimaeraSoundFontEngine.send(msg, time, originalSend);
-                        return;
+                    } else {
+                        originalSend(msg, time);
                     }
-                    originalSend(msg, time);
+                    if (RetroChipAudioEngine.hasActiveNotes()) {
+                        RetroChipAudioEngine.send(msg, time);
+                    }
+                    const synthB = ChimaeraSoundFontEngine.getSynthB();
+                    if (synthB && typeof synthB.send === 'function' && activeMidiEngine !== 'chimaera') {
+                        try { synthB.send(msg, time); } catch(e){}
+                    }
+                    if (activeMidiEngine !== 'sf') {
+                        try { originalSend(msg, time); } catch(e){}
+                    }
                 } else if (cmd === 0xc0) {
                     let prog = msg[1];
                     if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
@@ -5663,6 +5761,7 @@
                     const ctrl = msg[1];
                     if (ctrl === 120 || ctrl === 123) {
                         RetroChipAudioEngine.allNotesOff(time);
+                        ChimaeraSoundFontEngine.allNotesOff();
                     }
                     if (isChannelSilenced && (ctrl === 7 || ctrl === 11 || ctrl === 39 || ctrl === 43)) {
                         msg[2] = 0;
@@ -14060,64 +14159,64 @@
 
         async function loadActiveSoundFont() {
             if (!db) return;
-            return new Promise((resolve) => {
+            
+            // 1. 同一トランザクションで active-sf2 と active-sf2-b の両方を同期取得
+            let recordA = null;
+            let recordB = null;
+            await new Promise((resolve) => {
                 try {
                     const t = db.transaction(['soundfonts'], 'readonly');
-                    const req = t.objectStore('soundfonts').get('active-sf2');
-                    req.onsuccess = async (e) => {
-                        const res = e.target.result;
-                        if (res && res.blob) {
-                            const badgeText = document.getElementById('sf2-badge-text');
-                            const resetBtn = document.getElementById('sf2-reset-btn');
-                            
-                            const sfName = res.name || '保存済みSF2';
-                            const sizeMB = (res.blob.size / (1024 * 1024)).toFixed(1);
-                            
-                            if (badgeText) badgeText.textContent = `SF: 読込中 (${sizeMB}MB)`;
-                            
-                            try {
-                                showNotification(`保存済みSoundFont (${sfName} - ${sizeMB} MB) を読み込み中...`);
-                                activeSoundFontBuffer = await res.blob.arrayBuffer();
-                                await initSpessaSynth(activeSoundFontBuffer);
-                                
-                                if (badgeText) badgeText.textContent = `SF: ${sfName}`;
-                                if (resetBtn) resetBtn.classList.remove('hidden');
-                                const chimaeraA = document.getElementById('chimaera-sf-a-name');
-                                if (chimaeraA) chimaeraA.textContent = sfName;
-                                
-                                showNotification(`カスタムSoundFont (${sfName}) を適用しました`);
-                            } catch(err) {
-                                console.error("SoundFont load error:", err);
-                                if (badgeText) badgeText.textContent = `SF: デフォルト (Built-in)`;
-                                if (resetBtn) resetBtn.classList.add('hidden');
-                                showNotification("保存済みSoundFontの読み込みに失敗しました（デフォルト音源で起動します）");
-                            }
-                        }
-
-                        // SoundFont B の復元
-                        try {
-                            const reqB = t.objectStore('soundfonts').get('active-sf2-b');
-                            reqB.onsuccess = async (eB) => {
-                                const resB = eB.target.result;
-                                if (resB && resB.blob) {
-                                    try {
-                                        await ChimaeraSoundFontEngine.loadSoundFontBFile(resB.blob);
-                                    } catch(errB) {
-                                        console.warn("SoundFont B restore notice:", errB);
-                                    }
-                                }
-                                resolve();
-                            };
-                            reqB.onerror = () => resolve();
-                        } catch(e) {
-                            resolve();
-                        }
-                    };
-                    req.onerror = () => resolve();
-                } catch(err) {
+                    const store = t.objectStore('soundfonts');
+                    const reqA = store.get('active-sf2');
+                    reqA.onsuccess = (e) => { recordA = e.target.result; };
+                    const reqB = store.get('active-sf2-b');
+                    reqB.onsuccess = (e) => { recordB = e.target.result; };
+                    t.oncomplete = () => resolve();
+                    t.onerror = () => resolve();
+                    t.onabort = () => resolve();
+                } catch(e) {
                     resolve();
                 }
             });
+
+            // 2. SoundFont A (主音源) の非同期復元
+            if (recordA && recordA.blob) {
+                const badgeText = document.getElementById('sf2-badge-text');
+                const resetBtn = document.getElementById('sf2-reset-btn');
+                
+                const sfName = recordA.name || '保存済みSF2';
+                const sizeMB = (recordA.blob.size / (1024 * 1024)).toFixed(1);
+                
+                if (badgeText) badgeText.textContent = `SF: 読込中 (${sizeMB}MB)`;
+                
+                try {
+                    showNotification(`保存済みSoundFont (${sfName} - ${sizeMB} MB) を読み込み中...`);
+                    activeSoundFontBuffer = await recordA.blob.arrayBuffer();
+                    await initSpessaSynth(activeSoundFontBuffer);
+                    
+                    if (badgeText) badgeText.textContent = `SF: ${sfName}`;
+                    if (resetBtn) resetBtn.classList.remove('hidden');
+                    const chimaeraA = document.getElementById('chimaera-sf-a-name');
+                    if (chimaeraA) chimaeraA.textContent = `${sfName} (${sizeMB}MB)`;
+                    
+                    showNotification(`カスタムSoundFont (${sfName}) を適用しました`);
+                } catch(err) {
+                    console.error("SoundFont load error:", err);
+                    if (badgeText) badgeText.textContent = `SF: デフォルト (Built-in)`;
+                    if (resetBtn) resetBtn.classList.add('hidden');
+                    showNotification("保存済みSoundFontの読み込みに失敗しました（デフォルト音源で起動します）");
+                }
+            }
+
+            // 3. SoundFont B (副音源) の非同期復元
+            if (recordB && recordB.blob) {
+                try {
+                    const sfBName = recordB.name || '保存済みSoundFont_B';
+                    await ChimaeraSoundFontEngine.loadSoundFontBFile(recordB.blob, sfBName);
+                } catch(errB) {
+                    console.warn("SoundFont B restore error:", errB);
+                }
+            }
         }
 
         let isAudioWorkletModuleAdded = false;
@@ -14215,7 +14314,9 @@
                 if (!this.gainNode) {
                     this.gainNode = ctx.createGain();
                 }
-                this.gainNode.gain.setValueAtTime(1.0, ctx.currentTime); // unity gain: volume controlled by outer singleGainNodes
+                const isNonSfEngine = (typeof activeMidiEngine !== 'undefined') && (activeMidiEngine === 'nes' || activeMidiEngine === 'gb' || activeMidiEngine === 'fm');
+                const targetGain = isNonSfEngine ? 0 : 1.0;
+                this.gainNode.gain.setValueAtTime(targetGain, ctx.currentTime);
                 try {
                     this.gainNode.disconnect();
                 } catch(e){}
