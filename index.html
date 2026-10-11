@@ -847,9 +847,9 @@
                                 <svg id="loop-icon-one" class="hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path><text x="8.5" y="16.5" font-size="8" font-weight="bold" fill="currentColor">1</text></svg>
                                 <span id="loop-text">Loop</span>
                             </button>
-                            <button id="shuffle-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                                <span>Shuffle</span>
+                            <button id="shuffle-btn" class="text-gray-500 hover:text-blue-400 transition flex items-center text-xs space-x-1" title="シャッフル再生 (全曲重複なしスマートシャッフル - 右クリックで再抽選)">
+                                <svg id="shuffle-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                                <span id="shuffle-text">Shuffle</span>
                             </button>
                             <button id="single-midi-mixer-btn" class="hidden text-yellow-500 hover:text-yellow-400 transition flex items-center text-xs space-x-1 border border-yellow-500/30 px-2 py-0.5 rounded bg-yellow-500/10 cursor-pointer" title="MIDIミキサー">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
@@ -2454,6 +2454,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-blue-400"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                         <span>プレイリスト</span>
                         <span id="track-count" class="text-xs text-gray-400 font-normal ml-1">(0)</span>
+                        <button id="playlist-shuffle-badge" class="hidden text-[10px] font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 rounded ml-2 transition items-center space-x-1 cursor-pointer" title="シャッフル再生中 - クリックで順序を再抽選">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+                            <span id="playlist-shuffle-text">Shuffle</span>
+                        </button>
                     </h3>
                     <div class="flex items-center space-x-1 shrink-0 text-[10px] whitespace-nowrap">
                         <button id="export-json-btn" class="px-1.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition whitespace-nowrap" title="プレイリストをJSON出力">JSON出</button>
@@ -3130,6 +3134,8 @@
         let isSinglePlaying = false;
         let loopMode = 0; 
         let isShuffling = false;
+        let shuffleQueue = [];
+        let shuffleQueueIndex = -1;
         let isAutoCrossfade = false;
         let autoCrossfadeDur = 5;
         let isAutoCrossfading = false;
@@ -3266,6 +3272,8 @@
                 loopIconOne: document.getElementById('loop-icon-one'),
                 loopText: document.getElementById('loop-text'),
                 shuffle: document.getElementById('shuffle-btn'),
+                shuffleText: document.getElementById('shuffle-text'),
+                shuffleBadge: document.getElementById('playlist-shuffle-badge'),
                 xfadeCheck: document.getElementById('single-crossfade-toggle'),
                 xfadeSlider: document.getElementById('single-crossfade-slider'),
                 pianoRollBtn: document.getElementById('single-piano-roll-btn'),
@@ -3524,6 +3532,15 @@
                 ui.single.shuffle.addEventListener('click', () => {
                     toggleShuffle();
                 });
+                ui.single.shuffle.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (isShuffling) toggleShuffle(true, true);
+                });
+            }
+            if (ui.single.shuffleBadge) {
+                ui.single.shuffleBadge.addEventListener('click', () => {
+                    toggleShuffle(true, true);
+                });
             }
             // Single Artwork Click Event (Easter Egg Cat Trigger)
             if (ui.single.artwork) {
@@ -3567,6 +3584,15 @@
                     if (b) b.textContent = `${autoCrossfadeDur}s`;
                 });
             }
+
+            // Shuffle Persistence
+            try {
+                const savedShuffle = localStorage.getItem('ost_shuffle') === '1';
+                if (savedShuffle) {
+                    isShuffling = true;
+                    updateShuffleUI();
+                }
+            } catch(e){}
 
             // Mini Events
             if (ui.mini.play) ui.mini.play.addEventListener('click', toggleSinglePlay);
@@ -4388,6 +4414,22 @@
                                 masterGainNode.gain.setTargetAtTime(isMuted ? 0 : 1, audioContext.currentTime, 0.05);
                                 showNotification(isMuted ? "ミュート: ON" : "ミュート: OFF");
                             }
+                        }
+                        break;
+                        
+                    case 's':
+                    case 'S':
+                        e.preventDefault();
+                        if (currentMode === 'single' || currentMode === 'sync') {
+                            toggleShuffle();
+                        }
+                        break;
+                        
+                    case 'l':
+                    case 'L':
+                        e.preventDefault();
+                        if (currentMode === 'single' || currentMode === 'sync') {
+                            toggleLoop();
                         }
                         break;
                 }
@@ -7620,13 +7662,26 @@
             } else if (loopMode === 1) {
                 changeSingleTrack(1);
             } else {
-                if (singleTrackIndex < playlist.length - 1) changeSingleTrack(1);
-                else {
-                    isSinglePlaying = false;
-                    const synth = getMidiSynth('main', false);
-                    if (synth) synth.stopMIDI();
-                    if (typeof RetroChipAudioEngine !== 'undefined') RetroChipAudioEngine.allNotesOff();
-                    updateSingleUIState();
+                if (isShuffling) {
+                    if (shuffleQueueIndex < shuffleQueue.length - 1) changeSingleTrack(1);
+                    else {
+                        isSinglePlaying = false;
+                        const synth = getMidiSynth('main', false);
+                        if (synth) synth.stopMIDI();
+                        if (typeof RetroChipAudioEngine !== 'undefined') RetroChipAudioEngine.allNotesOff();
+                        updateSingleUIState();
+                    }
+                } else {
+                    const filtered = playlist.map((t, idx) => ({ ...t, idx })).filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+                    const curFiltIdx = filtered.findIndex(t => t.idx === singleTrackIndex);
+                    if (curFiltIdx >= 0 && curFiltIdx < filtered.length - 1) changeSingleTrack(1);
+                    else {
+                        isSinglePlaying = false;
+                        const synth = getMidiSynth('main', false);
+                        if (synth) synth.stopMIDI();
+                        if (typeof RetroChipAudioEngine !== 'undefined') RetroChipAudioEngine.allNotesOff();
+                        updateSingleUIState();
+                    }
                 }
             }
         }
@@ -9065,6 +9120,19 @@
             
             singleTrackIndex = index;
             fxTrackIndex = index;
+            if (isShuffling) {
+                if (!shuffleQueue || shuffleQueue.length === 0) {
+                    generateShuffleQueue(index, true);
+                } else {
+                    const qPos = shuffleQueue.indexOf(index);
+                    if (qPos >= 0) {
+                        shuffleQueueIndex = qPos;
+                    } else {
+                        generateShuffleQueue(index, true);
+                    }
+                }
+                updateShuffleUI();
+            }
             updatePlaylistUI();
             updateSingleUIInfo();
             resetMidiMixerState();
@@ -9366,17 +9434,58 @@
                 .filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
             if(filtered.length === 0) return;
             
+            if (isShuffling && filtered.length > 1) {
+                // シャッフルキューの検証・整合性保証
+                const activeIndices = getActiveShuffleTrackIndices();
+                if (!shuffleQueue || shuffleQueue.length !== activeIndices.length || shuffleQueueIndex < 0 || shuffleQueueIndex >= shuffleQueue.length) {
+                    generateShuffleQueue(singleTrackIndex, true);
+                }
+
+                if (dir > 0) {
+                    // 次の曲
+                    let nextPos = shuffleQueueIndex + 1;
+                    if (nextPos >= shuffleQueue.length) {
+                        if (loopMode === 1) {
+                            // 全曲ループ: 新たなシャッフル順序を生成して先頭から継続
+                            generateShuffleQueue(singleTrackIndex, false);
+                            nextPos = 0;
+                        } else {
+                            // ループなし: 全シャッフル曲再生完了
+                            isSinglePlaying = false;
+                            updateSingleUIState();
+                            return;
+                        }
+                    }
+                    shuffleQueueIndex = nextPos;
+                    loadSingleTrack(shuffleQueue[shuffleQueueIndex], true);
+                } else {
+                    // 前の曲 (dir < 0) - 直前の曲へ確実に巻き戻し
+                    let prevPos = shuffleQueueIndex - 1;
+                    if (prevPos >= 0) {
+                        shuffleQueueIndex = prevPos;
+                        loadSingleTrack(shuffleQueue[shuffleQueueIndex], true);
+                    } else {
+                        const currAudio = players[currentSinglePlayerIndex];
+                        if (currAudio && currAudio.currentTime > 3) {
+                            seekSingle(0);
+                        } else if (loopMode === 1) {
+                            shuffleQueueIndex = shuffleQueue.length - 1;
+                            loadSingleTrack(shuffleQueue[shuffleQueueIndex], true);
+                        } else {
+                            seekSingle(0);
+                        }
+                    }
+                }
+                updateShuffleUI();
+                updatePlaylistUI();
+                return;
+            }
+
+            // 通常再生順 (isShuffling === false)
             const currentFilteredIdx = filtered.findIndex(t => t.idx === singleTrackIndex);
             let nextFilteredIdx = 0;
-            
             if (currentFilteredIdx !== -1) {
-                if (isShuffling && filtered.length > 1) {
-                    let randomIdx;
-                    do { randomIdx = Math.floor(Math.random() * filtered.length); } while (randomIdx === currentFilteredIdx);
-                    nextFilteredIdx = randomIdx;
-                } else {
-                    nextFilteredIdx = (currentFilteredIdx + dir + filtered.length) % filtered.length;
-                }
+                nextFilteredIdx = (currentFilteredIdx + dir + filtered.length) % filtered.length;
             }
             loadSingleTrack(filtered[nextFilteredIdx].idx, true);
         }
@@ -9416,7 +9525,13 @@
             
             if(isAutoCrossfade && !isAutoCrossfading && !p.paused && currentMode === 'single') {
                 if((p.duration - p.currentTime) <= autoCrossfadeDur && (p.duration - p.currentTime) > 0.5) {
-                    if(loopMode !== 1 && singleTrackIndex >= playlist.length - 1) return; 
+                    if (isShuffling) {
+                        if (loopMode !== 1 && shuffleQueueIndex >= shuffleQueue.length - 1) return;
+                    } else {
+                        const filtered = playlist.map((t, idx) => ({ ...t, idx })).filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+                        const curFiltIdx = filtered.findIndex(t => t.idx === singleTrackIndex);
+                        if (loopMode !== 1 && curFiltIdx >= filtered.length - 1) return;
+                    }
                     changeSingleTrack(1);
                 }
             }
@@ -9441,10 +9556,20 @@
             } else if (loopMode === 1) { 
                 changeSingleTrack(1);
             } else { 
-                if (singleTrackIndex < playlist.length - 1) changeSingleTrack(1);
-                else { 
-                    isSinglePlaying = false; 
-                    updateSingleUIState(); 
+                if (isShuffling) {
+                    if (shuffleQueueIndex < shuffleQueue.length - 1) changeSingleTrack(1);
+                    else {
+                        isSinglePlaying = false;
+                        updateSingleUIState();
+                    }
+                } else {
+                    const filtered = playlist.map((t, idx) => ({ ...t, idx })).filter(t => activePlaylist === 'All Tracks' || t.playlistName === activePlaylist);
+                    const curFiltIdx = filtered.findIndex(t => t.idx === singleTrackIndex);
+                    if (curFiltIdx >= 0 && curFiltIdx < filtered.length - 1) changeSingleTrack(1);
+                    else { 
+                        isSinglePlaying = false; 
+                        updateSingleUIState(); 
+                    }
                 }
             }
         }
@@ -10747,7 +10872,143 @@
             }
         }
 
-        function toggleShuffle() { isShuffling=!isShuffling; ui.single.shuffle.classList.toggle('text-blue-400'); ui.single.shuffle.classList.toggle('text-gray-500'); }
+        // ===== Smart Shuffle Queue Engine =====
+        function getActiveShuffleTrackIndices() {
+            if (!playlist || playlist.length === 0) return [];
+            return playlist.map((track, idx) => ({ track, idx }))
+                .filter(({ track }) => {
+                    const matchPlaylist = (activePlaylist === 'All Tracks' || track.playlistName === activePlaylist);
+                    const matchType = playlistFilterType === 'all' 
+                        || (playlistFilterType === 'midi' && track.isMidi) 
+                        || (playlistFilterType === 'video' && track.isVideo) 
+                        || (playlistFilterType === 'audio' && !track.isMidi && !track.isVideo);
+                    const matchAlbum = !isAlbumLayoutActive() || selectedAlbum === null || ((track.album || '').trim() === selectedAlbum);
+                    return matchPlaylist && matchType && matchAlbum;
+                })
+                .map(item => item.idx);
+        }
+
+        function generateShuffleQueue(startTrackIdx = -1, keepCurrentAtHead = true) {
+            const indices = getActiveShuffleTrackIndices();
+            if (indices.length <= 1) {
+                shuffleQueue = [...indices];
+                shuffleQueueIndex = indices.length > 0 ? 0 : -1;
+                updateShuffleUI();
+                return shuffleQueue;
+            }
+
+            // Fisher-Yates (Knuth) Shuffle
+            const pool = [...indices];
+            let headIdx = -1;
+            if (keepCurrentAtHead && startTrackIdx >= 0 && pool.includes(startTrackIdx)) {
+                headIdx = startTrackIdx;
+                pool.splice(pool.indexOf(startTrackIdx), 1);
+            }
+
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temp = pool[i];
+                pool[i] = pool[j];
+                pool[j] = temp;
+            }
+
+            // Anti-Clustering: 隣り合う曲が同じアーティストまたは同じアルバムの場合、後続の異なる曲とスワップして分散
+            for (let i = 0; i < pool.length - 1; i++) {
+                const tA = playlist[pool[i]];
+                const tB = playlist[pool[i + 1]];
+                if (!tA || !tB) continue;
+                const sameArtist = (tA.artist && tB.artist && tA.artist.trim() !== '' && tA.artist.trim().toLowerCase() === tB.artist.trim().toLowerCase());
+                const sameAlbum = (tA.album && tB.album && tA.album.trim() !== '' && tA.album.trim().toLowerCase() === tB.album.trim().toLowerCase());
+                if (sameArtist || sameAlbum) {
+                    for (let k = i + 2; k < pool.length; k++) {
+                        const tCand = playlist[pool[k]];
+                        if (!tCand) continue;
+                        const candArtist = (tCand.artist || '').trim().toLowerCase();
+                        const candAlbum = (tCand.album || '').trim().toLowerCase();
+                        if (candArtist !== (tA.artist || '').trim().toLowerCase() && candAlbum !== (tA.album || '').trim().toLowerCase()) {
+                            const tmp = pool[i + 1];
+                            pool[i + 1] = pool[k];
+                            pool[k] = tmp;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (headIdx >= 0) {
+                shuffleQueue = [headIdx, ...pool];
+                shuffleQueueIndex = 0;
+            } else {
+                shuffleQueue = pool;
+                shuffleQueueIndex = 0;
+            }
+
+            updateShuffleUI();
+            return shuffleQueue;
+        }
+
+        function updateShuffleUI() {
+            const btn = ui.single && ui.single.shuffle ? ui.single.shuffle : document.getElementById('shuffle-btn');
+            const textEl = document.getElementById('shuffle-text');
+            const badgeEl = document.getElementById('playlist-shuffle-badge');
+            const badgeTextEl = document.getElementById('playlist-shuffle-text');
+
+            if (!btn) return;
+
+            if (isShuffling) {
+                btn.classList.add('text-blue-400', 'font-semibold', 'bg-blue-500/10', 'border', 'border-blue-500/30', 'px-2', 'py-0.5', 'rounded');
+                btn.classList.remove('text-gray-500');
+                const total = shuffleQueue.length;
+                const cur = shuffleQueueIndex >= 0 ? (shuffleQueueIndex + 1) : 1;
+                if (textEl) {
+                    textEl.textContent = total > 0 ? `Shuffle (${cur}/${total})` : 'Shuffle';
+                }
+                btn.title = `シャッフル再生: ON (${cur}/${total}曲) - クリックでOFF、右クリックで再抽選`;
+
+                if (badgeEl) {
+                    badgeEl.classList.remove('hidden');
+                    badgeEl.classList.add('inline-flex');
+                    if (badgeTextEl) badgeTextEl.textContent = total > 0 ? `Shuffle ${cur}/${total}` : 'Shuffle ON';
+                }
+            } else {
+                btn.classList.remove('text-blue-400', 'font-semibold', 'bg-blue-500/10', 'border', 'border-blue-500/30', 'px-2', 'py-0.5', 'rounded');
+                btn.classList.add('text-gray-500');
+                if (textEl) textEl.textContent = 'Shuffle';
+                btn.title = 'シャッフル再生 (全曲重複なしスマートシャッフル)';
+
+                if (badgeEl) {
+                    badgeEl.classList.add('hidden');
+                    badgeEl.classList.remove('inline-flex');
+                }
+            }
+        }
+
+        function toggleShuffle(forceState, doReshuffle = false) {
+            if (typeof forceState === 'boolean') {
+                isShuffling = forceState;
+            } else if (isShuffling && doReshuffle) {
+                generateShuffleQueue(singleTrackIndex, false);
+                showNotification(`シャッフル順序を再抽選しました (全 ${shuffleQueue.length} 曲)`);
+                updatePlaylistUI();
+                return;
+            } else {
+                isShuffling = !isShuffling;
+            }
+
+            if (isShuffling) {
+                generateShuffleQueue(singleTrackIndex, true);
+                triggerAchievement('shuffle_pro');
+                showNotification(`シャッフル再生: ON (全 ${shuffleQueue.length} 曲・重複なしスマートシャッフル)`);
+            } else {
+                shuffleQueue = [];
+                shuffleQueueIndex = -1;
+                showNotification('シャッフル再生: OFF (通常再生順)');
+            }
+
+            updateShuffleUI();
+            updatePlaylistUI();
+            try { localStorage.setItem('ost_shuffle', isShuffling ? '1' : '0'); } catch(e){}
+        }
 
         let draggedTrackIdx = null;
 
@@ -10870,6 +11131,21 @@
                     else loadFxTrack(idx);
                 };
                 
+                let isNextInShuffle = false;
+                let shuffleOrderBadge = '';
+                if (isShuffling && shuffleQueue && shuffleQueue.length > 0) {
+                    const qPos = shuffleQueue.indexOf(idx);
+                    if (qPos >= 0) {
+                        if (qPos === shuffleQueueIndex + 1) {
+                            isNextInShuffle = true;
+                        }
+                        shuffleOrderBadge = `<span class="text-[9px] font-mono text-blue-400/60 mr-1 shrink-0 select-none" title="シャッフル再生順: #${qPos + 1}">#${qPos + 1}</span>`;
+                    }
+                }
+                if (isNextInShuffle) {
+                    activeBadges += '<span class="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1 py-0.5 rounded ml-1 shrink-0 font-bold tracking-wider" title="シャッフル順で次に再生される曲">NEXT</span>';
+                }
+
                 let extInfo = '';
                 if (track.isMidi) {
                     extInfo = '<span class="text-[9px] text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 px-1 py-0.5 rounded ml-1 shrink-0 font-bold">MIDI</span>';
@@ -10886,6 +11162,7 @@
                         <span class="text-gray-600 mr-1.5 cursor-grab text-xs shrink-0" title="ドラッグして並び替え">⋮⋮</span>
                         ${coverImg}
                         ${isActive ? '<span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse shrink-0"></span>' : '<span class="w-4 text-xs text-gray-600 mr-1.5 text-center shrink-0">'+(displayIdx+1)+'</span>'}
+                        ${shuffleOrderBadge}
                         <div class="text-sm ${isActive ? 'text-blue-400 font-bold' : 'text-gray-300'} truncate flex items-center min-w-0 flex-1">
                             <span class="truncate" title="${escapedNameAttr}">${displayTitle}</span>
                             ${artistInline}
