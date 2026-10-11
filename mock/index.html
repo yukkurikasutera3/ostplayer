@@ -11109,7 +11109,11 @@
                 return;
             }
 
-            if (!window.electronAPI || !window.electronAPI.performAutoUpdate) {
+            const bridge = (window.electronAPI && window.electronAPI.performAutoUpdate) ? window.electronAPI :
+                           (window.DesktopBridge && typeof window.DesktopBridge.performAutoUpdate === 'function') ? window.DesktopBridge : null;
+
+            if (!bridge) {
+                showNotification("デスクトップアプリ(Windows)外のため、ブラウザでの手動ダウンロードを開きます");
                 downloadLatestReleaseAsset(true);
                 return;
             }
@@ -11129,28 +11133,33 @@
             if (barEl) barEl.style.width = "0%";
             if (detailEl) detailEl.textContent = "ダウンロードを開始しています...";
 
-            if (window.electronAPI.onUpdateProgress) {
-                window.electronAPI.onUpdateProgress((data) => {
-                    if (!data) return;
-                    if (data.stage === 'downloading') {
-                        if (statusEl) statusEl.textContent = "最新パッケージをダウンロード中...";
-                        if (pctEl) pctEl.textContent = `${data.percent}%`;
-                        if (barEl) barEl.style.width = `${data.percent}%`;
-                        if (detailEl) detailEl.textContent = data.text || '';
-                    } else if (data.stage === 'extracting') {
-                        if (statusEl) statusEl.textContent = "アーカイブを展開・検証中...";
-                        if (pctEl) pctEl.textContent = "100%";
-                        if (barEl) barEl.style.width = "100%";
-                        if (detailEl) detailEl.textContent = "ファイルを展開しています...";
-                    } else if (data.stage === 'applying') {
-                        if (statusEl) statusEl.textContent = "更新を適用してアプリを再起動します...";
-                        if (detailEl) detailEl.textContent = "アプリが自動的に再起動します。しばらくお待ちください...";
-                    }
-                });
+            const progressCb = (data) => {
+                if (!data) return;
+                if (data.stage === 'downloading') {
+                    if (statusEl) statusEl.textContent = "最新パッケージをダウンロード中...";
+                    if (pctEl) pctEl.textContent = `${data.percent}%`;
+                    if (barEl) barEl.style.width = `${data.percent}%`;
+                    if (detailEl) detailEl.textContent = data.text || '';
+                } else if (data.stage === 'extracting') {
+                    if (statusEl) statusEl.textContent = "アーカイブを展開・検証中...";
+                    if (pctEl) pctEl.textContent = "100%";
+                    if (barEl) barEl.style.width = "100%";
+                    if (detailEl) detailEl.textContent = "ファイルを展開しています...";
+                } else if (data.stage === 'applying') {
+                    if (statusEl) statusEl.textContent = "更新を適用してアプリを再起動します...";
+                    if (detailEl) detailEl.textContent = "アプリが自動的に再起動します。しばらくお待ちください...";
+                }
+            };
+
+            if (bridge.onUpdateProgress) {
+                bridge.onUpdateProgress(progressCb);
+            } else if (window.electronAPI && window.electronAPI.onUpdateProgress) {
+                window.electronAPI.onUpdateProgress(progressCb);
             }
 
             try {
-                const res = await window.electronAPI.performAutoUpdate(downloadUrl);
+                const repo = getUpdateRepo();
+                const res = await bridge.performAutoUpdate(downloadUrl, { repo, downloadUrl });
                 if (res && !res.success) {
                     throw new Error(res.error || "自動更新処理に失敗しました");
                 }

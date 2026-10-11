@@ -394,6 +394,14 @@ function createWindow() {
     });
 }
 
+// IPC Listener for Application Version
+ipcMain.on('get-app-version', (event) => {
+    event.returnValue = app.getVersion();
+});
+ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+});
+
 // IPC Listener for Fullscreen Toggle
 ipcMain.on('toggle-fullscreen', () => {
     if (mainWindow) {
