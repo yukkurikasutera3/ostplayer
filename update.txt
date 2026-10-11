@@ -28,7 +28,13 @@ OST Player - 開発・アップデート履歴 (Update Log)
   - WebAudioTinySynth のイベントタイマーループから、再生タイミングを破壊していた休符誤判定クリップおよびステップ数制限を撤去。本来の精緻な Web Audio 先行スケジューリングに戻し、正常なテンポ・発音での確実な再生を保証。
   - safeLocateTinySynth においてシーク後の時刻書き換えを排除し、再生中・停止中のステータスを正しく維持。
   - parseSMF のテンポ・秒数換算（calcTickToSec / secToTick）は二分探索 (Binary Search) & 直前キャッシュで高速化を維持し、ピアノロール用ノート遅延評価（Lazy Getter）によりスムーズな動作を両立。
-・MP3 / オーディオおよび MIDI 再生時の無音・シーク停止・画面フリーズの根本解消:
+・MP3 / オーディオおよび MIDI 再生時の無音・シーク停止・画面フリーズの根本解消 (Mutual Recursion Eradication):
+  - ChimaeraSoundFontEngine.allNotesOff() 内での CC 120 (All Sound Off) 送信と、wrapMidiSynthSend 内での CC 120/123 受信ハンドラによる相互再帰無限ループを根絶。
+    * 再生開始時（loadSingleTrack）に必ず呼ばれる stopAllAudio() 経由で allNotesOff() が実行された際、synthB.send([0xb0 | ch, 120, 0]) が発行され、それを wrapMidiSynthSend がキャッチして再び allNotesOff() を呼び出す無限再帰により、メインスレッドが100%占有されてアプリが凍結（ハングアップ）し、再生処理が一切進まず無音となっていた致命的バグを完全特定・解消。
+    * 内部停止時の CC 送信を全廃し、再帰遮断フラグ (_isChimaeraStopping) を導入して多重・循環呼び出しを物理的にブロック。
+  - シンセ停止・ラッパー層 (SpessaSynthPlayerWrapper / wrapMidiSynthSend) における再帰遮断の徹底:
+    * synth.stopMIDI および SpessaSynthPlayerWrapper.pauseMIDI / stopMIDI に再帰防止ガード (_isSynthStopping / this._isStopping) を追加し、イベント伝播の循環によるスタックオーバーフロー・凍結を根絶。
+    * stopAllAudio 内で WebAudioTinySynth の locateMIDI(0) を直接呼んでいた箇所を safeLocateTinySynth に置換し、シークに伴う自動再生トリガーを遮断。
   - isAnyMidiPlaying() において、Single / Sync / Visual / FX モードで現在アクティブなトラックが非 MIDI (MP3/WAV/AAC/FLAC 等) の場合に過去のシンセ再生状態を誤検知して常時 true を返していた不具合を解消。非 MIDI 再生時は確実に false を返すようガードを徹底。
   - updateMidiGlobalLoop において、非 MIDI トラック再生時に WebAudioTinySynth のステータス値 (0:00) で UI の時間表示やシークバーが毎フレーム上書きされ、再生が進まないように見える問題を根絶。現在トラックが MIDI の場合のみ UI 上書きを行うよう分離。
   - handleMidiEnded において現在トラックが MIDI でない場合は即座にリターンするガードを追加。非 MIDI トラック再生中に曲終了判定が連射されて曲が勝手にスキップされたり、無限ループでメインスレッドが凍結してボタン操作を受け付けなくなる現象を完全根絶。

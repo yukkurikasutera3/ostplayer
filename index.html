@@ -5526,25 +5526,24 @@
                 saveCurrentTrackMidiMixerSettings(false);
             }
 
+            let _isChimaeraStopping = false;
             function allNotesOff() {
-                if (synthB) {
-                    if (typeof synthB.stopMIDI === 'function') {
-                        try { synthB.stopMIDI(); } catch(e){}
-                    }
-                    if (synthB.synth && typeof synthB.synth.stopAll === 'function') {
-                        try { synthB.synth.stopAll(true); } catch(e){}
-                    }
-                    if (typeof synthB.allSoundOff === 'function') {
-                        for (let ch = 0; ch < 16; ch++) {
-                            try { synthB.allSoundOff(ch); } catch(e){}
+                if (_isChimaeraStopping) return;
+                _isChimaeraStopping = true;
+                try {
+                    if (synthB) {
+                        synthB.playing = 0;
+                        if (synthB.synth && typeof synthB.synth.stopAll === 'function') {
+                            try { synthB.synth.stopAll(true); } catch(e){}
+                        }
+                        if (typeof synthB.allSoundOff === 'function') {
+                            for (let ch = 0; ch < 16; ch++) {
+                                try { synthB.allSoundOff(ch); } catch(e){}
+                            }
                         }
                     }
-                    if (typeof synthB.send === 'function') {
-                        for (let ch = 0; ch < 16; ch++) {
-                            try { synthB.send([0xb0 | ch, 120, 0], 0); } catch(e){}
-                            try { synthB.send([0xb0 | ch, 123, 0], 0); } catch(e){}
-                        }
-                    }
+                } finally {
+                    _isChimaeraStopping = false;
                 }
             }
 
@@ -6136,15 +6135,21 @@
             
             const originalSend = synth.send.bind(synth);
             const originalStopMIDI = (typeof synth.stopMIDI === 'function') ? synth.stopMIDI.bind(synth) : null;
-
+            let _isSynthStopping = false;
             synth.stopMIDI = function() {
-                if (originalStopMIDI) {
-                    try { originalStopMIDI(); } catch(e){}
-                }
-                RetroChipAudioEngine.allNotesOff();
-                ChimaeraSoundFontEngine.allNotesOff();
-                if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].synth && typeof spessaSynthWrappers['main'].synth.stopAll === 'function') {
-                    try { spessaSynthWrappers['main'].synth.stopAll(true); } catch(e){}
+                if (_isSynthStopping) return;
+                _isSynthStopping = true;
+                try {
+                    if (originalStopMIDI) {
+                        try { originalStopMIDI(); } catch(e){}
+                    }
+                    RetroChipAudioEngine.allNotesOff();
+                    ChimaeraSoundFontEngine.allNotesOff();
+                    if (spessaSynthWrappers['main'] && spessaSynthWrappers['main'].synth && typeof spessaSynthWrappers['main'].synth.stopAll === 'function') {
+                        try { spessaSynthWrappers['main'].synth.stopAll(true); } catch(e){}
+                    }
+                } finally {
+                    _isSynthStopping = false;
                 }
             };
 
@@ -8312,16 +8317,16 @@
              Object.values(midiPlayers).forEach(p => { 
                  if(p) { 
                      p.stopMIDI(); 
-                     if (typeof p.locateMIDI === 'function') {
-                         try { p.locateMIDI(0); } catch(e){}
+                     if (typeof safeLocateTinySynth === 'function') {
+                         try { safeLocateTinySynth(p, 0); } catch(e){}
                      }
                  } 
              });
              decks.forEach(d => { 
                  if(d.midiSynth) { 
                      d.midiSynth.stopMIDI(); 
-                     if (typeof d.midiSynth.locateMIDI === 'function') {
-                         try { d.midiSynth.locateMIDI(0); } catch(e){}
+                     if (typeof safeLocateTinySynth === 'function') {
+                         try { safeLocateTinySynth(d.midiSynth, 0); } catch(e){}
                      }
                  } 
                  if(d.spessaSynth) { 
@@ -15617,40 +15622,52 @@
             }
             
             pauseMIDI() {
-                this.isMidiPlaying = false;
-                this.pendingPlay = false;
-                if (this.sequencer) {
-                    try {
-                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
-                    } catch(e){}
-                }
-                RetroChipAudioEngine.allNotesOff();
-                ChimaeraSoundFontEngine.allNotesOff();
-                if (midiPlayers['main'] && midiPlayers['main'] !== this) {
-                    try { midiPlayers['main'].stopMIDI(); } catch(e){}
+                if (this._isStopping) return;
+                this._isStopping = true;
+                try {
+                    this.isMidiPlaying = false;
+                    this.pendingPlay = false;
+                    if (this.sequencer) {
+                        try {
+                            if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                        } catch(e){}
+                    }
+                    RetroChipAudioEngine.allNotesOff();
+                    ChimaeraSoundFontEngine.allNotesOff();
+                    if (midiPlayers['main'] && midiPlayers['main'] !== this) {
+                        try { midiPlayers['main'].stopMIDI(); } catch(e){}
+                    }
+                } finally {
+                    this._isStopping = false;
                 }
             }
             
             stopMIDI() {
-                this.isMidiPlaying = false;
-                this.pendingPlay = false;
-                if (this.sequencer) {
-                    try {
-                        if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
-                        else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
-                        try { this.sequencer.currentTime = 0; } catch(err){}
-                    } catch(e){}
-                }
-                if (this.synth && typeof this.synth.stopAll === 'function') {
-                    try { this.synth.stopAll(true); } catch(e){}
-                }
-                RetroChipAudioEngine.allNotesOff();
-                ChimaeraSoundFontEngine.allNotesOff();
-                if (midiPlayers['main'] && midiPlayers['main'] !== this) {
-                    try {
-                        safeLocateTinySynth(midiPlayers['main'], 0);
-                        midiPlayers['main'].stopMIDI();
-                    } catch(e){}
+                if (this._isStopping) return;
+                this._isStopping = true;
+                try {
+                    this.isMidiPlaying = false;
+                    this.pendingPlay = false;
+                    if (this.sequencer) {
+                        try {
+                            if (typeof this.sequencer.pause === 'function') this.sequencer.pause();
+                            else if (typeof this.sequencer.stop === 'function') this.sequencer.stop();
+                            try { this.sequencer.currentTime = 0; } catch(err){}
+                        } catch(e){}
+                    }
+                    if (this.synth && typeof this.synth.stopAll === 'function') {
+                        try { this.synth.stopAll(true); } catch(e){}
+                    }
+                    RetroChipAudioEngine.allNotesOff();
+                    ChimaeraSoundFontEngine.allNotesOff();
+                    if (midiPlayers['main'] && midiPlayers['main'] !== this) {
+                        try {
+                            safeLocateTinySynth(midiPlayers['main'], 0);
+                            midiPlayers['main'].stopMIDI();
+                        } catch(e){}
+                    }
+                } finally {
+                    this._isStopping = false;
                 }
             }
             
