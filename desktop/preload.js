@@ -17,7 +17,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     openExternal: (url) => ipcRenderer.send('open-external', url),
     readLocalFile: (filePath) => ipcRenderer.invoke('read-local-file', filePath),
-    performAutoUpdate: (downloadUrl) => ipcRenderer.invoke('perform-auto-update', downloadUrl),
+    performAutoUpdate: (arg1, arg2) => {
+        let opts = {};
+        if (typeof arg1 === 'string') {
+            opts.downloadUrl = arg1;
+            if (arg2 && typeof arg2 === 'object') Object.assign(opts, arg2);
+        } else if (arg1 && typeof arg1 === 'object') {
+            Object.assign(opts, arg1);
+        }
+        return ipcRenderer.invoke('perform-auto-update', opts);
+    },
     onUpdateProgress: (cb) => {
         ipcRenderer.on('update-progress', (event, data) => {
             if (typeof cb === 'function') cb(data);

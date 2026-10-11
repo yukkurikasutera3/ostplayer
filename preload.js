@@ -17,8 +17,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     openExternal: (url) => ipcRenderer.send('open-external', url),
     readLocalFile: (filePath) => ipcRenderer.invoke('read-local-file', filePath),
-    // ダウンロード先 URL は main 側で決める(第1引数は互換のために残すが使わない)。renderer は更新元リポジトリの希望(opts.repo)だけを伝える
-    performAutoUpdate: (downloadUrl, opts) => ipcRenderer.invoke('perform-auto-update', opts),
+    // 更新実行: downloadUrl または opts ({ repo, downloadUrl }) のどちらの引数形式でも透過的に処理
+    performAutoUpdate: (arg1, arg2) => {
+        let opts = {};
+        if (typeof arg1 === 'string') {
+            opts.downloadUrl = arg1;
+            if (arg2 && typeof arg2 === 'object') Object.assign(opts, arg2);
+        } else if (arg1 && typeof arg1 === 'object') {
+            Object.assign(opts, arg1);
+        }
+        return ipcRenderer.invoke('perform-auto-update', opts);
+    },
     onUpdateProgress: (cb) => {
         ipcRenderer.on('update-progress', (event, data) => {
             if (typeof cb === 'function') cb(data);

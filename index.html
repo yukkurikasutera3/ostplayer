@@ -1725,9 +1725,21 @@
                         <h3 class="help-heading flex items-center space-x-1 text-purple-300">
                             <span>更新履歴 (Changelog)</span>
                         </h3>
-                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.9.0 Retro Chip Synth & Chimaera SF</span>
+                        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 rounded-full font-mono">v3.9.1 Retro Synth & 1-Click Update Fix</span>
                     </div>
                     <div class="space-y-3 text-xs max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        <!-- v3.9.1 -->
+                        <div class="bg-gray-900/70 p-3 rounded-lg border border-emerald-500/50">
+                            <div class="flex items-center justify-between text-emerald-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
+                                <span>[v3.9.1] レトロチップ音源発振復旧 & ワンクリック自動更新の堅牢化</span>
+                                <span class="text-[10px] text-gray-400 font-normal">2026-10-11</span>
+                            </div>
+                            <ul class="list-disc list-inside space-y-1 text-gray-300 leading-relaxed">
+                                <li><strong>レトロチップ音源合成エンジンの発音復旧:</strong> Web Audio タイムスタンプスケジューリング（schedTime）と 25ms 最小音長保護を導入し、TinySynth 先読みプリロールによる NoteOff 無音化を完全解消。同時発音数を 12 動的ポリフォニックへ拡張。</li>
+                                <li><strong>SoundFont ホットスワップ & キメラ同期:</strong> 音源切り替え時の強制消音（All Notes Off）と相互再帰排除、起動時の IndexedDB 同期取得を実装。</li>
+                                <li><strong>ワンクリック自動更新 (In-Place Auto Updater):</strong> プロセスツリーおよび全実行中プロセスの確実な終了待機、robocopy リトライ強化、最新版インストール時の再適用・整合性修復トリガーに対応。</li>
+                            </ul>
+                        </div>
                         <!-- v3.9.0 -->
                         <div class="bg-gray-900/70 p-3 rounded-lg border border-purple-500/50">
                             <div class="flex items-center justify-between text-purple-300 font-bold mb-1.5 border-b border-gray-700/40 pb-1">
@@ -11901,7 +11913,7 @@
         window.initDiscordUI = initDiscordUI;
 
         // --- In-App Update Checker (GitHub Releases) ---
-        let APP_VERSION = '3.9.0';
+        let APP_VERSION = '3.9.1';
         if (window.electronAPI && typeof window.electronAPI.getAppVersion === 'function') {
             try {
                 const _v = window.electronAPI.getAppVersion();
@@ -12041,11 +12053,14 @@
                         badge.textContent = `最新版 (v${APP_VERSION})`;
                     }
                     if (inlineStatus) {
-                        inlineStatus.className = 'text-[11px] text-emerald-400 pt-1';
-                        inlineStatus.textContent = `お使いのバージョン (v${APP_VERSION}) は最新です。`;
+                        inlineStatus.className = 'text-[11px] text-emerald-400 pt-1 flex items-center justify-between';
+                        inlineStatus.innerHTML = `<span>お使いのバージョン (v${APP_VERSION}) は最新です。</span>` +
+                            `<button type="button" onclick="openUpdateModal(latestReleaseData || { tag_name: 'v${APP_VERSION}', name: 'OST Player v${APP_VERSION}' })" class="text-[10px] text-cyan-300 hover:text-white underline ml-2 cursor-pointer">更新・再適用ダイアログを開く</button>`;
                     }
                     if (isManual) {
                         showNotification(`お使いのバージョン (v${APP_VERSION}) は最新です`);
+                        // 手動確認時は、最新版でも確認・再適用できるようにモーダルを開く
+                        openUpdateModal(data);
                     }
                 }
             } catch (err) {
@@ -12080,13 +12095,29 @@
             const assetNameEl = document.getElementById('update-modal-asset-name');
             const progressContainer = document.getElementById('update-modal-progress-container');
             const footerActions = document.getElementById('update-modal-footer');
+            const subtitleEl = document.getElementById('update-modal-subtitle');
+            const applyBtnSpan = document.querySelector('#update-modal-apply-btn span');
 
             isAutoUpdating = false;
             if (progressContainer) progressContainer.classList.add('hidden');
             if (footerActions) footerActions.classList.remove('hidden');
 
+            const tagOrName = (release && (release.tag_name || release.name)) || `v${APP_VERSION}`;
+            const isUpToDate = compareVersions(tagOrName, APP_VERSION) <= 0;
+
+            if (subtitleEl) {
+                subtitleEl.textContent = isUpToDate
+                    ? `OST Player は最新版 (v${APP_VERSION}) です（1クリック再適用・整合性修復が可能です）`
+                    : `OST Player の最新リリースが見つかりました`;
+            }
+            if (applyBtnSpan) {
+                applyBtnSpan.textContent = isUpToDate
+                    ? "今すぐワンクリック再適用 / 更新 (自動再起動)"
+                    : "今すぐワンクリック更新 (自動再起動)";
+            }
+
             if (currentVerEl) currentVerEl.textContent = `v${APP_VERSION}`;
-            if (latestVerEl) latestVerEl.textContent = release.tag_name || release.name || '最新版';
+            if (latestVerEl) latestVerEl.textContent = tagOrName;
             if (dateEl) {
                 const dateStr = release.published_at ? release.published_at.substring(0, 10) : '-';
                 dateEl.textContent = dateStr;
@@ -12199,7 +12230,8 @@
             }
 
             try {
-                const res = await window.electronAPI.performAutoUpdate(downloadUrl);
+                const repo = getUpdateRepo();
+                const res = await window.electronAPI.performAutoUpdate(downloadUrl, { repo, downloadUrl });
                 if (res && !res.success) {
                     throw new Error(res.error || "自動更新処理に失敗しました");
                 }

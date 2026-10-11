@@ -607,9 +607,16 @@ function downloadFileWithRedirects(url, destPath, progressCb, maxRedirects = 10)
     });
 }
 
-ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
+ipcMain.handle('perform-auto-update', async (event, downloadUrlOrOpts) => {
     try {
-        if (!downloadUrl || typeof downloadUrl !== 'string') {
+        let downloadUrl = '';
+        if (typeof downloadUrlOrOpts === 'string') {
+            downloadUrl = downloadUrlOrOpts.trim();
+        } else if (downloadUrlOrOpts && typeof downloadUrlOrOpts === 'object') {
+            downloadUrl = (downloadUrlOrOpts.downloadUrl || '').trim();
+        }
+
+        if (!downloadUrl) {
             return { success: false, error: 'ダウンロードURLが無効です' };
         }
 
@@ -711,7 +718,7 @@ ipcMain.handle('perform-auto-update', async (event, downloadUrl) => {
             targetDir = appDir;
         }
 
-        const batPath = path.join(tempDir, 'apply_update.bat');
+        const batPath = path.join(os.tmpdir(), 'ostplayer_apply_' + Date.now() + '.bat');
         let batScript = '';
 
         if (isPackaged) {

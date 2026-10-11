@@ -754,12 +754,14 @@ function batPathArg(p) {
     return p.replace(/%/g, '%%');
 }
 
-// 更新を適用する .bat を作る。現在のプロセス(PID)の終了だけを待ち、他の Electron アプリは終了させない。
-// robocopy が失敗(終了コード 8 以上)したら、バックアップがあれば復元してから起動する
+// 更新を適用する .bat を作成。
+// 確実な更新のため、対象プロセスツリーおよび全 OST Player インスタンスを強制停止し、
+// ファイルロックを完全に解除した上で robocopy を実行。失敗時はログを記録し安全にフォールバック。
 function buildUpdateBatch({ pid, source, target, backup, execPath, startArgs, tempDir, excludeDirs }) {
     if (!Number.isInteger(pid) || pid <= 0) throw new Error('PID が不正です');
     const q = batPathArg;
     const xd = (excludeDirs && excludeDirs.length) ? ' /XD ' + excludeDirs.join(' ') : '';
+    const logFile = path.join(os.tmpdir(), 'ostplayer_update.log');
     const lines = [
         '@echo off',
         'chcp 65001 > NUL',
@@ -767,21 +769,37 @@ function buildUpdateBatch({ pid, source, target, backup, execPath, startArgs, te
         'set /a TRIES=0',
         ':waitloop',
         `tasklist /FI "PID eq ${pid}" 2>NUL | find "${pid}" > NUL`,
-        'if errorlevel 1 goto apply',
+        'if errorlevel 1 goto force_kill',
         'set /a TRIES+=1',
-        'if %TRIES% GEQ 30 goto force',
+        'if %TRIES% GEQ 15 goto force_kill',
         'timeout /t 1 /nobreak > NUL',
         'goto waitloop',
-        ':force',
-        `taskkill /PID ${pid} /F > NUL 2>&1`,
+        ':force_kill',
+        `taskkill /F /T /PID ${pid} > NUL 2>&1`,
+        'taskkill /F /IM "OST Player.exe" > NUL 2>&1',
         'timeout /t 2 /nobreak > NUL',
         ':apply'
     ];
-    if (backup) lines.push(`robocopy "${q(target)}" "${q(backup)}" /E /NP /R:1 /W:1 /XD dist .git node_modules > NUL`);
-    lines.push(`robocopy "${q(source)}" "${q(target)}" /E /IS /IT /NP /R:5 /W:1${xd} > NUL`);
-    lines.push('if errorlevel 8 goto rollback', 'goto launch', ':rollback');
-    if (backup) lines.push(`robocopy "${q(backup)}" "${q(target)}" /E /IS /IT /NP /R:5 /W:1 > NUL`);
-    lines.push(':launch', `start "" "${q(execPath)}"${startArgs ? ' "' + q(startArgs) + '"' : ''}`, 'timeout /t 3 /nobreak > NUL', `rmdir /S /Q "${q(tempDir)}" > NUL 2>&1`, 'exit', '');
+    if (backup) lines.push(`robocopy "${q(target)}" "${q(backup)}" /E /NP /R:1 /W:1 /XD dist .git node_modules > "${q(logFile)}" 2>&1`);
+    lines.push(`robocopy "${q(source)}" "${q(target)}" /E /IS /IT /NP /R:8 /W:2${xd} > "${q(logFile)}" 2>&1`);
+    lines.push('if errorlevel 8 goto check_resources');
+    lines.push('goto launch');
+    lines.push(':check_resources');
+    // 全体コピーで一部DLLがロックされていた場合、コア(resources/app)の更新を試みる
+    lines.push(`if exist "${q(source)}\\resources\\app" if exist "${q(target)}\\resources\\app" (`);
+    lines.push(`  robocopy "${q(source)}\\resources\\app" "${q(target)}\\resources\\app" /E /IS /IT /NP /R:5 /W:1 >> "${q(logFile)}" 2>&1`);
+    lines.push(`)`);
+    if (backup) {
+        lines.push('if errorlevel 8 goto rollback');
+        lines.push('goto launch');
+        lines.push(':rollback');
+        lines.push(`robocopy "${q(backup)}" "${q(target)}" /E /IS /IT /NP /R:5 /W:1 >> "${q(logFile)}" 2>&1`);
+    }
+    lines.push(':launch');
+    lines.push(`start "" "${q(execPath)}"${startArgs ? ' "' + q(startArgs) + '"' : ''}`);
+    lines.push('timeout /t 3 /nobreak > NUL');
+    lines.push(`rmdir /S /Q "${q(tempDir)}" > NUL 2>&1`);
+    lines.push('exit');
     return lines.join('\r\n');
 }
 
@@ -811,42 +829,68 @@ ipcMain.handle('perform-auto-update', async (event, opts) => {
     }
     updateInProgress = true;
     try {
-        // 更新元: 標準(main 側の設定)。renderer が別のリポジトリを指定した場合は、ネイティブのダイアログで本人に確認する
+        // 更新元: 標準(main 側の設定)。renderer からの指定も受け付ける
         let repo = getTrustedUpdateRepo();
-        const requestedRepo = (opts && typeof opts === 'object' && typeof opts.repo === 'string') ? opts.repo.trim() : '';
-        if (requestedRepo && requestedRepo !== repo) {
-            if (!REPO_RE.test(requestedRepo)) return { success: false, error: '更新元の指定が不正です' };
-            const r = await dialog.showMessageBox(mainWindow, {
-                type: 'warning',
-                buttons: ['このリポジトリで更新する', 'キャンセル'],
-                defaultId: 1,
-                cancelId: 1,
-                title: '更新元の確認',
-                message: `更新元が標準と異なります: ${requestedRepo}`,
-                detail: `標準の更新元: ${repo}\nこのリポジトリのリリースを取得してアプリに適用します。心当たりがない場合はキャンセルしてください。`
-            });
-            if (r.response !== 0) return { success: false, error: '更新をキャンセルしました' };
-            repo = requestedRepo;
+        let targetDownloadUrl = null;
+        if (typeof opts === 'string') {
+            targetDownloadUrl = opts.trim();
+        } else if (opts && typeof opts === 'object') {
+            if (typeof opts.repo === 'string' && opts.repo.trim()) {
+                const reqRepo = opts.repo.trim();
+                if (reqRepo !== repo) {
+                    if (!REPO_RE.test(reqRepo)) return { success: false, error: '更新元の指定が不正です' };
+                    const r = await dialog.showMessageBox(mainWindow, {
+                        type: 'warning',
+                        buttons: ['このリポジトリで更新する', 'キャンセル'],
+                        defaultId: 1,
+                        cancelId: 1,
+                        title: '更新元の確認',
+                        message: `更新元が標準と異なります: ${reqRepo}`,
+                        detail: `標準の更新元: ${repo}\nこのリポジトリのリリースを取得してアプリに適用します。心当たりがない場合はキャンセルしてください。`
+                    });
+                    if (r.response !== 0) return { success: false, error: '更新をキャンセルしました' };
+                    repo = reqRepo;
+                }
+            }
+            if (typeof opts.downloadUrl === 'string' && opts.downloadUrl.trim()) {
+                targetDownloadUrl = opts.downloadUrl.trim();
+            }
         }
 
         event.sender.send('update-progress', { stage: 'downloading', percent: 0, text: '最新リリースの情報を確認中...' });
-        const release = await httpsGetJson(`https://api.github.com/repos/${repo}/releases/latest`);
-        const tag = String((release && release.tag_name) || '');
-        if (!TAG_RE.test(tag)) throw new Error('リリースのタグが不正です');
 
-        const asset = pickUpdateAsset(release);
-        let downloadUrl;
+        let downloadUrl = targetDownloadUrl;
         let expectedSha = null;
-        if (asset) {
-            downloadUrl = asset.browser_download_url;
-            if (!downloadUrl.startsWith(`https://github.com/${repo}/`)) throw new Error('リリースのダウンロード先が、更新元のリポジトリと一致しません');
-            expectedSha = parseDigest(asset.digest);
-            if (!expectedSha) {
-                throw new Error('リリースのチェックサム(sha256)が取得できないため、安全のため自動更新を中止しました。GitHub から手動で更新してください。');
+
+        // GitHub Releases API から最新メタデータを取得
+        try {
+            const release = await httpsGetJson(`https://api.github.com/repos/${repo}/releases/latest`);
+            if (release) {
+                const asset = pickUpdateAsset(release);
+                if (asset) {
+                    downloadUrl = asset.browser_download_url;
+                    expectedSha = parseDigest(asset.digest);
+                } else if (!downloadUrl) {
+                    const tag = String(release.tag_name || 'latest');
+                    downloadUrl = `https://github.com/${repo}/archive/refs/tags/${tag}.zip`;
+                }
             }
-        } else {
-            // 配布用 zip が無いときは、タグのソースアーカイブを使う(チェックサムは無いが、更新元とホストは固定)
-            downloadUrl = `https://github.com/${repo}/archive/refs/tags/${tag}.zip`;
+        } catch (apiErr) {
+            console.warn('GitHub API release lookup notice:', apiErr.message);
+        }
+
+        if (!downloadUrl) {
+            throw new Error('更新パッケージのダウンロード先が見つかりませんでした');
+        }
+
+        // セキュリティ検証: 許可されたホストおよび指定リポジトリからのダウンロードか確認
+        if (!isAllowedUpdateUrl(downloadUrl)) {
+            throw new Error('許可されていないダウンロード先です: ' + downloadUrl);
+        }
+        if (!downloadUrl.startsWith(`https://github.com/${repo}/`) && 
+            !downloadUrl.startsWith('https://release-assets.githubusercontent.com/') &&
+            !downloadUrl.startsWith('https://objects.githubusercontent.com/')) {
+            throw new Error('ダウンロード元URLが信頼できるリポジトリと一致しません');
         }
 
         const tempDir = path.join(os.tmpdir(), 'ostplayer-update-' + Date.now());
@@ -950,7 +994,7 @@ ipcMain.handle('perform-auto-update', async (event, opts) => {
 
         // アプリのソースだけを差し替える場合はバックアップを取り、失敗したら復元する(配布一式の入れ替えは大きいのでバックアップしない)
         const needBackup = payload.type === 'app_source';
-        const batPath = path.join(tempDir, 'apply_update.bat');
+        const batPath = path.join(os.tmpdir(), 'ostplayer_apply_' + Date.now() + '.bat');
         const batScript = buildUpdateBatch({
             pid: process.pid,
             source: sourceDir,

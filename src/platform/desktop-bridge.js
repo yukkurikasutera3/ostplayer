@@ -55,8 +55,8 @@
         },
 
         // Auto Updater
-        performAutoUpdate: function(downloadUrl) {
-            if (api.performAutoUpdate) return api.performAutoUpdate(downloadUrl);
+        performAutoUpdate: function(downloadUrl, opts) {
+            if (api.performAutoUpdate) return api.performAutoUpdate(downloadUrl, opts);
             return Promise.resolve({ success: false, error: 'Auto-updater is only available on desktop' });
         },
         onUpdateProgress: function(callback) {
