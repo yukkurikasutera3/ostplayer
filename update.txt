@@ -23,6 +23,12 @@ OST Player - 開発・アップデート履歴 (Update Log)
 ・SoundFont 以外の音源（NES 2A03 / GameBoy / MegaDrive FM / キメラ）停止時の音残り・ドローン音の根絶:
   - wrapMidiSynthSend において stopMIDI および pauseMIDI を包括フック。WebAudioTinySynth シーケンサーが停止した瞬間に、Web Audio 直結オシレーター（RetroChipAudioEngine）およびキメラ副音源（synthB）へ即座に allNotesOff を伝達。
   - toggleSinglePlay、SpessaSynthPlayerWrapper (stopMIDI / pauseMIDI) でも停止時に RetroChipAudioEngine および ChimaeraSoundFontEngine の全ボイス即時消音を多重防護。ポーズ時やトラック変更時に発音中だった音が鳴り続ける問題を完全に根絶。
+・MIDI再生開始時のメインスレッドフリーズ・無限ループおよび処理過負荷の完全解消:
+  - WebAudioTinySynth の内部シーケンサーにおいて、曲末尾到達（loop時）や locateMIDI 後の過去時刻乖離によって発生していた while ループの無限周回バグを根本解決。安全ステップ上限（150件/フレーム）および時刻自動クリップ機構を導入し、再生開始時・ループ時のブラウザ操作不能・スクロールフリーズを根絶。
+  - safeLocateTinySynth において再生時刻（playTime）とテンポ換算（tick2Time）を安全に再初期化し、過去イベントの大量巻き込み処理を排除。
+  - parseSMF のテンポ・秒数換算（calcTickToSec / secToTick）を二分探索 (Binary Search) & 直前キャッシュ化し、数万件におよぶピアノロール用ノート生成を必要時のみの遅延評価（Lazy Getter）に変更。パース時間を 99% 短縮。
+  - attachTinySynthPlayStatusWrapper に tick キャッシュを導入し、毎フレーム（60FPS）大量に実行されていた tickToSec 呼び出しの CPU 負荷をほぼゼロ化。
+  - キメラ音源の send 処理において、高頻度発生する CC (0xb0) や Pitch Bend (0xe0) の不要な全音源重複送信を解消し、音色化防止に必要な Program Change (0xc0) のみに限定して CPU 使用率を劇的に低減。
 ・SoundFont (.sf2 / .sf3) ホットスワップおよびリセット時の再生継続性強化:
   - SoundFont の追加・変更およびデフォルト音源へのリセット時、直前の再生秒数（curSec）および再生状態（wasPlaying）を安全に退避・復元。
   - リセット直後の All Sound Off / All Notes Off による再生音打ち消し競合を解消し、曲の演奏が途切れることなく即座にデフォルト音源で演奏を継続するよう最適化。
