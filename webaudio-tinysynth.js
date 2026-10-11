@@ -688,23 +688,9 @@ function WebAudioTinySynthCore(target) {
             /*@@gui*/
             /*@@guiEND*/
           }
-          if(this.playing && this.song && this.song.ev && this.song.ev.length>0){
-            if(this.playIndex >= this.song.ev.length) {
-              if (this.loop) {
-                this.playIndex = 0;
-                this.playTick = this.song.ev[0].t;
-                this.playTime = this.actx.currentTime + 0.05;
-              } else {
-                this.playing = 0;
-                return;
-              }
-            }
-            if (this.playTime < this.actx.currentTime - 0.25) {
-              this.playTime = this.actx.currentTime - 0.05;
-            }
-            let maxSteps = 150;
+          if(this.playing && this.song && this.song.ev && this.song.ev.length>0 && this.playIndex < this.song.ev.length){
             let e=this.song.ev[this.playIndex];
-            while(this.actx.currentTime+this.preroll>this.playTime && --maxSteps > 0){
+            while(this.actx.currentTime+this.preroll>this.playTime){
               if(e.m[0]==0xff51){
                 this.song.tempo=e.m[1];
                 this.tick2Time=4*60/this.song.tempo/this.song.timebase;
@@ -714,11 +700,8 @@ function WebAudioTinySynthCore(target) {
               ++this.playIndex;
               if(this.playIndex>=this.song.ev.length){
                 if(this.loop){
-                  this.playIndex=0;
-                  e=this.song.ev[0];
+                  e=this.song.ev[this.playIndex=0];
                   this.playTick=e.t;
-                  this.playTime=this.actx.currentTime + 0.05;
-                  break;
                 }
                 else{
                   this.playTick=this.maxTick;
@@ -728,8 +711,7 @@ function WebAudioTinySynthCore(target) {
               }
               else{
                 e=this.song.ev[this.playIndex];
-                const dt = Math.max(0, e.t - this.playTick);
-                this.playTime += dt * (this.tick2Time || 0.001);
+                this.playTime+=(e.t-this.playTick)*this.tick2Time;
                 this.playTick=e.t;
               }
             }

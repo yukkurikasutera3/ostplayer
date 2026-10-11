@@ -3161,6 +3161,7 @@
         let midiSoloed = Array(16).fill(false);
         let midiVolumes = Array(16).fill(100);
         let midiUserPrograms = Array(16).fill(null);
+        let currentMidiPrograms = Array(16).fill(null);
         
         // Recording State
         let mediaRecorder = null;
@@ -4558,14 +4559,10 @@
         function safeLocateTinySynth(synth, targetTick) {
             if (!synth || !synth.song) return;
             try {
-                synth.playing = 0;
+                const wasPlaying = !!synth.playing;
                 synth.locateMIDI(Math.max(0, Math.floor(targetTick || 0)));
-                synth.playing = 0;
-                if (synth.actx) {
-                    synth.playTime = synth.actx.currentTime + 0.05;
-                }
-                if (synth.song && synth.song.tempo && synth.song.timebase) {
-                    synth.tick2Time = 4 * 60 / synth.song.tempo / synth.song.timebase;
+                if (!wasPlaying) {
+                    synth.playing = 0;
                 }
             } catch(e) {
                 console.warn("safeLocateTinySynth error:", e);
@@ -5027,6 +5024,13 @@
                 if (!audioCtx) init();
                 if (!audioCtx || vel <= 0) return;
                 const now = (typeof schedTime === 'number' && schedTime > 0) ? Math.max(audioCtx.currentTime, schedTime) : audioCtx.currentTime;
+                if (retroMasterGain && audioCtx && retroMasterGain.gain.value < 0.1) {
+                    try {
+                        retroMasterGain.gain.cancelScheduledValues(0);
+                        retroMasterGain.gain.setValueAtTime(0.85, now);
+                        retroMasterGain.gain.value = 0.85;
+                    } catch(e){}
+                }
 
                 if (ch === 9) {
                     playNoiseVoice(note, vel, now);
@@ -5313,15 +5317,46 @@
 
             function allNotesOff(schedTime) {
                 if (!audioCtx) return;
-                const now = (typeof schedTime === 'number' && schedTime > 0) ? Math.max(audioCtx.currentTime, schedTime) : audioCtx.currentTime;
+                const now = audioCtx.currentTime;
                 for (let i = 0; i < voices.length; i++) {
-                    stopVoice(voices[i], now);
+                    const v = voices[i];
+                    if (v.gain && audioCtx) {
+                        try {
+                            v.gain.gain.cancelScheduledValues(0);
+                            v.gain.gain.setValueAtTime(0, now);
+                            v.gain.gain.value = 0;
+                        } catch(e){}
+                    }
+                    if (v.osc) {
+                        try { v.osc.stop(now); } catch(e){
+                            try { v.osc.stop(); } catch(e2){}
+                        }
+                        try { v.osc.disconnect(); } catch(e){}
+                    }
+                    if (v.mod) {
+                        try { v.mod.stop(now); } catch(e){
+                            try { v.mod.stop(); } catch(e2){}
+                        }
+                        try { v.mod.disconnect(); } catch(e){}
+                    }
+                    if (v.modGain) {
+                        try { v.modGain.disconnect(); } catch(e){}
+                    }
+                    if (v.gain) {
+                        try { v.gain.disconnect(); } catch(e){}
+                    }
+                    v.active = false;
+                    v.note = -1;
+                    v.osc = null;
+                    v.mod = null;
+                    v.modGain = null;
+                    v.gain = null;
                 }
                 if (retroMasterGain && audioCtx) {
                     try {
-                        retroMasterGain.gain.cancelScheduledValues(now);
+                        retroMasterGain.gain.cancelScheduledValues(0);
                         retroMasterGain.gain.setValueAtTime(0, now);
-                        retroMasterGain.gain.setValueAtTime(0.85, now + 0.03);
+                        retroMasterGain.gain.value = 0;
                     } catch(e){}
                 }
                 vuLevels.fill(0);
@@ -5498,6 +5533,11 @@
                     }
                     if (synthB.synth && typeof synthB.synth.stopAll === 'function') {
                         try { synthB.synth.stopAll(true); } catch(e){}
+                    }
+                    if (typeof synthB.allSoundOff === 'function') {
+                        for (let ch = 0; ch < 16; ch++) {
+                            try { synthB.allSoundOff(ch); } catch(e){}
+                        }
                     }
                     if (typeof synthB.send === 'function') {
                         for (let ch = 0; ch < 16; ch++) {
@@ -5970,16 +6010,17 @@
                     if (synthB && synthB.rhythm) synthB.rhythm[9] = 1;
                     continue;
                 }
-                let prog = 0;
+                let prog = null;
                 if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined) {
                     prog = midiUserPrograms[ch];
+                } else if (currentMidiPrograms[ch] !== null && currentMidiPrograms[ch] !== undefined) {
+                    prog = currentMidiPrograms[ch];
                 } else if (progMap && progMap[ch] !== undefined) {
                     prog = progMap[ch];
-                } else {
-                    const select = document.getElementById(`midi-inst-${ch}`);
-                    if (select && select.value !== undefined) {
-                        prog = parseInt(select.value) || 0;
-                    }
+                }
+                if (prog === null || prog === undefined) {
+                    // 音色が未定のチャンネルには勝手にピアノ(0)を送信しない
+                    continue;
                 }
 
                 // Synth A に適用
@@ -6014,6 +6055,13 @@
 
         function setAllChimaeraSource(src) {
             ChimaeraSoundFontEngine.allNotesOff();
+            const synthA = (isSpessaSynthLoaded && spessaSynthWrappers['main']) ? spessaSynthWrappers['main'] : midiPlayers['main'];
+            if (synthA && typeof synthA.send === 'function') {
+                for (let ch = 0; ch < 16; ch++) {
+                    try { synthA.send([0xb0 | ch, 120, 0], 0); } catch(e){}
+                    try { synthA.send([0xb0 | ch, 123, 0], 0); } catch(e){}
+                }
+            }
             ChimaeraSoundFontEngine.setAllSources(src);
             syncProgramsToChimaeraSynths();
             const label = (src === 'A') ? 'SoundFont A (主音源)' : ((src === 'B') ? 'SoundFont B (副音源)' : 'Layer (両方レイヤー)');
@@ -6023,6 +6071,13 @@
 
         function setChimaeraPreset(preset) {
             ChimaeraSoundFontEngine.allNotesOff();
+            const synthA = (isSpessaSynthLoaded && spessaSynthWrappers['main']) ? spessaSynthWrappers['main'] : midiPlayers['main'];
+            if (synthA && typeof synthA.send === 'function') {
+                for (let ch = 0; ch < 16; ch++) {
+                    try { synthA.send([0xb0 | ch, 120, 0], 0); } catch(e){}
+                    try { synthA.send([0xb0 | ch, 123, 0], 0); } catch(e){}
+                }
+            }
             ChimaeraSoundFontEngine.setPreset(preset);
             syncProgramsToChimaeraSynths();
             if (preset === 'drums_b') {
@@ -6135,6 +6190,7 @@
                     }
                 } else if (cmd === 0xc0) {
                     let prog = msg[1];
+                    currentMidiPrograms[ch] = prog;
                     if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
                         prog = midiUserPrograms[ch];
                         msg[1] = prog;
@@ -7494,12 +7550,19 @@
                 // MIDIミキサーの楽器ドロップダウンを曲の初期音色に自動同期
                 if (synth._smfMap && synth._smfMap.programs) {
                     for (let ch = 0; ch < 16; ch++) {
+                        if (synth._smfMap.programs[ch] !== undefined) {
+                            currentMidiPrograms[ch] = synth._smfMap.programs[ch];
+                        } else {
+                            currentMidiPrograms[ch] = null;
+                        }
                         if (ch !== 9) {
                             const prog = (synth._smfMap.programs[ch] !== undefined) ? synth._smfMap.programs[ch] : 0;
                             const selectEl = document.getElementById(`midi-inst-${ch}`);
                             if (selectEl) selectEl.value = prog;
                         }
                     }
+                } else {
+                    currentMidiPrograms.fill(null);
                 }
                 // キメラ音源 (主音源 SF-A / 副音源 SF-B) の各チャンネルに曲の初期音色を即時同期
                 if (typeof syncProgramsToChimaeraSynths === 'function') {
@@ -8252,6 +8315,9 @@
             if (typeof RetroChipAudioEngine !== 'undefined') {
                 RetroChipAudioEngine.allNotesOff();
             }
+            if (typeof ChimaeraSoundFontEngine !== 'undefined') {
+                ChimaeraSoundFontEngine.allNotesOff();
+            }
             players.forEach(p => { 
                 p.pause(); p.currentTime = 0; 
                 p.playbackRate = 1.0; 
@@ -8785,6 +8851,12 @@
                     notifySstpTrackPlay(track);
                     if (typeof broadcastDiscordPresence === 'function') broadcastDiscordPresence();
                 });
+            }
+            if (typeof RetroChipAudioEngine !== 'undefined') {
+                RetroChipAudioEngine.allNotesOff();
+            }
+            if (typeof ChimaeraSoundFontEngine !== 'undefined') {
+                ChimaeraSoundFontEngine.allNotesOff();
             }
 
             if (track.isMidi) {
@@ -15325,6 +15397,7 @@
                     }
                 } else if (cmd === 0xc0) {
                     let prog = msg[1];
+                    currentMidiPrograms[ch] = prog;
                     if (midiUserPrograms[ch] !== null && midiUserPrograms[ch] !== undefined && ch !== 9) {
                         prog = midiUserPrograms[ch];
                     }

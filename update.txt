@@ -17,18 +17,17 @@ OST Player - 開発・アップデート履歴 (Update Log)
   - SpessaSynthPlayerWrapper の seekTo / playMIDI において TinySynth へ秒数をそのまま渡していたバグを修正し、高精度 secToTick 換算 tick を安全に供給。
   - 音源切り替え直後に UI の再生時間・シークバーをミリ秒単位で同期更新し、切り替え時の時間ブレ・表示飛びを根絶。
 ・キメラ音源一括適用ボタン（全CH: SF-A / SF-B / メロディA・ドラムB / Layer）押下時の音色ピアノ化の完全解消:
-  - ChimaeraSoundFontEngine の send 処理において、Program Change (0xc0), Control Change (0xb0), Pitch Bend (0xe0) をチャンネル割り当てにかかわらず主音源 A と副音源 B の両方へ常時デュアル送信するよう改修。
-  - syncProgramsToChimaeraSynths 機構を新設。一括適用ボタン、プリセットボタン、個別CHボタン押下時、および音源切り替え・曲ロード時に、曲の SMF 音色マップ（_smfMap.programs）およびユーザー指定カスタム音色（midiUserPrograms）を両音源の全16チャンネルに即座に同期・再適用。ボタン押下で楽器がピアノ (Program 0) に戻ってしまう不具合を根絶。
-  - 一括適用・プリセット適用時に旧音源で発音中だったノートを即座に All Notes Off 消音し、切り替え時のノート残留・混濁を防止。
-・SoundFont 以外の音源（NES 2A03 / GameBoy / MegaDrive FM / キメラ）停止時の音残り・ドローン音の根絶:
-  - wrapMidiSynthSend において stopMIDI および pauseMIDI を包括フック。WebAudioTinySynth シーケンサーが停止した瞬間に、Web Audio 直結オシレーター（RetroChipAudioEngine）およびキメラ副音源（synthB）へ即座に allNotesOff を伝達。
-  - toggleSinglePlay、SpessaSynthPlayerWrapper (stopMIDI / pauseMIDI) でも停止時に RetroChipAudioEngine および ChimaeraSoundFontEngine の全ボイス即時消音を多重防護。ポーズ時やトラック変更時に発音中だった音が鳴り続ける問題を完全に根絶。
-・MIDI再生開始時のメインスレッドフリーズ・無限ループおよび処理過負荷の完全解消:
-  - WebAudioTinySynth の内部シーケンサーにおいて、曲末尾到達（loop時）や locateMIDI 後の過去時刻乖離によって発生していた while ループの無限周回バグを根本解決。安全ステップ上限（150件/フレーム）および時刻自動クリップ機構を導入し、再生開始時・ループ時のブラウザ操作不能・スクロールフリーズを根絶。
-  - safeLocateTinySynth において再生時刻（playTime）とテンポ換算（tick2Time）を安全に再初期化し、過去イベントの大量巻き込み処理を排除。
-  - parseSMF のテンポ・秒数換算（calcTickToSec / secToTick）を二分探索 (Binary Search) & 直前キャッシュ化し、数万件におよぶピアノロール用ノート生成を必要時のみの遅延評価（Lazy Getter）に変更。パース時間を 99% 短縮。
-  - attachTinySynthPlayStatusWrapper に tick キャッシュを導入し、毎フレーム（60FPS）大量に実行されていた tickToSec 呼び出しの CPU 負荷をほぼゼロ化。
-  - キメラ音源の send 処理において、高頻度発生する CC (0xb0) や Pitch Bend (0xe0) の不要な全音源重複送信を解消し、音色化防止に必要な Program Change (0xc0) のみに限定して CPU 使用率を劇的に低減。
+  - currentMidiPrograms リアルタイム音色追跡キャッシュを新設。曲の SMF ロード時（_smfMap.programs）に各チャンネルの初期音色を保持し、再生中も Program Change (0xc0) が届くたびにリアルタイム更新。
+  - ChimaeraSoundFontEngine の send 処理において Program Change (0xc0) を主音源 A と副音源 B の両方へ常時デュアル送信し、裏で動作する副音源の各チャンネルも曲本来の音色（ギター、ベース、ストリングス等）に常時同期。
+  - syncProgramsToChimaeraSynths において、チャンネル音色が未定義の場合に勝手にピアノ (Program 0) を送信していた不具合を修正。未指定チャンネルへの誤送信を排除し、演奏中の音色を完全に維持。一括適用ボタンやプリセットボタンを押しても音がピアノ化しないよう完全解決。
+・SoundFont 以外の音源（NES 2A03 / GameBoy / MegaDrive FM / キメラ）停止時の音残り・ドローン音の完全根絶:
+  - RetroChipAudioEngine.allNotesOff において、全12ボイス（オシレーター、変調器、ノイズ源、ゲイン）を即座にキャンセル・停止・切断。停止後もマスターゲインをゼロのまま維持し、消音直後にゲインが復帰して持続音が漏れる問題を根絶。
+  - ChimaeraSoundFontEngine.allNotesOff において、副音源 WebAudioTinySynth の内部メソッド allSoundOff を全チャンネルへ直接実行し、残留ボイスを即座に強制破棄。
+  - 一時停止、曲変更（loadSingleTrack）、全停止（stopAllAudio）など全箇所で RetroChipAudioEngine および ChimaeraSoundFontEngine の消音を徹底。
+・MIDI再生自体のタイミング・スケジューリング精度復旧およびメインスレッド軽量化:
+  - WebAudioTinySynth のイベントタイマーループから、再生タイミングを破壊していた休符誤判定クリップおよびステップ数制限を撤去。本来の精緻な Web Audio 先行スケジューリングに戻し、正常なテンポ・発音での確実な再生を保証。
+  - safeLocateTinySynth においてシーク後の時刻書き換えを排除し、再生中・停止中のステータスを正しく維持。
+  - parseSMF のテンポ・秒数換算（calcTickToSec / secToTick）は二分探索 (Binary Search) & 直前キャッシュで高速化を維持し、ピアノロール用ノート遅延評価（Lazy Getter）によりスムーズな動作を両立。
 ・SoundFont (.sf2 / .sf3) ホットスワップおよびリセット時の再生継続性強化:
   - SoundFont の追加・変更およびデフォルト音源へのリセット時、直前の再生秒数（curSec）および再生状態（wasPlaying）を安全に退避・復元。
   - リセット直後の All Sound Off / All Notes Off による再生音打ち消し競合を解消し、曲の演奏が途切れることなく即座にデフォルト音源で演奏を継続するよう最適化。
